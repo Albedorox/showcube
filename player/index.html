@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShowCube Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout: der Bildschirm gehört dem Inhalt; Einstellungen als Schublade rechts, nur auf Abruf */
+  --screen: #000000;
+  --panel: #ffffff;
+  --ink: #18201f;
+  --muted: #5d6a68;
+  --line: #d5dcda;
+  --field: #eef1f0;
+  --accent: #0f7b6c;
+  --accent-ink: #ffffff;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --panel: #1a2221; --ink: #e7eeec; --muted: #9aaba8; --line: #2c3836; --field: #111716; --accent: #3fb8a4; --accent-ink: #0b1312; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --panel: #1a2221; --ink: #e7eeec; --muted: #9aaba8; --line: #2c3836; --field: #111716; --accent: #3fb8a4; --accent-ink: #0b1312; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { background: var(--screen); color: var(--ink); font: 14px/1.45 var(--font-body); }
+body.idle, body.idle * { cursor: none !important; }
+.screen { position: fixed; inset: 0; background: #000; }
+.layer { position: absolute; inset: 0; opacity: 0; transition: opacity .8s ease; display: grid; place-items: center; }
+.layer.on { opacity: 1; }
+.layer canvas, .layer img, .layer video { width: 100%; height: 100%; display: block; }
+.layer img, .layer video { object-fit: var(--fit, cover); background: #000; }
+.empty { position: fixed; inset: 0; display: grid; place-items: center; color: #cfd8d6; text-align: center; padding: 24px; font: 500 18px var(--font-body); }
+.gear { position: fixed; top: 16px; right: 16px; z-index: 5; border: 0; border-radius: 999px; padding: 10px 16px; font: 600 14px var(--font-body); background: rgba(255,255,255,.92); color: #111; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.35); transition: opacity .4s; }
+body.idle .gear { opacity: 0; pointer-events: none; }
+.offhint { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); color: #8a9593; font: 500 15px var(--font-body); text-align: center; transition: opacity .4s; }
+body.idle .offhint { opacity: 0; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(0,0,0,.72); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 5; transition: opacity .6s; }
+.toast.gone { opacity: 0; }
+aside.panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 100vw); background: var(--panel); color: var(--ink); z-index: 10; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 18px; box-shadow: -8px 0 30px rgba(0,0,0,.4); transform: translateX(105%); transition: transform .25s ease; }
+aside.panel.open { transform: none; }
+.ph { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ph h1 { font: 800 20px/1.1 var(--font-display); margin: 0; }
+.status { background: var(--field); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.status strong { font: 700 15px var(--font-body); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff; }
+.pill.day { background: #c77c12; } .pill.eve { background: #3b4a9c; } .pill.off { background: #444; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group h2 { font: 700 12px/1.2 var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; }
+label { font-weight: 600; font-size: 13px; }
+input[type=text], input[type=time], input[type=number], textarea, select { width: 100%; font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+textarea { min-height: 90px; resize: vertical; font-size: 12.5px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.check { display: flex; gap: 8px; align-items: center; font-weight: 500; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 13px var(--font-body); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.file { position: relative; overflow: hidden; }
+.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--ink); font: 600 12.5px var(--font-body); padding: 6px 10px; cursor: pointer; }
+.seg button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); }
+.media { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.media li { display: grid; grid-template-columns: 44px minmax(0,1fr) auto; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+.media .thumb { width: 44px; height: 30px; object-fit: cover; border-radius: 4px; background: #222; }
+.media .nm { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media select { width: auto; padding: 3px 4px; font-size: 12px; }
+.media .x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px 6px; }
+.small { font-size: 12px; color: var(--muted); }
+.swatches { display: flex; gap: 8px; }
+.swatches button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+.swatches button[aria-pressed=true] { box-shadow: 0 0 0 2px var(--ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .layer, aside.panel { transition: none; } }
+</style>
+</head>
+<body>
+<div class="screen" id="screen" aria-live="off"></div>
+<div class="empty" id="empty" hidden></div>
+<div class="offhint" id="offhint" hidden></div>
+<button class="gear" id="gear" aria-controls="panel" aria-expanded="false">Einstellungen</button>
+<div class="toast" id="toast">Taste E oder Klick oben rechts: Einstellungen</div>
+
+<aside class="panel" id="panel" aria-label="Einstellungen">
+  <div class="ph"><h1>Player-Einstellungen</h1><button class="btn" id="close">Schließen</button></div>
+  <div class="status" role="status"><span id="stNow"></span><strong id="stWhat"></strong><span class="small" id="stNext"></span></div>
+
+  <div class="group">
+    <h2>Vorschau der Tageszeit</h2>
+    <div class="seg" role="group" aria-label="Tageszeit simulieren">
+      <button data-sim="live" aria-pressed="true">Echte Uhrzeit</button><button data-sim="day" aria-pressed="false">Tag</button><button data-sim="eve" aria-pressed="false">Abend</button><button data-sim="off" aria-pressed="false">Aus</button>
+    </div>
+    <span class="small">Nur zum Ausprobieren. Auf der Box steht das immer auf „Echte Uhrzeit“.</span>
+  </div>
+
+  <div class="group">
+    <h2>Zeitplan</h2>
+    <div class="grid2">
+      <div><label for="dayStart">Tag ab</label><input type="time" id="dayStart"></div>
+      <div><label for="eveStart">Abend ab</label><input type="time" id="eveStart"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="offOn"> Bildschirm nachts schwarz</label>
+    <div class="grid2">
+      <div><label for="offFrom">Aus ab</label><input type="time" id="offFrom"></div>
+      <div><label for="offTo">Wieder an ab</label><input type="time" id="offTo"></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Vorlage</h2>
+    <label class="check"><input type="checkbox" id="tplOn"> Vorlagen-Folien zeigen</label>
+    <label for="tpl">Branche</label><select id="tpl"></select>
+    <label for="name">Name des Betriebs</label><input type="text" id="name">
+    <label for="items">Einträge</label><textarea id="items" spellcheck="false"></textarea>
+    <span class="small" id="itemsHelp"></span>
+    <label>Farbe</label><div class="swatches" id="swatches"></div>
+    <div class="row">
+      <span class="btn file">Logo wählen<input type="file" id="logoIn" accept="image/*" aria-label="Logo wählen"></span>
+      <button class="btn" id="logoOff" hidden>Logo entfernen</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>Eigene Bilder und Videos</h2>
+    <span class="btn primary file">Dateien hinzufügen<input type="file" id="mediaIn" accept="image/*,video/mp4,video/webm" multiple aria-label="Bilder oder Videos hinzufügen"></span>
+    <ul class="media" id="mediaList"></ul>
+    <span class="small">Videos laufen bis zum Ende, Bilder so lange wie unten eingestellt. „Wann“ legt fest, ob ein Inhalt tagsüber, abends oder immer läuft.</span>
+  </div>
+
+  <div class="group">
+    <h2>Anzeige</h2>
+    <div class="grid2">
+      <div><label for="dur">Sekunden pro Folie</label><input type="number" id="dur" min="3" max="120"></div>
+      <div><label for="fit">Bilder</label><select id="fit"><option value="cover">füllend</option><option value="contain">ganz zeigen</option></select></div>
+    </div>
+    <div class="row"><button class="btn" id="fs">Vollbild</button><button class="btn" id="reset">Alles zurücksetzen</button></div>
+    <span class="small" id="storeNote"></span>
+  </div>
+</aside>
+
+<script>
+(() => {
+  // ---------- Zeichenhelfer für die Folien ----------
+  const DISP = '"Bricolage Grotesque", "Segoe UI", sans-serif', BODY = '"Figtree", "Segoe UI", sans-serif';
+  function font(ctx, w, size, fam) { ctx.font = `${w} ${size}px ${fam}`; }
+  function fit(ctx, text, maxW, size, w, fam) { let s = size; font(ctx, w, s, fam); while (ctx.measureText(text).width > maxW && s > 8) { s -= 1; font(ctx, w, s, fam); } return s; }
+  function wrap(ctx, text, maxW) {
+    const words = text.split(/\s+/), lines = []; let cur = '';
+    for (const wd of words) { const t = cur ? cur + ' ' + wd : wd; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = wd; } else cur = t; }
+    if (cur) lines.push(cur); return lines;
+  }
+  function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
+  function hash(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function mix(hex, t, to) {
+    const p = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    const a = p(hex), b = p(to || '#000000');
+    return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
+  }
+  function drawLogo(ctx, d, x, y, maxW, maxH) {
+    if (!d.logo) return false;
+    const s = Math.min(maxW / d.logo.width, maxH / d.logo.height);
+    ctx.drawImage(d.logo, x - d.logo.width * s, y, d.logo.width * s, d.logo.height * s); return true;
+  }
+  function footer(ctx, w, h, d, u, color) {
+    font(ctx, 600, u * 3.4, BODY); ctx.fillStyle = color; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(d.name, u * 6, h - u * 5);
+  }
+  function fakeQR(ctx, x, y, size, seed, dark, light) {
+    const n = 25, m = size / n; let r = hash(seed) || 1;
+    ctx.fillStyle = light; ctx.fillRect(x - m, y - m, size + 2 * m, size + 2 * m); ctx.fillStyle = dark;
+    const finder = (fx, fy) => { ctx.fillRect(x + fx * m, y + fy * m, 7 * m, 7 * m); ctx.fillStyle = light; ctx.fillRect(x + (fx + 1) * m, y + (fy + 1) * m, 5 * m, 5 * m); ctx.fillStyle = dark; ctx.fillRect(x + (fx + 2) * m, y + (fy + 2) * m, 3 * m, 3 * m); };
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const inF = (i < 8 && j < 8) || (i > n - 9 && j < 8) || (i < 8 && j > n - 9);
+      r ^= r << 13; r ^= r >>> 17; r ^= r << 5;
+      if (!inF && (r >>> 0) % 100 < 46) ctx.fillRect(x + i * m, y + j * m, m + .3, m + .3);
+    }
+    finder(0, 0); finder(n - 7, 0); finder(0, n - 7);
+  }
+
+  // ---------- Branchenvorlagen ----------
+  function menuSlide(title, sub) {
+    return (ctx, w, h, d) => {
+      const u = Math.min(w, h) / 100, port = h > w;
+      ctx.fillStyle = '#16120f'; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = d.accent; ctx.fillRect(0, 0, w, u * 1.6);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      font(ctx, 600, u * 4, BODY); ctx.fillStyle = d.accent; ctx.fillText(d.name.toUpperCase(), u * 6, u * 11);
+      fit(ctx, title, w - u * 30, u * (port ? 13 : 12), 800, DISP); ctx.fillStyle = '#fff6ea'; ctx.fillText(title, u * 6, u * (port ? 26 : 24));
+      drawLogo(ctx, d, w - u * 6, u * 5, u * 22, u * 12);
+      const rows = d.items.slice(0, port ? 7 : 5), top = u * (port ? 38 : 34), avail = h - top - u * 16, step = Math.min(u * (port ? 14 : 11), avail / Math.max(rows.length, 1));
+      rows.forEach((r, i) => {
+        const y = top + step * i + step * .6, name = r[0] || '', price = r[1] || '';
+        const s = fit(ctx, name, w * (port ? .6 : .62), u * (port ? 6.4 : 5.6), 600, BODY); ctx.fillStyle = '#fff6ea'; ctx.textAlign = 'left'; ctx.fillText(name, u * 6, y);
+        const nw = ctx.measureText(name).width;
+        font(ctx, 700, s, DISP); ctx.textAlign = 'right'; ctx.fillStyle = d.accent; ctx.fillText(price, w - u * 6, y);
+        const pw = ctx.measureText(price).width; ctx.fillStyle = 'rgba(255,246,234,.28)';
+        for (let x = u * 6 + nw + u * 2; x < w - u * 6 - pw - u * 2; x += u * 1.6) ctx.fillRect(x, y - u * .6, u * .5, u * .5);
+      });
+      font(ctx, 500, u * 3.6, BODY); ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,246,234,.7)'; ctx.fillText(sub, u * 6, h - u * 5);
+    };
+  }
+  function promoSlide(kicker, line, big) {
+    return (ctx, w, h, d, t) => {
+      const u = Math.min(w, h) / 100, port = h > w;
+      ctx.fillStyle = d.accent; ctx.fillRect(0, 0, w, h);
+      const px = port ? w / 2 : w * .74, py = port ? h * .7 : h * .52, pr = port ? w * .36 : h * .36;
+      ctx.save(); ctx.translate(px, py); ctx.rotate(t * .25);
+      ctx.fillStyle = '#e9b866'; ctx.beginPath(); ctx.arc(0, 0, pr, 0, 7); ctx.fill();
+      ctx.fillStyle = '#c8402a'; ctx.beginPath(); ctx.arc(0, 0, pr * .86, 0, 7); ctx.fill();
+      ctx.fillStyle = '#f3e3b5'; for (let i = 0; i < 9; i++) { const a = i * 2.4, rr2 = pr * (.25 + (i % 3) * .2); ctx.beginPath(); ctx.arc(Math.cos(a) * rr2, Math.sin(a) * rr2, pr * .12, 0, 7); ctx.fill(); }
+      ctx.fillStyle = '#7a1f14'; for (let i = 0; i < 7; i++) { const a = i * 1.7 + 1, rr2 = pr * (.35 + (i % 2) * .25); ctx.beginPath(); ctx.arc(Math.cos(a) * rr2, Math.sin(a) * rr2, pr * .07, 0, 7); ctx.fill(); }
+      ctx.restore();
+      ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
+      const tw = port ? w - u * 12 : w * .5;
+      font(ctx, 700, u * 4.4, BODY); ctx.fillText(kicker.toUpperCase(), u * 6, u * 14);
+      fit(ctx, line, tw, u * 9, 700, DISP); ctx.fillText(line, u * 6, u * 28);
+      fit(ctx, big, tw, u * (port ? 20 : 19), 800, DISP); ctx.fillText(big, u * 6, u * (port ? 50 : 50));
+      footer(ctx, w, h, d, u, 'rgba(255,255,255,.85)');
+    };
+  }
+  function houseArt(ctx, x, y, w, h, seed) {
+    const r = hash(seed), hue = r % 360;
+    const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, `hsl(${(hue + 190) % 360},45%,72%)`); g.addColorStop(1, `hsl(${(hue + 160) % 360},40%,88%)`);
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = `hsl(${hue % 120 + 80},30%,45%)`; ctx.fillRect(x, y + h * .78, w, h * .22);
+    const bx = x + w * .2, bw = w * .6, by = y + h * .38, bh = h * .42;
+    ctx.fillStyle = `hsl(${hue},25%,92%)`; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = `hsl(${hue},45%,38%)`; ctx.beginPath(); ctx.moveTo(bx - bw * .06, by); ctx.lineTo(bx + bw / 2, y + h * .14); ctx.lineTo(bx + bw * 1.06, by); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `hsl(${(hue + 200) % 360},30%,35%)`;
+    for (let i = 0; i < 3; i++) ctx.fillRect(bx + bw * (.1 + i * .3), by + bh * .15, bw * .2, bh * .25);
+    ctx.fillRect(bx + bw * .42, by + bh * .55, bw * .16, bh * .45);
+  }
+  const CLASSES = ['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const CLASS_COL = ['#1a9850', '#4cb14b', '#91cf60', '#c6e46a', '#fee08b', '#fdbf6f', '#fc8d59', '#e65a3c', '#c0262d'];
+  function objectSlide(idx) {
+    return (ctx, w, h, d) => {
+      const u = Math.min(w, h) / 100, port = h > w, r = d.items[idx] || [];
+      ctx.fillStyle = '#f5f3ef'; ctx.fillRect(0, 0, w, h);
+      if (port) houseArt(ctx, 0, 0, w, h * .44, (r[0] || '') + idx); else houseArt(ctx, 0, 0, w * .46, h, (r[0] || '') + idx);
+      const x0 = port ? u * 6 : w * .46 + u * 6, tw = port ? w - u * 12 : w * .54 - u * 12; let y = port ? h * .44 + u * 12 : u * 14;
+      ctx.textAlign = 'left'; ctx.fillStyle = d.accent; font(ctx, 700, u * 3.6, BODY); ctx.fillText('NEU IM ANGEBOT', x0, y);
+      font(ctx, 800, u * (port ? 8 : 7.2), DISP); ctx.fillStyle = '#1c1a17';
+      wrap(ctx, r[0] || 'Objekt', tw).slice(0, 2).forEach((l, i) => ctx.fillText(l, x0, y + u * (port ? 10 : 9) * (i + 1)));
+      y += u * (port ? 30 : 27);
+      font(ctx, 600, u * 4.6, BODY); ctx.fillStyle = '#4a463f'; ctx.fillText(r[1] || '', x0, y);
+      fit(ctx, r[2] || '', tw, u * (port ? 11 : 9.5), 800, DISP); ctx.fillStyle = d.accent; ctx.fillText(r[2] || '', x0, y + u * (port ? 13 : 11.5));
+      const cls = Math.max(0, CLASSES.indexOf((r[3] || '').trim().toUpperCase())), cy = y + u * (port ? 22 : 19), cw = Math.min(tw, u * 60) / 9;
+      font(ctx, 500, u * 2.8, BODY); ctx.fillStyle = '#4a463f'; ctx.fillText('Energieeffizienzklasse', x0, cy - u * 1.6);
+      CLASSES.forEach((c, i) => { ctx.fillStyle = CLASS_COL[i]; ctx.fillRect(x0 + i * cw, cy, cw - u * .4, u * 4.4); ctx.fillStyle = '#1c1a17'; font(ctx, i === cls ? 800 : 500, u * 2.6, BODY); ctx.textAlign = 'center'; ctx.fillText(c, x0 + i * cw + cw / 2 - u * .2, cy + u * 3.2); });
+      ctx.strokeStyle = '#1c1a17'; ctx.lineWidth = u * .6; ctx.strokeRect(x0 + cls * cw - u * .3, cy - u * .3, cw + u * .2, u * 5);
+      ctx.textAlign = 'left';
+      if (!drawLogo(ctx, d, w - u * 5, h - u * 13, u * 20, u * 9)) { font(ctx, 700, u * 3.6, BODY); ctx.fillStyle = '#1c1a17'; ctx.textAlign = 'right'; ctx.fillText(d.name, w - u * 5, h - u * 5); ctx.textAlign = 'left'; }
+    };
+  }
+  function textSlide(kicker, line, sub, qr) {
+    return (ctx, w, h, d) => {
+      const u = Math.min(w, h) / 100, port = h > w;
+      ctx.fillStyle = mix(d.accent, .35); ctx.fillRect(0, 0, w, h);
+      ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,.75)'; font(ctx, 700, u * 4, BODY); ctx.fillText(kicker.toUpperCase(), u * 6, u * 14);
+      const tw = qr && !port ? w * .58 : w - u * 12;
+      font(ctx, 800, u * (port ? 10 : 9), DISP); ctx.fillStyle = '#fff';
+      const lines = wrap(ctx, line, tw).slice(0, 3); lines.forEach((l, i) => ctx.fillText(l, u * 6, u * 28 + i * u * (port ? 11.5 : 10.5)));
+      font(ctx, 500, u * 4.4, BODY); ctx.fillStyle = 'rgba(255,255,255,.85)';
+      wrap(ctx, sub, tw).slice(0, 3).forEach((l, i) => ctx.fillText(l, u * 6, u * 32 + lines.length * u * (port ? 11.5 : 10.5) + i * u * 6));
+      if (qr) { const s = port ? w * .42 : h * .42; fakeQR(ctx, port ? (w - s) / 2 : w - s - u * 9, port ? h - s - u * 16 : (h - s) / 2, s, d.name, '#111', '#fff'); }
+      footer(ctx, w, h, d, u, 'rgba(255,255,255,.9)');
+    };
+  }
+  function saleSlide(idx, dark) {
+    return (ctx, w, h, d) => {
+      const u = Math.min(w, h) / 100, port = h > w, r = d.items[idx] || [];
+      ctx.fillStyle = dark ? '#141414' : d.accent; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = dark ? d.accent : 'rgba(255,255,255,.12)';
+      ctx.beginPath(); ctx.arc(port ? w * .9 : w * .92, port ? h * .18 : h * .2, port ? w * .55 : h * .6, 0, 7); ctx.fill();
+      ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
+      font(ctx, 600, u * 5.2, BODY); ctx.fillText(r[0] || '', u * 6, port ? h * .42 : h * .36);
+      fit(ctx, r[1] || '', w - u * 12, u * (port ? 18 : 17), 800, DISP); ctx.fillText(r[1] || '', u * 6, port ? h * .42 + u * 20 : h * .36 + u * 18);
+      font(ctx, 500, u * 3.6, BODY); ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(d.hours, u * 6, h - u * 5);
+      ctx.textAlign = 'right'; font(ctx, 700, u * 3.6, BODY); ctx.fillStyle = '#fff';
+      if (!drawLogo(ctx, d, w - u * 6, u * 5, u * 22, u * 11)) ctx.fillText(d.name, w - u * 6, u * 10);
+      ctx.textAlign = 'left';
+    };
+  }
+
+  const TEMPLATES = {
+    gastro: {
+      label: 'Gastro: Menütafel', name: 'Pizzeria Da Marco', accent: '#d9482b',
+      items: 'Margherita | 7,50 €\nSalame | 8,90 €\nFunghi | 8,50 €\nDiavola | 9,50 €\nQuattro Formaggi | 10,50 €',
+      help: 'Eine Zeile pro Gericht: Name | Preis',
+      slides: n => n ? [menuSlide('Abendkarte', 'Heute bis 23 Uhr geöffnet, auch zum Mitnehmen'), promoSlide('Heute Abend', 'Jede zweite Pizza', 'halber Preis')]
+                     : [menuSlide('Mittagstisch', 'Montag bis Freitag, 11:30 bis 14:30 Uhr'), promoSlide('Mittagsdeal', 'Pizza und Getränk', '9,90 €')]
+    },
+    makler: {
+      label: 'Makler: Objekte', name: 'Hausmann Immobilien', accent: '#1f6f8b',
+      items: '3-Zimmer-Wohnung in der Altstadt | 78 m², Balkon | 890 € kalt | C\nReihenhaus mit Garten | 124 m², 5 Zimmer | 429.000 € | B\nPenthouse am Stadtpark | 96 m², Dachterrasse | 1.450 € kalt | A',
+      help: 'Eine Zeile pro Objekt: Titel | Fläche | Preis | Energieklasse (A+ bis H)',
+      slides: (n, d) => [...d.items.slice(0, 4).map((_, i) => objectSlide(i)),
+        n ? textSlide('Auch nach Ladenschluss', 'QR-Code scannen, Exposé aufs Handy.', 'Alle Objekte und Besichtigungstermine rund um die Uhr.', true)
+          : textSlide('Sie möchten verkaufen?', 'Wir bewerten Ihre Immobilie kostenlos.', 'Kommen Sie herein oder vereinbaren Sie einen Termin.', false)]
+    },
+    laden: {
+      label: 'Laden: Angebote', name: 'Modehaus Linde', accent: '#b8326b',
+      items: 'Herbst-Sale | bis -30 %\nNeue Kollektion | jetzt da\nGutscheine | ab 10 €',
+      help: 'Eine Zeile pro Angebot: Überschrift | großer Text',
+      slides: (n, d) => n ? [textSlide('Gerade geschlossen', 'Morgen ab 9 Uhr wieder für Sie da.', 'Bis dahin: schauen Sie sich in Ruhe um.', false), ...d.items.slice(0, 4).map((_, i) => saleSlide(i, true))]
+                          : d.items.slice(0, 4).map((_, i) => saleSlide(i, i % 2 === 1))
+    }
+  };
+  const SWATCHES = ['#d9482b', '#1f6f8b', '#b8326b', '#2f7d32', '#e09a1a', '#3b3f9c'];
+
+  // ---------- Speicher: Einstellungen in localStorage, Dateien in IndexedDB ----------
+  const KEY = 'svizzbox-player-v0';
+  const DEF = { tpl: 'makler', tplOn: true, name: '', items: '', accent: '', dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', dur: 8, fit: 'cover', media: [] };
+  let C = Object.assign({}, DEF);
+  let storeOK = true;
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) C = Object.assign({}, DEF, s); } catch (e) { storeOK = false; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (e) { storeOK = false; } }
+  let db = null; const blobs = new Map(), urls = new Map();
+  function openDB() {
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open('svizzbox-player', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('files');
+        r.onsuccess = () => { db = r.result; res(); };
+        r.onerror = () => { storeOK = false; res(); };
+      } catch (e) { storeOK = false; res(); }
+    });
+  }
+  function dbPut(id, blob) { blobs.set(id, blob); if (!db) return; try { db.transaction('files', 'readwrite').objectStore('files').put(blob, id); } catch (e) { storeOK = false; } }
+  function dbDel(id) { blobs.delete(id); if (urls.has(id)) { URL.revokeObjectURL(urls.get(id)); urls.delete(id); } if (!db) return; try { db.transaction('files', 'readwrite').objectStore('files').delete(id); } catch (e) {} }
+  function dbLoadAll() {
+    return new Promise(res => {
+      if (!db) return res();
+      try {
+        const st = db.transaction('files').objectStore('files'), rq = st.openCursor();
+        rq.onsuccess = () => { const c = rq.result; if (c) { blobs.set(c.key, c.value); c.continue(); } else res(); };
+        rq.onerror = () => res();
+      } catch (e) { res(); }
+    });
+  }
+  const urlOf = id => { if (!urls.has(id) && blobs.has(id)) urls.set(id, URL.createObjectURL(blobs.get(id))); return urls.get(id); };
+  let logoImg = null;
+  function loadLogo() { logoImg = null; if (!blobs.has('logo')) return; const i = new Image(); i.onload = () => { logoImg = i; }; i.src = urlOf('logo'); }
+
+  // ---------- Zeitplan ----------
+  let sim = 'live';
+  const mins = s => { const [h, m] = (s || '0:0').split(':').map(Number); return h * 60 + m; };
+  const inRange = (n, a, b) => a <= b ? n >= a && n < b : n >= a || n < b;
+  function period(now) {
+    if (sim !== 'live') return sim;
+    const n = now.getHours() * 60 + now.getMinutes();
+    if (C.offOn && inRange(n, mins(C.offFrom), mins(C.offTo))) return 'off';
+    return inRange(n, mins(C.dayStart), mins(C.eveStart)) ? 'day' : 'eve';
+  }
+  function nextChange(now) {
+    const n = now.getHours() * 60 + now.getMinutes(), pts = [C.dayStart, C.eveStart].concat(C.offOn ? [C.offFrom, C.offTo] : []);
+    let best = null, bd = 1e9; pts.forEach(p => { let d = (mins(p) - n + 1440) % 1440; if (d === 0) d = 1440; if (d < bd) { bd = d; best = p; } });
+    return best;
+  }
+
+  // ---------- Abspielliste ----------
+  function data() {
+    return { name: C.name || ' ', accent: C.accent, logo: logoImg, hours: 'Montag bis Samstag, 9 bis 19 Uhr',
+      items: C.items.split('\n').map(l => l.split('|').map(s => s.trim())).filter(r => r[0]) };
+  }
+  function playlist(p) {
+    if (p === 'off') return [];
+    const d = data(), list = [];
+    if (C.tplOn && TEMPLATES[C.tpl]) TEMPLATES[C.tpl].slides(p === 'eve', d).forEach(fn => list.push({ kind: 'tpl', fn }));
+    C.media.filter(m => m.when === 'always' || m.when === p).forEach(m => { if (blobs.has(m.id)) list.push({ kind: m.type, id: m.id }); });
+    return list;
+  }
+
+  // ---------- Wiedergabe mit Überblendung ----------
+  const screen = document.getElementById('screen'), empty = document.getElementById('empty'), offhint = document.getElementById('offhint');
+  let cur = null, idx = -1, timer = null, lastPeriod = null;
+  function makeLayer(item) {
+    const el = document.createElement('div'); el.className = 'layer'; el.style.setProperty('--fit', C.fit);
+    const L = { el, item };
+    if (item.kind === 'tpl') {
+      const c = document.createElement('canvas'); el.appendChild(c); L.canvas = c; L.ctx = c.getContext('2d');
+    } else if (item.kind === 'image') {
+      const i = document.createElement('img'); i.alt = ''; i.src = urlOf(item.id); el.appendChild(i);
+    } else {
+      const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = urlOf(item.id); el.appendChild(v); L.video = v;
+    }
+    return L;
+  }
+  function sizeCanvas(L) {
+    const cw = screen.clientWidth, ch = screen.clientHeight, f = Math.min(window.devicePixelRatio || 1, 2, 1920 / Math.max(cw, ch, 1)), w = Math.round(cw * f), h = Math.round(ch * f);
+    if (L.canvas.width !== w || L.canvas.height !== h) { L.canvas.width = w; L.canvas.height = h; }
+  }
+  function advance() {
+    clearTimeout(timer);
+    const p = period(new Date()); lastPeriod = p;
+    const list = playlist(p);
+    if (!list.length) {
+      if (cur) { const old = cur; old.el.classList.remove('on'); setTimeout(() => old.el.remove(), 900); cur = null; }
+      empty.hidden = p === 'off'; offhint.hidden = p !== 'off'; offhint.textContent = 'Bildschirm-aus-Zeit von ' + C.offFrom + ' bis ' + C.offTo + ' Uhr. Taste E für Einstellungen.'; empty.textContent = 'Noch keine Inhalte für diese Tageszeit. Taste E drücken und Vorlage oder Dateien hinzufügen.';
+      timer = setTimeout(advance, 5000); return;
+    }
+    empty.hidden = true; offhint.hidden = true;
+    idx = (idx + 1) % list.length;
+    const L = makeLayer(list[idx]); screen.appendChild(L.el);
+    if (L.canvas) { sizeCanvas(L); L.fn = list[idx].fn; L.fn(L.ctx, L.canvas.width, L.canvas.height, data(), performance.now() / 1000); }
+    requestAnimationFrame(() => L.el.classList.add('on'));
+    const old = cur; cur = L;
+    if (old) { old.el.classList.remove('on'); setTimeout(() => { if (old.video) old.video.pause(); old.el.remove(); }, 900); }
+    if (L.video) {
+      let done = false; const next = () => { if (!done) { done = true; advance(); } };
+      L.video.onended = next; L.video.onerror = next;
+      L.video.play().catch(next);
+      timer = setTimeout(next, 10 * 60 * 1000);
+    } else timer = setTimeout(advance, Math.max(3, +C.dur || 8) * 1000);
+  }
+  function tick() {
+    if (cur && cur.canvas && cur.fn) { sizeCanvas(cur); cur.fn(cur.ctx, cur.canvas.width, cur.canvas.height, data(), performance.now() / 1000); }
+    requestAnimationFrame(tick);
+  }
+  setInterval(() => { const p = period(new Date()); if (p !== lastPeriod) { idx = -1; advance(); } status(); }, 15000);
+
+  // ---------- Einstellungen ----------
+  const $ = id => document.getElementById(id);
+  const panel = $('panel'), gear = $('gear');
+  function openPanel(on) { panel.classList.toggle('open', on); gear.setAttribute('aria-expanded', on); if (on) { status(); $('close').focus(); } }
+  gear.onclick = () => openPanel(true);
+  $('close').onclick = () => openPanel(false);
+  addEventListener('keydown', e => {
+    if (e.target.matches('input, textarea, select')) return;
+    if (e.key === 'e' || e.key === 'E') openPanel(!panel.classList.contains('open'));
+    if (e.key === 'Escape') openPanel(false);
+    if (e.key === 'ArrowRight') advance();
+  });
+  let idleT; function wake() { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => { if (!panel.classList.contains('open')) document.body.classList.add('idle'); }, 3000); }
+  addEventListener('mousemove', wake); addEventListener('pointerdown', wake); wake();
+  setTimeout(() => $('toast').classList.add('gone'), 6000);
+
+  const LABEL = { day: 'Tag', eve: 'Abend', off: 'Bildschirm aus' };
+  function status() {
+    const now = new Date(), p = period(now), list = playlist(p);
+    $('stNow').textContent = 'Jetzt ' + now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + (sim !== 'live' ? ' (Vorschau)' : '');
+    $('stWhat').innerHTML = `<span class="pill ${p}">${LABEL[p]}</span> ${p === 'off' ? 'Schwarzer Bildschirm' : list.length + ' Folien in der Schleife'}`;
+    $('stNext').textContent = sim === 'live' ? 'Nächster Wechsel um ' + nextChange(now) + ' Uhr' : 'Zum Testen fest eingestellt';
+    $('storeNote').textContent = storeOK ? 'Alles wird in diesem Browser gespeichert und läuft ohne Internet weiter.' : 'Speichern ist hier blockiert: Änderungen gehen beim Neuladen verloren.';
+  }
+  function restart() { save(); idx = -1; advance(); status(); }
+
+  const tplSel = $('tpl');
+  Object.entries(TEMPLATES).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v.label; tplSel.appendChild(o); });
+  const sw = $('swatches');
+  SWATCHES.forEach(c => { const b = document.createElement('button'); b.style.background = c; b.setAttribute('aria-label', 'Farbe ' + c); b.onclick = () => { C.accent = c; syncSw(); save(); }; sw.appendChild(b); });
+  function syncSw() { [...sw.children].forEach((b, i) => b.setAttribute('aria-pressed', SWATCHES[i] === C.accent)); }
+  function applyTpl(k, keepText) {
+    const T = TEMPLATES[k]; C.tpl = k;
+    if (!keepText) { C.name = T.name; C.items = T.items; C.accent = T.accent; }
+    $('name').value = C.name; $('items').value = C.items; $('itemsHelp').textContent = T.help; tplSel.value = k; syncSw();
+  }
+  tplSel.onchange = () => { applyTpl(tplSel.value, false); restart(); };
+  $('name').oninput = e => { C.name = e.target.value; save(); };
+  $('items').oninput = e => { C.items = e.target.value; save(); };
+  $('tplOn').onchange = e => { C.tplOn = e.target.checked; restart(); };
+  ['dayStart', 'eveStart', 'offFrom', 'offTo'].forEach(k => { $(k).onchange = e => { C[k] = e.target.value; restart(); }; });
+  $('offOn').onchange = e => { C.offOn = e.target.checked; restart(); };
+  $('dur').onchange = e => { C.dur = Math.min(120, Math.max(3, +e.target.value || 8)); e.target.value = C.dur; save(); };
+  $('fit').onchange = e => { C.fit = e.target.value; save(); if (cur) cur.el.style.setProperty('--fit', C.fit); };
+  document.querySelectorAll('[data-sim]').forEach(b => b.onclick = () => {
+    sim = b.dataset.sim; document.querySelectorAll('[data-sim]').forEach(x => x.setAttribute('aria-pressed', x === b)); restart();
+  });
+  $('logoIn').onchange = e => { const f = e.target.files[0]; if (!f) return; dbPut('logo', f); if (urls.has('logo')) { URL.revokeObjectURL(urls.get('logo')); urls.delete('logo'); } loadLogo(); $('logoOff').hidden = false; };
+  $('logoOff').onclick = () => { dbDel('logo'); logoImg = null; $('logoOff').hidden = true; $('logoIn').value = ''; };
+  $('mediaIn').onchange = e => {
+    [...e.target.files].forEach(f => {
+      const type = f.type.startsWith('video/') ? 'video' : f.type.startsWith('image/') ? 'image' : null; if (!type) return;
+      const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      dbPut(id, f); C.media.push({ id, type, name: f.name, when: 'always' });
+    });
+    e.target.value = ''; renderMedia(); restart();
+  };
+  function renderMedia() {
+    const ul = $('mediaList'); ul.innerHTML = '';
+    C.media.forEach((m, i) => {
+      const li = document.createElement('li');
+      const th = document.createElement(m.type === 'video' ? 'video' : 'img'); th.className = 'thumb'; th.src = urlOf(m.id) || ''; if (m.type === 'video') th.muted = true; else th.alt = '';
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = (m.type === 'video' ? 'Video: ' : '') + m.name; if (!blobs.has(m.id)) nm.textContent += ' (fehlt)';
+      const ctl = document.createElement('span'); ctl.className = 'row';
+      const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Wann zeigen: ' + m.name);
+      [['always', 'immer'], ['day', 'tagsüber'], ['eve', 'abends']].forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); });
+      sel.value = m.when; sel.onchange = () => { m.when = sel.value; restart(); };
+      const x = document.createElement('button'); x.className = 'x'; x.textContent = '✕'; x.setAttribute('aria-label', 'Entfernen: ' + m.name);
+      x.onclick = () => { dbDel(m.id); C.media.splice(i, 1); renderMedia(); restart(); };
+      ctl.append(sel, x); li.append(th, nm, ctl); ul.appendChild(li);
+    });
+  }
+  $('fs').onclick = () => { const d = document.documentElement; (d.requestFullscreen ? d.requestFullscreen() : Promise.reject()).catch(() => { $('storeNote').textContent = 'Vollbild ist hier gesperrt. Auf der Box startet der Player ohnehin im Vollbild.'; }); };
+  $('reset').onclick = () => {
+    if ($('reset').dataset.armed !== '1') { $('reset').dataset.armed = '1'; $('reset').textContent = 'Wirklich alles löschen?'; setTimeout(() => { $('reset').dataset.armed = ''; $('reset').textContent = 'Alles zurücksetzen'; }, 4000); return; }
+    C.media.forEach(m => dbDel(m.id)); dbDel('logo'); logoImg = null; C = Object.assign({}, DEF, { media: [] }); applyTpl(C.tpl, false); syncForm(); renderMedia(); restart();
+    $('reset').dataset.armed = ''; $('reset').textContent = 'Alles zurücksetzen';
+  };
+  function syncForm() {
+    $('tplOn').checked = C.tplOn; ['dayStart', 'eveStart', 'offFrom', 'offTo'].forEach(k => $(k).value = C[k]);
+    $('offOn').checked = C.offOn; $('dur').value = C.dur; $('fit').value = C.fit; $('logoOff').hidden = !blobs.has('logo');
+  }
+  addEventListener('resize', () => { if (cur && cur.canvas) sizeCanvas(cur); });
+
+  // ---------- Start ----------
+  const start = async () => {
+    await openDB(); await dbLoadAll(); loadLogo();
+    applyTpl(C.tpl, !!C.name); syncForm(); renderMedia(); status(); advance(); requestAnimationFrame(tick);
+  };
+  (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 2500))]) : Promise.resolve()).then(start, start);
+})();
+</script>
+</body>
+</html>
