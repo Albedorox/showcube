@@ -27,7 +27,7 @@ Hinweis: Diese Anleitung ist noch nicht auf echter Pi-Hardware getestet.
 
 ## 2. Player auf einen USB-Stick legen
 
-`player/index.html` aus diesem Repository als `player.html` auf einen USB-Stick kopieren,
+`release/player.html` aus diesem Repository als `player.html` auf einen USB-Stick kopieren,
 dazu die Bilder und Videos, die laufen sollen.
 
 ## 3. Pi starten und einrichten
