@@ -9,5 +9,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["shared", "player", "konfigurator"]
+  "include": ["shared", "player", "konfigurator", "panel"]
 }

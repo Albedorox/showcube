@@ -305,6 +305,15 @@ $('btnCard').onclick = () => {
 
 // ---------- Start ----------
 applyTemplate('gastro');
+// Aufruf aus dem Cloud-Panel: #tpl=...&name=...&items=...&accent=... übernimmt die Slideshow des Kunden.
+(() => {
+  const q = new URLSearchParams(location.hash.slice(1)), k = q.get('tpl');
+  if (!k || !TEMPLATES[k]) return;
+  tplSel.value = k; applyTemplate(k);
+  if (q.has('name')) { S.name = q.get('name'); $('name').value = S.name; }
+  if (q.has('items')) { S.items = q.get('items'); $('items').value = S.items; }
+  if (q.has('accent')) { S.accent = q.get('accent'); syncSwatches(); }
+})();
 buildExample();
 S.quad = defaultQuad();
 const go = () => { if (S.example) buildExample(); requestAnimationFrame(frame); };

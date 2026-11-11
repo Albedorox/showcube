@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShowCube Cloud</title>
+<style>
+:root {
+  --bg: #f4f6f5;
+  --card: #ffffff;
+  --ink: #18201f;
+  --muted: #5d6a68;
+  --line: #d9e0de;
+  --field: #eef1f0;
+  --accent: #0f7b6c;
+  --accent-soft: #e1f2ee;
+  --accent-ink: #ffffff;
+  --ok: #1f8a4c;
+  --warn: #c77c12;
+  --bad: #b8322a;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0f1514; --card: #172020; --ink: #e7eeec; --muted: #9aaba8; --line: #2a3634; --field: #111716; --accent: #3fb8a4; --accent-soft: #173430; --accent-ink: #0b1312; --ok: #4cc47e; --warn: #e7a54a; --bad: #ef6b60; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0f1514; --card: #172020; --ink: #e7eeec; --muted: #9aaba8; --line: #2a3634; --field: #111716; --accent: #3fb8a4; --accent-soft: #173430; --accent-ink: #0b1312; --ok: #4cc47e; --warn: #e7a54a; --bad: #ef6b60; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-body); min-height: 100vh; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; line-height: 1.15; }
+h1 { font-size: 24px; font-weight: 800; }
+h2 { font-size: 17px; font-weight: 700; }
+h3 { font-size: 12px; font-family: var(--font-body); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+a { color: var(--accent); }
+
+/* Gerüst: Kopfzeile, Navigation links, Inhalt rechts. Auf dem Handy wird die Navigation zur Leiste. */
+.top { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+.brand { display: flex; align-items: center; gap: 8px; font: 800 19px var(--font-display); }
+.cube { width: 22px; height: 22px; border-radius: 5px; background: var(--accent); position: relative; }
+.cube::after { content: ""; position: absolute; inset: 5px; border-radius: 2px; border: 2px solid var(--accent-ink); }
+.brand small { font: 600 12px var(--font-body); color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; }
+.acct { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.acct b { color: var(--ink); }
+.plan { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12px; white-space: nowrap; }
+.wrap { display: grid; grid-template-columns: 200px minmax(0, 1fr); min-height: calc(100vh - 57px); }
+nav { border-right: 1px solid var(--line); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; }
+nav button { all: unset; cursor: pointer; padding: 9px 12px; border-radius: 8px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+nav button:hover { background: var(--field); }
+nav button[aria-current=page] { background: var(--accent-soft); color: var(--accent); }
+nav .count { font-size: 12px; color: var(--muted); font-weight: 500; }
+nav .note { margin-top: auto; font-size: 12px; color: var(--muted); padding: 10px 12px; border-top: 1px solid var(--line); }
+main { padding: 20px 24px 60px; min-width: 0; }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.head p { margin: 4px 0 0; color: var(--muted); }
+@media (max-width: 760px) {
+  .top { padding: 10px 16px; flex-wrap: wrap; }
+  .acct .plan { display: none; }
+  .wrap { grid-template-columns: 1fr; }
+  nav { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px 12px; overflow-x: auto; }
+  nav button { white-space: nowrap; }
+  nav .count, nav .note { display: none; }
+  main { padding: 16px 16px 60px; }
+}
+
+/* Bausteine */
+.btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); font: 600 13px var(--font-body); padding: 8px 12px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.sm { padding: 5px 9px; font-size: 12px; }
+.file { position: relative; overflow: hidden; }
+.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.small { font-size: 12px; color: var(--muted); }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--muted); flex: none; }
+.dot.on { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+.dot.off { background: var(--bad); }
+.dot.dark { background: var(--warn); }
+.badge { font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--field); color: var(--muted); white-space: nowrap; }
+.badge.live { background: var(--accent); color: var(--accent-ink); }
+.badge.dirty { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+label { font-weight: 600; font-size: 13px; display: block; margin-bottom: 4px; }
+input[type=text], input[type=time], input[type=number], textarea, select { width: 100%; font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+textarea { min-height: 110px; resize: vertical; font-size: 13px; }
+.check { display: flex; gap: 8px; align-items: center; font-weight: 500; margin: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ink); font: 600 12.5px var(--font-body); padding: 6px 10px; cursor: pointer; }
+.seg button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); }
+.swatches { display: flex; gap: 8px; }
+.swatches button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--card); box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+.swatches button[aria-pressed=true] { box-shadow: 0 0 0 2px var(--ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.empty { padding: 28px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; }
+
+/* Bildschirme */
+.stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.stat { padding: 10px 14px; min-width: 120px; }
+.stat b { display: block; font: 800 22px var(--font-display); }
+.screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+.scr { overflow: hidden; display: flex; flex-direction: column; }
+.tv { background: #000; aspect-ratio: 16 / 9; position: relative; display: grid; place-items: center; }
+.tv.port { aspect-ratio: auto; height: 220px; }
+.tv canvas { width: 100%; height: 100%; display: block; }
+.tv.port canvas { width: 124px; height: 220px; }
+.tv .over { position: absolute; inset: 0; display: grid; place-items: center; color: #9aa5a3; font-size: 13px; background: rgba(0,0,0,.72); text-align: center; padding: 12px; }
+.tv .tag { position: absolute; right: 8px; top: 8px; }
+.scr .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.scr .title { display: flex; align-items: center; gap: 8px; }
+.scr .title h2 { flex: 1; font-size: 16px; }
+.scr select { padding: 5px 8px; font-size: 13px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+
+/* Slideshow-Editor */
+.shows { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px; align-items: start; }
+.slist { display: flex; flex-direction: column; gap: 8px; }
+.sitem { all: unset; cursor: pointer; display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
+.sitem[aria-current=true] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.sitem canvas { width: 64px; height: 36px; border-radius: 4px; background: #000; display: block; }
+.sitem b { display: block; font-size: 13.5px; }
+.editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+.form { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+.group { display: flex; flex-direction: column; gap: 10px; }
+.preview { padding: 14px; display: flex; flex-direction: column; gap: 10px; position: sticky; top: 76px; }
+.preview .tv { border-radius: 8px; overflow: hidden; }
+.preview .tv.port { height: 420px; }
+.preview .tv.port canvas { width: 236px; height: 420px; }
+.mlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mlist li { display: grid; grid-template-columns: 52px minmax(0,1fr) auto; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+.mlist .th { width: 52px; height: 32px; object-fit: cover; border-radius: 4px; background: #222; display: block; }
+.mlist .nm { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlist select { width: auto; padding: 3px 4px; font-size: 12px; }
+.icon { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 3px 6px; border-radius: 6px; }
+.icon:hover { background: var(--field); color: var(--ink); }
+.pub { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 1100px) { .editor { grid-template-columns: 1fr; } .preview { position: static; order: -1; } }
+@media (max-width: 760px) { .shows { grid-template-columns: 1fr; } .slist { flex-direction: row; overflow-x: auto; } .sitem { min-width: 200px; } }
+
+/* Medien und Vorlagen */
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 22px; text-align: center; color: var(--muted); margin-bottom: 16px; position: relative; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.assets { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.asset { overflow: hidden; }
+.asset .th { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: #222; display: block; }
+.asset .body { padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.asset .nm { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpls { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.tpl { overflow: hidden; display: flex; flex-direction: column; }
+.tpl canvas { width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; }
+.tpl .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.tpl .body p { margin: 0; color: var(--muted); font-size: 13px; flex: 1; }
+.tpl.soon canvas { opacity: .35; }
+
+dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 40px); }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+.dlg { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.dlg .x { margin-left: auto; }
+.shot { width: 100%; border-radius: 8px; background: #000; display: block; }
+.log { list-style: none; margin: 0; padding: 0; font-size: 12.5px; display: flex; flex-direction: column; gap: 3px; max-height: 160px; overflow: auto; }
+.log li { display: grid; grid-template-columns: 52px 1fr; gap: 8px; }
+.log time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.code { font: 800 28px var(--font-display); letter-spacing: .2em; text-align: center; }
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 13px; z-index: 30; transition: opacity .4s; max-width: calc(100vw - 32px); }
+.toast.gone { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="cube" aria-hidden="true"></span>ShowCube <small>Cloud · Prototyp</small></div>
+  <div class="acct"><span>Konto <b id="acctName"></b></span><span class="plan" id="plan"></span></div>
+</header>
+<div class="wrap">
+  <nav aria-label="Bereiche">
+    <button data-view="screens" aria-current="page">Bildschirme <span class="count" id="cScreens"></span></button>
+    <button data-view="shows">Slideshows <span class="count" id="cShows"></span></button>
+    <button data-view="media">Medien <span class="count" id="cMedia"></span></button>
+    <button data-view="templates">Vorlagen</button>
+    <div class="note">Prototyp ohne Server. Alles bleibt in diesem Browser. „Live öffnen“ startet einen echten Player in einem neuen Tab.</div>
+  </nav>
+  <main>
+    <section id="v-screens">
+      <div class="head">
+        <div><h1>Bildschirme</h1><p>Was gerade läuft, und Fernwartung ohne Hinfahren.</p></div>
+        <button class="btn primary" id="addScreen">Bildschirm koppeln</button>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="screens" id="screenGrid"></div>
+    </section>
+
+    <section id="v-shows" hidden>
+      <div class="head">
+        <div><h1>Slideshows</h1><p>Inhalte zusammenstellen, Vorschau ansehen, auf Bildschirme schicken.</p></div>
+        <button class="btn" id="newShow">Neue Slideshow</button>
+      </div>
+      <div class="shows">
+        <div class="slist" id="showList"></div>
+        <div class="editor" id="editor">
+          <div class="card form">
+            <div class="group">
+              <label for="sName">Name der Slideshow</label><input type="text" id="sName">
+            </div>
+            <div class="group">
+              <h3>Vorlage</h3>
+              <select id="sTpl" aria-label="Vorlage"></select>
+              <div id="tplFields" class="group">
+                <div><label for="sBrand">Name des Betriebs</label><input type="text" id="sBrand"></div>
+                <div><label for="sItems">Einträge</label><textarea id="sItems" spellcheck="false"></textarea><span class="small" id="sItemsHelp"></span></div>
+                <div><label>Farbe</label><div class="swatches" id="sSwatches"></div></div>
+              </div>
+            </div>
+            <div class="group">
+              <h3>Eigene Bilder und Videos</h3>
+              <ul class="mlist" id="sMedia"></ul>
+              <div class="row"><select id="sAddMedia" aria-label="Medium hinzufügen" style="flex:1"></select><button class="btn" id="sGoMedia">Hochladen …</button></div>
+            </div>
+            <div class="group">
+              <h3>Zeitplan</h3>
+              <div class="grid2">
+                <div><label for="sDay">Tag ab</label><input type="time" id="sDay"></div>
+                <div><label for="sEve">Abend ab</label><input type="time" id="sEve"></div>
+              </div>
+              <label class="check"><input type="checkbox" id="sOffOn"> Bildschirm nachts schwarz</label>
+              <div class="grid2">
+                <div><label for="sOffFrom">Aus ab</label><input type="time" id="sOffFrom"></div>
+                <div><label for="sOffTo">Wieder an ab</label><input type="time" id="sOffTo"></div>
+              </div>
+              <div class="grid2">
+                <div><label for="sDur">Sekunden pro Folie</label><input type="number" id="sDur" min="3" max="120"></div>
+                <div><label for="sFit">Bilder</label><select id="sFit"><option value="cover">füllend</option><option value="contain">ganz zeigen</option></select></div>
+              </div>
+            </div>
+            <div class="row"><button class="btn danger sm" id="sDelete">Slideshow löschen</button></div>
+          </div>
+          <div class="card preview">
+            <div class="row" style="justify-content:space-between">
+              <h2>Vorschau</h2>
+              <div class="row">
+                <div class="seg" role="group" aria-label="Tageszeit"><button data-pp="day" aria-pressed="true">Tag</button><button data-pp="eve" aria-pressed="false">Abend</button></div>
+                <div class="seg" role="group" aria-label="Ausrichtung"><button data-po="land" aria-pressed="true">Quer</button><button data-po="port" aria-pressed="false">Hoch</button></div>
+              </div>
+            </div>
+            <div class="tv" id="pvTv"><canvas id="pvCanvas"></canvas></div>
+            <div class="row" style="justify-content:space-between"><span class="small" id="pvInfo"></span><button class="btn sm" id="pvNext">Nächste Folie</button></div>
+            <div class="pub">
+              <div class="row"><span id="pubState"></span></div>
+              <div class="row">
+                <button class="btn primary" id="publish">Veröffentlichen</button>
+                <button class="btn" id="exportUsb">Für USB-Stick exportieren</button>
+                <a class="btn" id="window" target="_blank" rel="noopener">Im Schaufenster ansehen</a>
+              </div>
+              <span class="small" id="pubHint"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="v-media" hidden>
+      <div class="head"><div><h1>Medien</h1><p>Bilder und Videos, die in Slideshows vorkommen können.</p></div></div>
+      <div class="drop" id="drop"><input type="file" id="mediaIn" accept="image/*,video/mp4,video/webm" multiple aria-label="Bilder oder Videos hochladen"><b>Dateien hierher ziehen</b> oder klicken zum Auswählen<br><span class="small">JPG, PNG, MP4, WebM. Im Prototyp bleibt alles in diesem Browser.</span></div>
+      <div class="assets" id="assetGrid"></div>
+    </section>
+
+    <section id="v-templates" hidden>
+      <div class="head"><div><h1>Vorlagen</h1><p>Fertige Folien für die Branche. Nur Texte und Preise eintragen, der Rest passt sich an.</p></div></div>
+      <div class="tpls" id="tplGrid"></div>
+    </section>
+  </main>
+</div>
+
+<dialog id="dlgScreen" aria-labelledby="dsTitle"><div class="dlg" id="dsBody"></div></dialog>
+<dialog id="dlgPair" aria-labelledby="dpTitle">
+  <form class="dlg" method="dialog" id="pairForm">
+    <div class="row"><h2 id="dpTitle">Bildschirm koppeln</h2><button class="icon x" value="cancel" aria-label="Schließen">✕</button></div>
+    <p style="margin:0">Box an den Fernseher stecken, mit dem WLAN verbinden. Auf dem Fernseher erscheint ein sechsstelliger Code. Im Prototyp geht jeder Code.</p>
+    <div><label for="pCode">Code vom Fernseher</label><input type="text" id="pCode" inputmode="numeric" maxlength="7" placeholder="482 915" autocomplete="off"></div>
+    <div class="grid2">
+      <div><label for="pName">Name</label><input type="text" id="pName" placeholder="z. B. Theke"></div>
+      <div><label for="pOrient">Ausrichtung</label><select id="pOrient"><option value="land">quer</option><option value="port">hochkant</option></select></div>
+    </div>
+    <div><label for="pShow">Zeigt</label><select id="pShow"></select></div>
+    <div class="row"><button class="btn primary" value="ok" id="pOk">Koppeln</button><span class="small" id="pErr"></span></div>
+  </form>
+</dialog>
+<div class="toast gone" id="toast" role="status"></div>
+
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

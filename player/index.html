@@ -71,6 +71,9 @@ textarea { min-height: 90px; resize: vertical; font-size: 12.5px; }
 .media select { width: auto; padding: 3px 4px; font-size: 12px; }
 .media .x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px 6px; }
 .small { font-size: 12px; color: var(--muted); }
+.live { background: var(--field); border-left: 3px solid var(--accent); padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+.ident { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(0,0,0,.6); color: #fff; font: 800 min(12vw, 140px)/1 var(--font-display); text-align: center; padding: 24px; animation: blink 1s ease-in-out infinite alternate; }
+@keyframes blink { from { background: rgba(0,0,0,.75); } to { background: rgba(15,123,108,.75); } }
 .swatches { display: flex; gap: 8px; }
 .swatches button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
 .swatches button[aria-pressed=true] { box-shadow: 0 0 0 2px var(--ink); }
@@ -87,6 +90,7 @@ textarea { min-height: 90px; resize: vertical; font-size: 12.5px; }
 
 <aside class="panel" id="panel" aria-label="Einstellungen">
   <div class="ph"><h1>Player-Einstellungen</h1><button class="btn" id="close">Schließen</button></div>
+  <div class="live" id="liveNote" hidden></div>
   <div class="status" role="status"><span id="stNow"></span><strong id="stWhat"></strong><span class="small" id="stNext"></span></div>
 
   <div class="group">
@@ -139,6 +143,12 @@ textarea { min-height: 90px; resize: vertical; font-size: 12.5px; }
     </div>
     <div class="row"><button class="btn" id="fs">Vollbild</button><button class="btn" id="reset">Alles zurücksetzen</button></div>
     <span class="small" id="storeNote"></span>
+  </div>
+
+  <div class="group">
+    <h2>Paket vom USB-Stick</h2>
+    <span class="btn file">Paket laden<input type="file" id="paketIn" accept=".json,application/json" aria-label="ShowCube-Paket laden"></span>
+    <span class="small" id="paketNote">Ein Paket aus dem Cloud-Panel („Für USB-Stick exportieren“) ersetzt Vorlage, Dateien und Zeitplan.</span>
   </div>
 </aside>
 

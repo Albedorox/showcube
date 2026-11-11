@@ -3,8 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "vite",
     "dev:player": "vite player",
     "dev:konfigurator": "vite konfigurator",
+    "dev:panel": "vite panel",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node scripts/build.mjs"
   },
