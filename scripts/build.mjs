@@ -6,7 +6,7 @@ import { copyFile, mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
-const apps = ['player', 'konfigurator'];
+const apps = ['player', 'konfigurator', 'panel'];
 
 await mkdir(resolve(root, 'release'), { recursive: true });
 for (const app of apps) {
@@ -20,4 +20,4 @@ for (const app of apps) {
   await copyFile(resolve(outDir, 'index.html'), resolve(root, 'release', `${app}.html`));
 }
 await rm(resolve(root, 'dist'), { recursive: true, force: true });
-console.log('Fertig: release/player.html, release/konfigurator.html');
+console.log('Fertig: ' + apps.map(a => 'release/' + a + '.html').join(', '));
