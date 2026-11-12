@@ -56,6 +56,9 @@ Teilweise, und so ist es richtig:
 
 Echt:
 - Slideshows aus Vorlagen und eigenen Bildern/Videos zusammenstellen, mit Vorschau Tag/Abend, quer/hoch.
+- Preistabelle: eine Zeile pro Eintrag, einzelne Einträge mit dem Auge ausblenden („heute aus“), ohne sie zu löschen.
+- Sofort-Hinweis: ein Band über allen Folien, sofort auf den gewählten Bildschirmen, für eine Stunde, heute oder bis er beendet wird.
+- Zeitplan mit Ruhetagen, Logo des Betriebs, die letzten acht veröffentlichten Stände zum Zurückholen, Rückgängig nach jedem Löschen.
 - Veröffentlichen schickt das Paket an einen **echten Player**, der über „Live öffnen“ in einem
   zweiten Tab läuft. Der Player meldet sich zurück (Folie, Tageszeit, Laufzeit) und reagiert auf
   Bildschirm an/aus, Neustart, Identifizieren und Bildschirmfoto.

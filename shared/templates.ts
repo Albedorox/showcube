@@ -147,6 +147,7 @@ export const TEMPLATES = {
     label: 'Gastro: Menütafel', name: 'Pizzeria Da Marco', accent: '#d9482b',
     items: 'Margherita | 7,50 €\nSalame | 8,90 €\nFunghi | 8,50 €\nDiavola | 9,50 €\nQuattro Formaggi | 10,50 €',
     help: 'Eine Zeile pro Gericht: Name | Preis',
+    cols: [{ label: 'Gericht', grow: 5 }, { label: 'Preis', grow: 2 }], max: 5, unit: 'Gericht', units: 'Gerichte',
     slides: n => n ? [menuSlide('Abendkarte', 'Heute bis 23 Uhr geöffnet, auch zum Mitnehmen'), promoSlide('Heute Abend', 'Jede zweite Pizza', 'halber Preis')]
                    : [menuSlide('Mittagstisch', 'Montag bis Freitag, 11:30 bis 14:30 Uhr'), promoSlide('Mittagsdeal', 'Pizza und Getränk', '9,90 €')]
   },
@@ -154,6 +155,7 @@ export const TEMPLATES = {
     label: 'Makler: Objekte', name: 'Hausmann Immobilien', accent: '#1f6f8b',
     items: '3-Zimmer-Wohnung in der Altstadt | 78 m², Balkon | 890 € kalt | C\nReihenhaus mit Garten | 124 m², 5 Zimmer | 429.000 € | B\nPenthouse am Stadtpark | 96 m², Dachterrasse | 1.450 € kalt | A',
     help: 'Eine Zeile pro Objekt: Titel | Fläche | Preis | Energieklasse (A+ bis H)',
+    cols: [{ label: 'Objekt', grow: 3 }, { label: 'Fläche, Zimmer', grow: 2 }, { label: 'Preis', grow: 2 }, { label: 'Energie', grow: 1, options: ['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] }], max: 4, unit: 'Objekt', units: 'Objekte',
     slides: (n, d) => [...d.items.slice(0, 4).map((_, i) => objectSlide(i)),
       n ? textSlide('Auch nach Ladenschluss', 'QR-Code scannen, Exposé aufs Handy.', 'Alle Objekte und Besichtigungstermine rund um die Uhr.', true)
         : textSlide('Sie möchten verkaufen?', 'Wir bewerten Ihre Immobilie kostenlos.', 'Kommen Sie herein oder vereinbaren Sie einen Termin.', false)]
@@ -162,10 +164,21 @@ export const TEMPLATES = {
     label: 'Laden: Angebote', name: 'Modehaus Linde', accent: '#b8326b',
     items: 'Herbst-Sale | bis -30 %\nNeue Kollektion | jetzt da\nGutscheine | ab 10 €',
     help: 'Eine Zeile pro Angebot: Überschrift | großer Text',
+    cols: [{ label: 'Überschrift', grow: 2 }, { label: 'Großer Text', grow: 2 }], max: 4, unit: 'Angebot', units: 'Angebote',
     slides: (n, d) => n ? [textSlide('Gerade geschlossen', 'Morgen ab 9 Uhr wieder für Sie da.', 'Bis dahin: schauen Sie sich in Ruhe um.', false), ...d.items.slice(0, 4).map((_, i) => saleSlide(i, true))]
                         : d.items.slice(0, 4).map((_, i) => saleSlide(i, i % 2 === 1))
   }
 };
+// Sofort-Hinweis: ein Band am unteren Rand, über jeder Folie. Player (Bildschirmfoto) und Panel (Vorschau) zeichnen es gleich.
+export function drawNotice(ctx, w, h, text: string, accent = '#111111') {
+  const u = Math.min(w, h) / 100, bh = u * 13, y = h - bh;
+  ctx.save();
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, y, w, bh);
+  ctx.fillStyle = accent; ctx.fillRect(0, y, u * 2.2, bh);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#111';
+  fit(ctx, text, w - u * 12, u * 6, 800, DISP); ctx.fillText(text, u * 7, y + bh / 2 + u * .3);
+  ctx.restore();
+}
 export const SWATCHES = ['#d9482b', '#1f6f8b', '#b8326b', '#2f7d32', '#e09a1a', '#3b3f9c'];
 
 // Canvas-Text nutzt eine Schrift erst, wenn sie geladen ist. Vor der ersten Folie darauf warten,

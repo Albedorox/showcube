@@ -1,5 +1,5 @@
 import '../shared/fonts.css';
-import { fontsReady, TEMPLATES, SWATCHES } from '../shared/templates';
+import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates';
 import { CHANNEL, paketFromFile, type Msg, type Paket } from '../shared/paket';
 
 // ?live=<id>: dieser Player ist ein Bildschirm im Cloud-Panel (Prototyp: anderer Tab im selben Browser).
@@ -9,7 +9,7 @@ const SUFFIX = LIVE ? '-live-' + LIVE : '';
 
 // ---------- Speicher: Einstellungen in localStorage, Dateien in IndexedDB ----------
 const KEY = 'svizzbox-player-v0' + SUFFIX;
-const DEF = { revision: 0, tpl: 'makler', tplOn: true, name: '', items: '', accent: '', dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', dur: 8, fit: 'cover', media: [] };
+const DEF = { revision: 0, tpl: 'makler', tplOn: true, name: '', items: '', accent: '', dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', offDays: [], notice: null, dur: 8, fit: 'cover', media: [] };
 let C = Object.assign({}, DEF);
 let storeOK = true;
 try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) C = Object.assign({}, DEF, s); } catch (e) { storeOK = false; }
@@ -50,6 +50,7 @@ function period(now) {
   if (sim !== 'live') return sim;
   const n = now.getHours() * 60 + now.getMinutes();
   if (C.offOn && inRange(n, mins(C.offFrom), mins(C.offTo))) return 'off';
+  if ((C.offDays || []).includes(now.getDay())) return 'off';
   return inRange(n, mins(C.dayStart), mins(C.eveStart)) ? 'day' : 'eve';
 }
 function nextChange(now) {
@@ -209,8 +210,8 @@ function applyPaket(p: Paket) {
   C.media.forEach(m => dbDel(m.id)); dbDel('logo'); logoImg = null;
   Object.entries(p.files || {}).forEach(([id, b]) => { if (b instanceof Blob) dbPut(id, b); });
   Object.assign(C, { revision: p.show.revision, tplOn: !!c.tpl, tpl: c.tpl || C.tpl, name: c.name, items: c.items, accent: c.accent, dur: c.dur, fit: c.fit,
-    dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, media: c.media.map(m => ({ ...m })) });
-  loadLogo(); applyTpl(C.tpl, true); syncForm(); renderMedia(); restart();
+    dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays || [], notice: c.notice || null, media: c.media.map(m => ({ ...m })) });
+  loadLogo(); applyTpl(C.tpl, true); syncForm(); renderMedia(); restart(); showNotice();
   toast('Neue Inhalte: „' + p.show.name + '“ (Stand ' + p.show.revision + ')');
 }
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.remove('gone'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.add('gone'), 4000); }
@@ -219,6 +220,11 @@ $('paketIn').onchange = async (e: any) => {
   try { applyPaket(await paketFromFile(await f.text())); $('paketNote').textContent = 'Paket „' + f.name + '“ geladen.'; }
   catch (err) { $('paketNote').textContent = 'Konnte das Paket nicht laden: ' + err.message; }
 };
+
+// ---------- Sofort-Hinweis: Band über allen Folien ----------
+const noticeNow = () => C.notice && C.notice.text && (!C.notice.until || Date.now() < C.notice.until) ? C.notice.text : '';
+function showNotice() { const t = noticeNow(), el = $('notice'); el.hidden = !t || period(new Date()) === 'off'; el.textContent = t; el.style.setProperty('--nc', C.accent || '#111'); }
+setInterval(showNotice, 5000);
 
 // ---------- Verbindung zum Cloud-Panel (nur mit ?live=...) ----------
 const born = Date.now();
@@ -229,6 +235,7 @@ function snapshot(): string {
   if (src && period(new Date()) !== 'off') {
     const sw = src.videoWidth || src.naturalWidth || src.width, sh = src.videoHeight || src.naturalHeight || src.height;
     if (sw && sh) { const s = cur.canvas || C.fit === 'cover' ? Math.max(w / sw, h / sh) : Math.min(w / sw, h / sh); try { x.drawImage(src, (w - sw * s) / 2, (h - sh * s) / 2, sw * s, sh * s); } catch (e) {} }
+    if (noticeNow()) drawNotice(x, w, h, noticeNow(), C.accent);
   }
   return c.toDataURL('image/jpeg', .8);
 }
@@ -242,9 +249,10 @@ if (LIVE && 'BroadcastChannel' in window) {
   ch.onmessage = (e: MessageEvent<Msg>) => {
     const m = e.data; if (!m || (m as any).screen !== LIVE) return;
     if (m.t === 'paket') applyPaket(m.paket);
+    if (m.t === 'notice') { C.notice = m.notice; save(); showNotice(); }
     if (m.t === 'cmd') {
       if (m.cmd === 'restart') location.reload();
-      if (m.cmd === 'power') { forcedOff = !m.on; restart(); }
+      if (m.cmd === 'power') { forcedOff = !m.on; restart(); showNotice(); }
       if (m.cmd === 'identify') identify(m.label || LIVE);
       if (m.cmd === 'shot') send({ t: 'shot', screen: LIVE, url: snapshot() });
     }
@@ -258,6 +266,7 @@ if (LIVE && 'BroadcastChannel' in window) {
 const start = async () => {
   await openDB(); await dbLoadAll(); loadLogo();
   applyTpl(C.tpl, !!C.name); syncForm(); renderMedia(); status(); advance(); requestAnimationFrame(tick);
+  showNotice();
   if (LIVE) { $('liveNote').hidden = false; $('liveNote').textContent = 'Mit dem Cloud-Panel verbunden als Bildschirm „' + LIVE + '“. Änderungen im Panel kommen automatisch an.'; window['__live'](); }
 };
 fontsReady().then(start, start);

@@ -24,8 +24,13 @@ export interface ShowConfig {
   fit: 'cover' | 'contain';
   dayStart: string; eveStart: string;
   offOn: boolean; offFrom: string; offTo: string;
+  offDays?: number[];      // Ruhetage: 0 = Sonntag … 6 = Samstag, Bildschirm bleibt schwarz
+  notice?: Notice | null;  // Sofort-Hinweis, siehe unten
   media: MediaRef[];
 }
+
+// Sofort-Hinweis: Band über allen Folien, bis zum Zeitpunkt `until` (ms seit 1970, 0 = bis er entfernt wird).
+export interface Notice { text: string; until: number; }
 
 export interface Paket {
   format: typeof PAKET_FORMAT;
@@ -33,16 +38,17 @@ export interface Paket {
   show: { id: string; name: string; revision: number; published: string };
   screen?: { id: string; name: string };
   config: ShowConfig;
-  // Im Kanal: Blobs. In der USB-Datei: data:-URLs.
+  // Im Kanal: Blobs. In der USB-Datei: data:-URLs. Der Schlüssel `logo` ist das Logo des Betriebs.
   files: Record<string, Blob | string>;
 }
 
-// Nachrichten im Kanal. Player -> Panel: hello, beat, shot. Panel -> Player: paket, cmd.
+// Nachrichten im Kanal. Player -> Panel: hello, beat, shot. Panel -> Player: paket, notice, cmd.
 export type Msg =
   | { t: 'hello'; screen: string }
   | { t: 'beat'; screen: string; period: string; slide: number; of: number; revision: number; power: boolean; w: number; h: number; uptime: number }
   | { t: 'shot'; screen: string; url: string }
   | { t: 'paket'; screen: string; paket: Paket }
+  | { t: 'notice'; screen: string; notice: Notice | null }
   | { t: 'cmd'; screen: string; cmd: 'restart' | 'power' | 'identify' | 'shot'; on?: boolean; label?: string };
 
 const blobToDataURL = (b: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(b); });
