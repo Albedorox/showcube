@@ -62,6 +62,9 @@ Echt:
 - Veröffentlichen schickt das Paket an einen **echten Player**, der über „Live öffnen“ in einem
   zweiten Tab läuft. Der Player meldet sich zurück (Folie, Tageszeit, Laufzeit) und reagiert auf
   Bildschirm an/aus, Neustart, Identifizieren und Bildschirmfoto.
+- Bausteine (QR-Code, Bewertungen, Countdown) und die Infoleiste reisen im Paket mit (`extras`, `leiste`). Der Player zeigt sie auch offline, nur das Wetter braucht Internet und fehlt sonst einfach.
+- Zeiträume (ab, bis, Wochentage) prüft der Player selbst anhand seiner Uhr. Ein Wochenangebot verschwindet also auch ohne Verbindung pünktlich.
+- Der Player zählt, wie oft jede Folie heute lief, und meldet das mit dem Herzschlag ans Panel (Fernwartung, „Heute gezeigt“, CSV-Bericht).
 - „Für USB-Stick exportieren“ erzeugt `showcube-paket.json`, das der Player unter „Paket laden“ einliest.
 
 Gespielt:
@@ -69,3 +72,5 @@ Gespielt:
 - Die Verbindung zwischen Panel und Player ist ein BroadcastChannel, funktioniert also nur im selben Browser.
 - Temperatur, Speicher, Netz und der Online-Status der Demo-Bildschirme sind erfunden.
 - Koppeln nimmt jeden sechsstelligen Code.
+- Die Wiedergabezahlen der Demo-Bildschirme sind aus dem Zeitplan hochgerechnet. Die Meldung bei Ausfall verschickt nichts.
+- Bewertungen tippt man im Prototyp ab. Später holt ShowCube Sterne und Stimmen aus dem Google-Unternehmensprofil.

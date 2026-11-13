@@ -11,8 +11,11 @@ export const PAKET_FORMAT = 'showcube-paket';
 export const PAKET_VERSION = 1;
 export const CHANNEL = 'showcube-cloud';
 
+import type { Baustein, Leiste, Zeitraum } from './bausteine';
+
 export type When = 'always' | 'day' | 'eve';
-export interface MediaRef { id: string; type: 'image' | 'video'; name: string; when: When; }
+// Zeitraum (von, bis, Wochentage) ist freiwillig. Ohne Zeitraum läuft das Medium immer.
+export interface MediaRef extends Zeitraum { id: string; type: 'image' | 'video'; name: string; when: When; }
 
 // Felder heißen bewusst wie die Einstellungen im Player, damit er sie direkt übernehmen kann.
 export interface ShowConfig {
@@ -27,6 +30,8 @@ export interface ShowConfig {
   offDays?: number[];      // Ruhetage: 0 = Sonntag … 6 = Samstag, Bildschirm bleibt schwarz
   notice?: Notice | null;  // Sofort-Hinweis, siehe unten
   media: MediaRef[];
+  extras?: Baustein[];     // Zusatzfolien: QR-Code, Bewertungen, Countdown. Laufen nach den Vorlagen-Folien.
+  leiste?: Leiste | null;  // Infoleiste unten: Laufband, Uhr, Wetter
 }
 
 // Sofort-Hinweis: Band über allen Folien, bis zum Zeitpunkt `until` (ms seit 1970, 0 = bis er entfernt wird).
@@ -45,7 +50,7 @@ export interface Paket {
 // Nachrichten im Kanal. Player -> Panel: hello, beat, shot. Panel -> Player: paket, notice, cmd.
 export type Msg =
   | { t: 'hello'; screen: string }
-  | { t: 'beat'; screen: string; period: string; slide: number; of: number; revision: number; power: boolean; w: number; h: number; uptime: number }
+  | { t: 'beat'; screen: string; period: string; slide: number; of: number; revision: number; power: boolean; w: number; h: number; uptime: number; plays?: Record<string, number>; wx?: boolean }
   | { t: 'shot'; screen: string; url: string }
   | { t: 'paket'; screen: string; paket: Paket }
   | { t: 'notice'; screen: string; notice: Notice | null }
