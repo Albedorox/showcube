@@ -1,5 +1,6 @@
 import '../shared/fonts.css';
 import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates';
+import { activeOn, expired, zeitraumText, bausteinActive, bausteinSlide, bausteinTitle, BAUSTEINE, LEISTE, leisteH, drawLeiste, fetchWetter, findPlace, WETTER_DEMO, type Baustein, type BausteinKind, type Leiste, type Wetter, type Zeitraum } from '../shared/bausteine';
 import { CHANNEL, PAKET_FORMAT, PAKET_VERSION, paketToFile, type Msg, type Notice, type Paket, type ShowConfig, type When } from '../shared/paket';
 
 // Cloud-Panel, Prototyp. Kein Server: Zustand in localStorage, Dateien in IndexedDB.
@@ -45,6 +46,9 @@ const ICONS: Record<string, string> = {
   upload: '<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>', download: '<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
   ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   history: '<path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 8v4l3 2"/>', alert: '<path d="M12 3l10 18H2zM12 10v5M12 18v.5"/>',
+  qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>', timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5"/>',
+  ticker: '<rect x="2" y="15" width="20" height="6" rx="1.5"/><path d="M6 18h8M3 5h18M3 10h12"/>', chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   shop: '<path d="M3 9l1.5-5h15L21 9M4 9v11h16V9M9 20v-6h6v6"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 const icon = (n: string) => { const t = document.createElement('template'); t.innerHTML = `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`; return t.content.firstChild as SVGElement; };
@@ -68,20 +72,22 @@ const KONFIG_URL = REL ? 'konfigurator.html' : '../konfigurator/';
 
 // ---------- Datenmodell ----------
 type Row = { c: string[]; off?: boolean };
-type MediaUse = { id: string; when: When };
-interface Cfg { tpl: string | null; name: string; rows: Row[]; accent: string; logo: string | null; dur: number; fit: 'cover' | 'contain'; dayStart: string; eveStart: string; offOn: boolean; offFrom: string; offTo: string; offDays: number[]; media: MediaUse[]; }
+type MediaUse = { id: string; when: When } & Zeitraum;
+interface Cfg { tpl: string | null; name: string; rows: Row[]; accent: string; logo: string | null; dur: number; fit: 'cover' | 'contain'; dayStart: string; eveStart: string; offOn: boolean; offFrom: string; offTo: string; offDays: number[]; media: MediaUse[]; extras: Baustein[]; leiste: Leiste; }
 interface Version { revision: number; at: number; cfg: Cfg; }
 interface Show { id: string; name: string; revision: number; published: number | null; cfg: Cfg; pub: Cfg | null; history: Version[]; }
 interface Screen { id: string; name: string; place: string; orient: 'land' | 'port'; show: string; power: boolean; sim: 'online' | 'offline'; lastSeen: number; revision: number; version: string; temp: number; disk: number; net: string; booted: number; log: { t: number; msg: string }[]; }
 interface Asset { id: string; type: 'image' | 'video'; name: string; size: number; added: number; }
-interface State { shows: Show[]; screens: Screen[]; assets: Asset[]; notice: (Notice & { screens: string[] }) | null; }
+interface State { shows: Show[]; screens: Screen[]; assets: Asset[]; notice: (Notice & { screens: string[] }) | null; alert?: { on: boolean; after: number; to: string }; }
 
 const rowsOf = (items: string): Row[] => items.split('\n').filter(l => l.trim()).map(l => ({ c: l.split('|').map(s => s.trim()) }));
 const baseCfg = (tpl: string | null): Cfg => {
   const T = tpl ? TEMPLATES[tpl] : null;
   return { tpl, name: T ? T.name : '', rows: T ? rowsOf(T.items) : [], accent: T ? T.accent : SWATCHES[0], logo: null, dur: 8, fit: 'cover',
-    dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', offDays: [], media: [] };
+    dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', offDays: [], media: [], extras: [], leiste: { ...LEISTE } };
 };
+const bau = (kind: BausteinKind, f: Record<string, string> = {}, z: Zeitraum = {}): Baustein => ({ id: uid('b'), kind, on: true, when: 'always', ...z, f: { ...BAUSTEINE[kind].f, ...f } });
+const dayPlus = (n: number) => { const d = new Date(Date.now() + n * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 function seed(): State {
   const now = Date.now(), H = 3600e3;
   const mk = (id: string, name: string, cfg: Cfg): Show => ({ id, name, revision: 1, published: now - 26 * H, cfg, pub: clone(cfg), history: [{ revision: 1, at: now - 26 * H, cfg: clone(cfg) }] });
@@ -89,9 +95,11 @@ function seed(): State {
     log: [{ t: now - 26 * H, msg: 'Inhalte Stand 1 übernommen' }, { t: now - 3 * 24 * H, msg: 'Box gestartet' }] });
   return {
     shows: [
-      mk('pizza', 'Mittags- und Abendkarte', { ...baseCfg('gastro'), dayStart: '11:00', eveStart: '17:00', offFrom: '23:30', offTo: '10:30', offDays: [1] }),
-      mk('makler', 'Objekte im Fenster', { ...baseCfg('makler'), dur: 10, offFrom: '23:00', offTo: '06:00' }),
-      mk('sale', 'Herbst-Sale', baseCfg('laden')),
+      mk('pizza', 'Mittags- und Abendkarte', { ...baseCfg('gastro'), dayStart: '11:00', eveStart: '17:00', offFrom: '23:30', offTo: '10:30', offDays: [1],
+        extras: [bau('reviews'), bau('qr', { title: 'Die ganze Karte aufs Handy', url: 'https://da-marco.example/karte' })],
+        leiste: { on: true, ticker: 'Heute frisch: Kürbis-Pizza mit Salbei · Jeden Mittwoch Pasta-Abend · Auch zum Mitnehmen: 0751 123456', clock: true, weather: true, place: 'Ravensburg, Baden-Württemberg', lat: 47.781, lon: 9.612 } }),
+      mk('makler', 'Objekte im Fenster', { ...baseCfg('makler'), dur: 10, offFrom: '23:00', offTo: '06:00', extras: [bau('qr', { title: 'Alle Exposés aufs Handy', text: 'Grundrisse, Fotos und Besichtigungstermine, auch nach Ladenschluss.', url: 'https://hausmann.example/objekte' })] }),
+      mk('sale', 'Herbst-Sale', { ...baseCfg('laden'), extras: [bau('countdown', { kicker: 'Nur bis Sonntag', title: 'Herbst-Sale', big: 'bis −30 %', until: dayPlus(2) + 'T20:00' }, { to: dayPlus(2) })] }),
     ],
     screens: [
       scr('theke', 'Theke', 'Pizzeria Da Marco', 'land', 'pizza', 'online', now, 51, 'WLAN, gut'),
@@ -105,6 +113,9 @@ function seed(): State {
 const KEY = 'showcube-panel-v1';
 let S: State = seed();
 try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.shows && s.screens) S = s; } catch (e) {}
+// Ältere gespeicherte Stände kennen noch keine Bausteine und keine Infoleiste.
+S.shows.forEach(sh => [sh.cfg, sh.pub, ...sh.history.map(v => v.cfg)].forEach(c => { if (c) { c.extras = c.extras || []; c.leiste = c.leiste || { ...LEISTE }; } }));
+S.alert = S.alert || { on: true, after: 10, to: 'E-Mail und Push' };
 let saveOK = true;
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { saveOK = false; } }
 const showById = (id: string) => S.shows.find(s => s.id === id);
@@ -146,11 +157,18 @@ function dataOf(c: Cfg) {
   return { name: c.name || ' ', accent: c.accent, logo: li && li.complete && li.naturalWidth ? li : null, hours: 'Montag bis Samstag, 9 bis 19 Uhr',
     items: c.rows.filter(r => !r.off && (r.c[0] || '').trim()).map(r => r.c) };
 }
+// Vorschau-Datum: im Editor lässt sich ein anderer Tag simulieren, um Zeiträume zu prüfen.
+let day = new Date();
+// Folien-Funktionen je Baustein merken, solange sich der Baustein nicht ändert (sonst würde jedes Bild neu gebaut).
+const fnCache = new Map<string, { key: string; fn: any }>();
+function slideFn(b: Baustein) { const key = JSON.stringify(b), hit = fnCache.get(b.id); if (hit && hit.key === key) return hit.fn; const fn = bausteinSlide(b); fnCache.set(b.id, { key, fn }); return fn; }
 function slidesOf(c: Cfg, p: string) {
   if (p === 'off' || p === 'rest') return [];
   const list: any[] = [];
-  if (c.tpl && TEMPLATES[c.tpl]) TEMPLATES[c.tpl].slides(p === 'eve', dataOf(c)).forEach(fn => list.push({ kind: 'tpl', fn }));
-  c.media.forEach(m => { const a = assetById(m.id); if (a && blobs.has(a.id) && (m.when === 'always' || m.when === p)) list.push({ kind: a.type, id: a.id }); });
+  const fits = (x: { when: When }) => x.when === 'always' || x.when === p;
+  if (c.tpl && TEMPLATES[c.tpl]) TEMPLATES[c.tpl].slides(p === 'eve', dataOf(c)).forEach((fn, i) => list.push({ kind: 'tpl', fn, label: TEMPLATES[c.tpl].label.split(':')[0] + ', Folie ' + (i + 1) }));
+  (c.extras || []).forEach(b => { if (fits(b) && bausteinActive(b, day)) list.push({ kind: 'tpl', fn: slideFn(b), label: BAUSTEINE[b.kind].label + ': ' + bausteinTitle(b), bau: b.id }); });
+  c.media.forEach(m => { const a = assetById(m.id); if (a && blobs.has(a.id) && fits(m) && activeOn(m, day)) list.push({ kind: a.type, id: a.id, label: a.name }); });
   return list;
 }
 function drawItem(ctx: CanvasRenderingContext2D, w: number, h2: number, it: any, c: Cfg, t: number) {
@@ -163,9 +181,27 @@ function drawItem(ctx: CanvasRenderingContext2D, w: number, h2: number, it: any,
   const s = c.fit === 'contain' ? Math.min(w / sw, h2 / sh) : Math.max(w / sw, h2 / sh);
   try { ctx.drawImage(src, (w - sw * s) / 2, (h2 - sh * s) / 2, sw * s, sh * s); } catch (e) {}
 }
+// Wetter für die Vorschau: echt von Open-Meteo, wenn erreichbar. Sonst ein Beispielwert, deutlich so beschriftet.
+const wxCache = new Map<string, { wx: Wetter | null; demo: boolean; at: number }>();
+function wxFor(L: Leiste): { wx: Wetter | null; demo: boolean } {
+  if (!L.weather || L.lat == null) return { wx: null, demo: false };
+  const k = L.lat + ',' + L.lon, hit = wxCache.get(k);
+  if (!hit || Date.now() - hit.at > 15 * 60e3) {
+    wxCache.set(k, { wx: hit ? hit.wx : WETTER_DEMO, demo: hit ? hit.demo : true, at: Date.now() });
+    fetchWetter(L.lat, L.lon).then(wx => wxCache.set(k, { wx, demo: false, at: Date.now() }), () => {});
+  }
+  return wxCache.get(k);
+}
+// Zeichnet ein ganzes Bild wie auf der Box: Folie, darüber der Hinweis, darunter die Infoleiste.
+function paintScreen(ctx: CanvasRenderingContext2D, w: number, hh: number, c: Cfg, draw: (h2: number) => void, notice: string, t: number) {
+  const L = c.leiste, bh = L && L.on ? leisteH(w, hh) : 0, h2 = hh - bh;
+  draw(h2); if (notice) drawNotice(ctx, w, h2, notice, c.accent);
+  if (bh) drawLeiste(ctx, h2, w, bh, L, dataOf(c), t, wxFor(L).wx, new Date());
+}
 function stillOf(c: Cfg, w: number, h2: number, period = 'day', i = 0, notice = '') {
-  const cv = document.createElement('canvas'); cv.width = w; cv.height = h2; const x = cv.getContext('2d');
-  drawItem(x, w, h2, slidesOf(c, period)[i], c, 0); if (notice) drawNotice(x, w, h2, notice, c.accent); return cv;
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h2; const x = cv.getContext('2d'), list = slidesOf(c, period);
+  if (!list.length) { x.fillStyle = '#000'; x.fillRect(0, 0, w, h2); return cv; }
+  paintScreen(x, w, h2, c, hh => drawItem(x, w, hh, list[i], c, 0), notice, 0); return cv;
 }
 
 // Ein Abspieler pro Vorschau-Leinwand. Ein gemeinsamer Takt (30 Bilder/s) zeichnet nur die sichtbaren.
@@ -190,9 +226,10 @@ function frame(now: number) {
       if (!p.next) p.next = now + Math.max(3, c.dur) * 1000;
       if (now > p.next) { p.prev = list[p.idx]; p.fadeAt = now; p.idx = (p.idx + 1) % list.length; p.next = now + Math.max(3, c.dur) * 1000; }
       const a = p.prev ? Math.min(1, (now - p.fadeAt) / 450) : 1;
-      if (a < 1) { drawItem(ctx, w, hh, p.prev, c, now / 1000); ctx.globalAlpha = a; }
-      drawItem(ctx, w, hh, list[p.idx], c, now / 1000); ctx.globalAlpha = 1;
-      const nt = p.notice && p.notice(); if (nt) drawNotice(ctx, w, hh, nt, c.accent);
+      paintScreen(ctx, w, hh, c, h2 => {
+        if (a < 1) { drawItem(ctx, w, h2, p.prev, c, now / 1000); ctx.globalAlpha = a; }
+        drawItem(ctx, w, h2, list[p.idx], c, now / 1000); ctx.globalAlpha = 1;
+      }, (p.notice && p.notice()) || '', now / 1000);
     }
     const key = p.idx + '/' + list.length + '/' + per;
     if (key !== p.key) { p.key = key; if (p.onSlide) p.onSlide(p.idx, list.length, per); }
@@ -207,8 +244,8 @@ const send = (m: Msg) => ch && ch.postMessage(m);
 const isOn = (sc: Screen) => isLive(sc.id) || sc.sim === 'online';
 function noticeFor(id: string): Notice | null { const n = S.notice; return n && n.screens.includes(id) && (!n.until || Date.now() < n.until) ? { text: n.text, until: n.until } : null; }
 function toConfig(c: Cfg, sc?: Screen): ShowConfig {
-  const media = c.media.map(m => { const a = assetById(m.id); return a && blobs.has(a.id) ? { id: a.id, type: a.type, name: a.name, when: m.when } : null; }).filter(Boolean);
-  return { tpl: c.tpl, name: c.name, items: itemsOf(c), accent: c.accent, dur: c.dur, fit: c.fit, dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays, notice: sc ? noticeFor(sc.id) : null, media };
+  const media = c.media.map(m => { const a = assetById(m.id); return a && blobs.has(a.id) ? { id: a.id, type: a.type, name: a.name, when: m.when, from: m.from, to: m.to, days: m.days } : null; }).filter(Boolean);
+  return { tpl: c.tpl, name: c.name, items: itemsOf(c), accent: c.accent, dur: c.dur, fit: c.fit, dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays, notice: sc ? noticeFor(sc.id) : null, media, extras: clone(c.extras || []), leiste: c.leiste && c.leiste.on ? { ...c.leiste } : null };
 }
 function paketFor(sh: Show, c: Cfg, sc?: Screen): Paket {
   const config = toConfig(c, sc), files: Record<string, Blob> = {};
@@ -253,6 +290,7 @@ function go(v: string, id?: string) { const hsh = '#' + v + (id ? '/' + id : '')
 function route() {
   const [v, id] = location.hash.slice(1).split('/');
   view = VIEWS.some(x => x[0] === v) ? v : 'screens';
+  if (view !== 'shows') day = new Date();
   if (view === 'shows' && id && showById(id)) cur = id;
   render(); scrollTo(0, 0);
 }
@@ -302,10 +340,15 @@ function renderScreens(v: HTMLElement) {
   v.append(h('div', { class: 'head' }, h('div', null, h('h1', null, 'Bildschirme'), sum),
     h('button', { class: 'btn primary', onclick: openPair }, icon('plus'), 'Bildschirm koppeln')));
   // Was Aufmerksamkeit braucht, steht oben. Ohne Probleme bleibt der Bereich leer.
+  const A = S.alert;
+  v.append(h('div', { class: 'alertset' }, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: A.on, onchange: (e: any) => { A.on = e.target.checked; save(); render(); } }), 'Melde dich, wenn ein Bildschirm ausfällt'),
+    A.on ? [h('select', { 'aria-label': 'Nach wie vielen Minuten', onchange: (e: any) => { A.after = +e.target.value; save(); render(); } }, [5, 10, 30, 60].map(m => h('option', { value: String(m), selected: A.after === m }, 'nach ' + m + ' min'))),
+      h('select', { 'aria-label': 'Wie benachrichtigen', onchange: (e: any) => { A.to = e.target.value; save(); render(); } }, ['E-Mail und Push', 'nur E-Mail', 'nur Push aufs Handy'].map(x => h('option', { selected: A.to === x }, x))),
+      h('span', null, 'Prototyp: es wird nichts verschickt, das Panel zeigt nur, wann es passiert wäre.')] : null));
   const attn = h('div', { class: 'attn' });
   S.screens.filter(s => !isOn(s)).forEach(sc => {
     const sh = showById(sc.show), t = h('span', { class: 'small' });
-    const upd = () => { t.textContent = 'Seit ' + since(sc.lastSeen) + '. Die Box zeigt weiter den letzten Stand' + (sh && sc.revision < sh.revision ? ' und holt Stand ' + sh.revision + ', sobald sie wieder da ist.' : '.'); };
+    const upd = () => { const at = sc.lastSeen + A.after * 60e3, sent = A.on && Date.now() > at; t.textContent = 'Seit ' + since(sc.lastSeen) + '. Die Box zeigt weiter den letzten Stand' + (sh && sc.revision < sh.revision ? ' und holt Stand ' + sh.revision + ', sobald sie wieder da ist.' : '.') + (sent ? ' ' + (A.to === 'nur Push aufs Handy' ? 'Push' : 'E-Mail') + ' an dich ging um ' + clock(at) + ' Uhr raus.' : A.on ? ' Meldung an dich um ' + clock(at) + ' Uhr, falls sie bis dahin nicht zurück ist.' : ''); };
     upd(); ticks.push(upd);
     attn.append(h('div', { class: 'attn-item bad' }, icon('alert'), h('div', null, h('b', null, '„' + sc.name + '“ bei ' + sc.place + ' ist offline'), t), h('button', { class: 'btn sm', onclick: () => openScreen(sc.id) }, 'Ansehen')));
   });
@@ -343,6 +386,32 @@ function renderScreens(v: HTMLElement) {
 function openLive(sc: Screen) {
   const w = window.open(PLAYER_URL + '?live=' + encodeURIComponent(sc.id), 'showcube-' + sc.id);
   toast(w ? 'Player startet in einem neuen Tab und meldet sich gleich hier.' : 'Der Browser hat das neue Fenster blockiert.');
+}
+
+// ---------- Wiedergabe-Nachweis ----------
+// Live-Player zählen selbst mit. Für Demo-Boxen rechnen wir aus Zeitplan und Folienlänge hoch, wie oft jede Folie heute lief.
+function playsOf(sc: Screen): { n: Record<string, number>; real: boolean } {
+  const l = live.get(sc.id), b = isLive(sc.id) && l && l.beat;
+  if (b && b.plays) return { n: b.plays, real: true };
+  const sh = showById(sc.show), c = sh && (sh.pub || sh.cfg), out: Record<string, number> = {};
+  if (!c || (c.offDays || []).includes(new Date().getDay())) return { n: out, real: false };
+  const now = new Date(), upto = Math.min(now.getHours() * 60 + now.getMinutes(), !isOn(sc) ? new Date(sc.lastSeen).getHours() * 60 + new Date(sc.lastSeen).getMinutes() : 1440);
+  for (let m = 0; m < upto; m++) {
+    const per = periodAt(c, m); if (per === 'off') continue;
+    const list = slidesOf(c, per); if (!list.length) continue;
+    const each = 60 / (Math.max(3, c.dur) * list.length);
+    list.forEach(it => { out[it.label] = (out[it.label] || 0) + each; });
+  }
+  Object.keys(out).forEach(k => { out[k] = Math.round(out[k]); if (!out[k]) delete out[k]; });
+  return { n: out, real: false };
+}
+function playsCsv(sc: Screen) {
+  const { n } = playsOf(sc), d = new Date().toLocaleDateString('de-DE');
+  const rows = [['Datum', 'Bildschirm', 'Standort', 'Folie', 'Wiedergaben'], ...Object.entries(n).map(([k, v]) => [d, sc.name, sc.place, k, String(v)])];
+  const csv = rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const a = h('a', { href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })), download: 'wiedergaben-' + sc.id + '.csv' });
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast('Wiedergabe-Bericht gespeichert. Öffnet sich in Excel oder Numbers.');
 }
 
 // ---------- Fernwartung (Seitenblatt) ----------
@@ -393,6 +462,16 @@ function drawScreenDlg() {
         h('div', null, h('label', { for: 'dsShow' }, 'Zeigt'), h('select', { id: 'dsShow', onchange: (e: any) => { sc.show = e.target.value; logTo(sc, 'Slideshow gewechselt: ' + showById(sc.show).name); deliver(sc); redraw(); } }, S.shows.map(x => h('option', { value: x.id, selected: x.id === sc.show }, x.name)))),
         h('div', null, h('label', { for: 'dsOrient' }, 'Ausrichtung'), h('select', { id: 'dsOrient', onchange: (e: any) => { sc.orient = e.target.value; redraw(); } }, h('option', { value: 'land', selected: sc.orient === 'land' }, 'quer'), h('option', { value: 'port', selected: sc.orient === 'port' }, 'hochkant'))))),
     h('div', { class: 'fld' }, h('h3', null, 'Zustand'), kv),
+    (() => {
+      const box = h('div', { class: 'fld' }), upd2 = () => {
+        const { n, real } = playsOf(sc), ent = Object.entries(n).sort((a, b2) => b2[1] - a[1]), max = ent.length ? ent[0][1] : 1, sum = ent.reduce((x, e) => x + e[1], 0);
+        fill(box, h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', { style: 'margin:0' }, 'Heute gezeigt'), ent.length ? h('button', { class: 'btn ghost sm', onclick: () => playsCsv(sc) }, icon('download'), 'Bericht (CSV)') : null),
+          ent.length ? [h('span', { class: 'small' }, plural(sum, 'Wiedergabe', 'Wiedergaben') + ' seit Mitternacht' + (real ? ', vom Player gezählt.' : ', hochgerechnet aus dem Zeitplan (Demo-Box).')),
+            h('ul', { class: 'pop' }, ent.slice(0, 8).map(([k, v]) => h('li', null, h('span', { title: k }, k), h('b', null, v + '×'), h('i', { style: '--w:' + Math.max(3, Math.round(v / max * 100)) + '%' }))))]
+            : h('span', { class: 'small' }, 'Heute noch nichts gezeigt.'));
+      };
+      upd2(); dticks.push(upd2); return box;
+    })(),
     s.lv ? h('div', { class: 'row' }, h('button', { class: 'btn sm', onclick: () => openLive(sc) }, 'Player-Tab zeigen', icon('ext')))
       : h('div', { class: 'sim' }, h('span', null, 'Demo-Box, Werte sind gespielt. Mit „Live öffnen“ wird daraus ein echter Player.'),
         h('button', { class: 'btn sm', onclick: () => { if (sc.sim === 'online') { sc.sim = 'offline'; sc.lastSeen = Date.now(); logTo(sc, 'Verbindung verloren'); } else { sc.sim = 'online'; logTo(sc, 'Wieder online'); if (sh && sc.revision < sh.revision) deliver(sc); } redraw(); } }, sc.sim === 'online' ? 'Ausfall testen' : 'Wieder online'),
@@ -483,6 +562,8 @@ function changesOf(sh: Show): string[] {
   }
   if (a.name !== b.name || a.accent !== b.accent || a.logo !== b.logo) out.push('Name, Farbe oder Logo');
   if (j(a.media) !== j(b.media)) out.push('Medien');
+  if (j(a.extras) !== j(b.extras)) out.push('Bausteine');
+  if (j(a.leiste) !== j(b.leiste)) out.push('Infoleiste');
   if (j([a.dayStart, a.eveStart, a.offOn, a.offFrom, a.offTo, a.offDays]) !== j([b.dayStart, b.eveStart, b.offOn, b.offFrom, b.offTo, b.offDays])) out.push('Zeitplan');
   if (a.dur !== b.dur || a.fit !== b.fit) out.push('Anzeige');
   return out;
@@ -531,7 +612,7 @@ function renderShowList() {
 }
 function renderTabs() {
   const c = shown().cfg, T = c.tpl && TEMPLATES[c.tpl];
-  const defs = [['content', 'Inhalt', T ? c.rows.filter(r => !r.off).length : 0], ['media', 'Medien', c.media.length], ['plan', 'Zeitplan', 0], ['history', 'Verlauf', shown().history.length]];
+  const defs = [['content', 'Inhalt', T ? c.rows.filter(r => !r.off).length : 0], ['extras', 'Bausteine', (c.extras || []).filter(b => b.on).length + (c.leiste && c.leiste.on ? 1 : 0)], ['media', 'Medien', c.media.length], ['plan', 'Zeitplan', 0], ['history', 'Verlauf', shown().history.length]];
   fill(ed.tabs, ...defs.map(([k, l, n]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => { tab = k as string; renderTabs(); renderPane(); } }, l, n ? h('span', { class: 'n' }, String(n)) : null)));
 }
 function renderFilm() {
@@ -614,21 +695,24 @@ function renderPane() {
       h('div', { class: 'rows-foot' }, h('button', { class: 'btn sm', onclick: () => { c.rows.push({ c: cols.map(() => '') }); repaint(`[data-cell="${c.rows.length - 1}-0"]`); } }, icon('plus'), T.unit + ' hinzufügen'),
         h('span', { class: 'small' }, 'Enter springt in die nächste Zeile.')),
       vis > T.max ? h('div', { class: 'hint' }, icon('alert'), h('span', null, 'Damit alles lesbar bleibt, zeigt die Vorlage ' + T.max + ' ' + T.units + ' im Querformat. Die unteren ' + (vis - T.max) + ' sind gestrichelt markiert und erscheinen dort nicht. Mit dem Auge kannst du andere ausblenden.')) : null), h('h3', null, 'Gestaltung'), tplFld, design);
+  } else if (tab === 'extras') {
+    renderExtras(p, c, repaint);
   } else if (tab === 'media') {
     const free = S.assets.filter(a => !c.media.some(m => m.id === a.id));
     fill(p, 
       c.media.length ? h('ul', { class: 'mlist' }, c.media.map((m, i) => {
         const a = assetById(m.id); if (!a) return null;
-        return h('li', null, h(a.type === 'video' ? 'video' : 'img', { class: 'th', src: urlOf(a.id) || '', alt: '' }), h('span', { class: 'nm' }, a.name),
+        return h('li', null, h(a.type === 'video' ? 'video' : 'img', { class: 'th', src: urlOf(a.id) || '', alt: '' }), h('span', { class: 'nm' }, a.name, expired(m) ? h('span', { class: 'badge', style: 'margin-left:6px' }, 'abgelaufen') : m.to ? h('span', { class: 'small', style: 'margin-left:6px' }, zeitraumText(m)) : null),
           h('span', { class: 'row', style: 'gap:2px' },
             h('select', { 'aria-label': 'Wann zeigen: ' + a.name, onchange: (e: any) => { m.when = e.target.value; changed(); } }, [['always', 'immer'], ['day', 'tagsüber'], ['eve', 'abends']].map(([val, tx]) => h('option', { value: val, selected: m.when === val }, tx))),
+            h('input', { type: 'date', value: m.to || '', title: 'Zeigen bis (leer = immer)', 'aria-label': 'Zeigen bis: ' + a.name, onchange: (e: any) => { m.to = e.target.value || undefined; repaint(); } }),
             h('button', { class: 'ib', 'aria-label': 'Nach oben: ' + a.name, disabled: i === 0, onclick: () => { c.media.splice(i - 1, 0, c.media.splice(i, 1)[0]); repaint(); } }, icon('up')),
             h('button', { class: 'ib', 'aria-label': 'Aus der Slideshow nehmen: ' + a.name, onclick: () => { c.media.splice(i, 1); repaint(); } }, icon('x'))));
       })) : h('div', { class: 'empty' }, 'Eigene Fotos und Videos laufen nach den Vorlagen-Folien.'),
       h('div', { class: 'row' },
         h('span', { class: 'btn file primary' }, icon('upload'), 'Hochladen', h('input', { type: 'file', accept: 'image/*,video/mp4,video/webm', multiple: true, 'aria-label': 'Bilder oder Videos hochladen', onchange: (e: any) => { const ids = addFiles(e.target.files, true); ids.forEach(id => c.media.push({ id, when: 'always' })); repaint(); } })),
         free.length ? h('select', { style: 'flex:1;min-width:180px', 'aria-label': 'Aus der Bibliothek hinzufügen', onchange: (e: any) => { if (e.target.value) { c.media.push({ id: e.target.value, when: 'always' }); repaint(); } } }, h('option', { value: '' }, 'Aus der Bibliothek hinzufügen …'), free.map(a => h('option', { value: a.id }, (a.type === 'video' ? 'Video: ' : '') + a.name))) : null),
-      h('span', { class: 'small' }, 'Bilder bleiben so lange stehen wie unter „Zeitplan“ eingestellt, Videos laufen bis zum Ende.'));
+      h('span', { class: 'small' }, 'Bilder bleiben so lange stehen wie unter „Zeitplan“ eingestellt, Videos laufen bis zum Ende. Mit einem Datum verschwindet ein Medium danach von selbst.'));
   } else if (tab === 'plan') {
     // Zeitleiste: 24 Stunden in Viertelstunden, gleiche Abschnitte zusammengefasst.
     const segs: { p: string; n: number }[] = [];
@@ -655,6 +739,73 @@ function renderPane() {
       sh.history.length ? h('span', { class: 'small' }, 'Die letzten acht Stände bleiben gespeichert.') : null);
     (p.querySelectorAll('.hist canvas') as any).forEach((cv: HTMLCanvasElement) => { cv.style.cssText = 'width:72px;height:40px;border-radius:5px;flex:none'; });
   }
+}
+
+// ---------- Bausteine und Infoleiste (Reiter im Editor) ----------
+let extrasTick: () => void = null; const runExtrasTick = () => extrasTick && extrasTick();
+const KIND_ICON: Record<BausteinKind, string> = { qr: 'qr', reviews: 'star', countdown: 'timer' };
+const isoDay = (d: Date) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+function bauState(b: Baustein): [string, string] {
+  if (!b.on) return ['', 'aus'];
+  if (expired(b) || (b.kind === 'countdown' && b.f.until && Date.parse(b.f.until) <= Date.now())) return ['bad', 'abgelaufen'];
+  if (!bausteinActive(b, new Date())) return ['warn', b.from && isoDay(new Date()) < b.from ? 'geplant' : 'heute nicht'];
+  return ['ok', 'läuft'];
+}
+function zeitraumFields(z: Zeitraum & { when?: When }, idp: string, repaint: (f?: string) => void, withWhen = true) {
+  const DAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'], days = z.days || [];
+  return h('div', { class: 'zr' },
+    withWhen ? h('div', null, h('label', { for: idp + 'w' }, 'Tageszeit'), h('select', { id: idp + 'w', onchange: (e: any) => { z.when = e.target.value; repaint(); } }, [['always', 'immer'], ['day', 'tagsüber'], ['eve', 'abends']].map(([v, t]) => h('option', { value: v, selected: z.when === v }, t)))) : null,
+    h('div', null, h('label', { for: idp + 'f' }, 'Ab (leer = sofort)'), h('input', { type: 'date', id: idp + 'f', value: z.from || '', onchange: (e: any) => { z.from = e.target.value || undefined; repaint('#' + idp + 'f'); } })),
+    h('div', null, h('label', { for: idp + 't' }, 'Bis (leer = immer)'), h('input', { type: 'date', id: idp + 't', value: z.to || '', onchange: (e: any) => { z.to = e.target.value || undefined; repaint('#' + idp + 't'); } })),
+    h('div', { class: 'days', role: 'group', 'aria-label': 'Nur an diesen Tagen' }, [1, 2, 3, 4, 5, 6, 0].map(d => h('button', { 'aria-pressed': String(days.includes(d)), title: 'Nur an diesen Tagen zeigen. Keiner gewählt = jeden Tag.', onclick: () => { z.days = days.includes(d) ? days.filter(x => x !== d) : [...days, d]; if (!z.days.length) delete z.days; repaint(); } }, DAYS[d]))));
+}
+function renderExtras(p: HTMLElement, c: Cfg, repaint: (f?: string) => void) {
+  const list = c.extras, L = c.leiste;
+  const add = (k: BausteinKind) => { const b = bau(k); if (k === 'countdown') { b.f.until = dayPlus(3) + 'T20:00'; b.to = dayPlus(3); } list.push(b); repaint(); toast(BAUSTEINE[k].label + ' hinzugefügt. Die Folie läuft nach den Vorlagen-Folien.'); };
+  const cards = list.map((b, i) => {
+    const B = BAUSTEINE[b.kind], [cls, st] = bauState(b), idp = 'b' + i, title = bausteinTitle(b);
+    return h('div', { class: 'bst' + (b.on ? '' : ' is-off') },
+      h('div', { class: 'bst-h' }, icon(KIND_ICON[b.kind]), h('b', null, B.label + (title && title !== B.label ? ': ' + title : '')), h('span', { class: 'badge ' + cls }, st),
+        h('button', { class: 'ib', title: 'Nach oben', 'aria-label': 'Nach oben: ' + B.label, disabled: i === 0, onclick: () => { list.splice(i - 1, 0, list.splice(i, 1)[0]); repaint(); } }, icon('up')),
+        h('button', { class: 'ib', title: b.on ? 'Ausschalten, ohne zu löschen' : 'Wieder einschalten', 'aria-label': (b.on ? 'Ausschalten: ' : 'Einschalten: ') + B.label, 'aria-pressed': String(!b.on), onclick: () => { b.on = !b.on; repaint(); } }, icon(b.on ? 'eye' : 'eyeoff')),
+        h('button', { class: 'ib', title: 'Löschen', 'aria-label': 'Löschen: ' + B.label, onclick: () => undoable(B.label + ' gelöscht.', () => { list.splice(i, 1); }) }, icon('trash'))),
+      h('div', { class: 'bst-f' }, B.fields.map(fd => {
+        const id = idp + fd.k, isQ = /^q\d/.test(fd.k);
+        const inp = isQ ? h('textarea', { id, rows: 2, placeholder: fd.ph || '', oninput: (e: any) => { b.f[fd.k] = e.target.value; changed(); } }, b.f[fd.k] || '')
+          : h('input', { id, type: fd.type || 'text', value: b.f[fd.k] || '', placeholder: fd.ph || '', oninput: (e: any) => { b.f[fd.k] = e.target.value; if (fd.k === 'until') { b.to = (e.target.value || '').slice(0, 10) || undefined; } changed(); } });
+        return h('div', { class: fd.wide ? 'wide' : null }, h('label', { for: id }, fd.label), inp);
+      })),
+      b.kind === 'reviews' ? h('span', { class: 'small' }, 'Tipp: Den Link zum Bewerten gibt es im Google-Unternehmensprofil unter „Rezensionen erhalten“. Später holt ShowCube Sterne und Stimmen automatisch.') : null,
+      zeitraumFields(b, idp, repaint));
+  });
+  // Infoleiste
+  const wxInfo = h('span', { class: 'small' });
+  const wxUpd = () => { const r = wxFor(L); wxInfo.textContent = !L.weather ? '' : L.lat == null ? 'Ort suchen, damit das Wetter erscheint.' : r.demo ? 'Wetter für ' + L.place + '. Gerade nicht erreichbar, die Vorschau zeigt einen Beispielwert. Die Box zeigt nur echtes Wetter.' : 'Wetter live für ' + L.place + ' (Open-Meteo, ohne Konto, alle 15 Minuten).'; };
+  const placeIn = h('input', { type: 'text', id: 'lPlace', value: L.place || '', placeholder: 'z. B. Ravensburg', onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); search(); } } });
+  const search = async () => {
+    const q = placeIn.value.trim(); if (!q) return; wxInfo.textContent = 'Suche „' + q + '“ …';
+    try { const r = await findPlace(q); if (!r) { wxInfo.textContent = 'Kein Ort „' + q + '“ gefunden.'; return; } L.place = r.name; L.lat = r.lat; L.lon = r.lon; repaint(); }
+    catch (e) { L.place = q; wxInfo.textContent = 'Ortssuche gerade nicht erreichbar. Bitte später noch einmal.'; changed(); }
+  };
+  extrasTick = wxUpd; if (!ticks.includes(runExtrasTick)) ticks.push(runExtrasTick);
+  fill(p,
+    h('div', { class: 'fld' }, h('h3', null, 'Zusatzfolien'), h('span', { class: 'small', style: 'margin-top:-4px' }, 'Fertige Folien, die zu jedem Betrieb passen. Mit Zeitraum laufen sie von selbst an und ab.'),
+      cards.length ? cards : null,
+      h('div', { class: 'bst-add' }, (Object.keys(BAUSTEINE) as BausteinKind[]).map(k => h('button', { onclick: () => add(k) }, h('b', null, icon(KIND_ICON[k]), BAUSTEINE[k].label), h('span', null, BAUSTEINE[k].desc))))),
+    h('div', { class: 'fld' }, h('h3', null, 'Infoleiste'),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: L.on, onchange: (e: any) => { L.on = e.target.checked; repaint(); } }), 'Leiste unten einblenden: Laufband, Uhr und Wetter'),
+      L.on ? [
+        h('span', { class: 'small' }, 'Die Folien werden dafür etwas niedriger, nichts wird verdeckt. Ohne Laufband-Text steht dort der Name des Betriebs.'),
+        h('div', null, h('label', { for: 'lTick' }, 'Laufband'), h('textarea', { id: 'lTick', rows: 2, placeholder: 'Heute frisch: … · Jeden Mittwoch: …', oninput: (e: any) => { L.ticker = e.target.value; changed(); } }, L.ticker || '')),
+        h('div', { class: 'row' }, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: L.clock, onchange: (e: any) => { L.clock = e.target.checked; repaint(); } }), 'Uhrzeit und Datum'),
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: L.weather, onchange: (e: any) => { L.weather = e.target.checked; repaint(); } }), 'Wetter')),
+        L.weather ? h('div', { class: 'leiste-f' }, h('div', null, h('label', { for: 'lPlace' }, 'Ort fürs Wetter'), placeIn), h('button', { class: 'btn', onclick: search }, icon('search'), 'Suchen')) : null,
+        wxInfo] : null),
+    h('div', { class: 'fld' }, h('h3', null, 'Vorschau an einem anderen Tag'),
+      h('div', { class: 'leiste-f' }, h('div', null, h('label', { for: 'pvDay' }, 'So sähe die Slideshow aus am'), h('input', { type: 'date', id: 'pvDay', value: isoDay(day), onchange: (e: any) => { day = e.target.value ? new Date(e.target.value + 'T12:00') : new Date(); renderFilm(); if (pvRef) { pvRef.idx = 0; pvRef.key = ''; } } })),
+        h('button', { class: 'btn ghost', onclick: () => { day = new Date(); repaint(); } }, 'Heute')),
+      h('span', { class: 'small' }, 'Nur für die Vorschau hier. Praktisch, um zu prüfen, ob das Wochenangebot am Montag wirklich weg ist.')));
+  wxUpd();
 }
 
 // ---------- Medien ----------

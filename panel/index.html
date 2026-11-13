@@ -121,7 +121,7 @@ svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor;
 .dot.dark { background: var(--warn); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ok) 0%, transparent); } }
 label, .label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
-input[type=text], input[type=time], input[type=number], select, textarea { width: 100%; height: 38px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--surface); transition: border-color .15s, box-shadow .15s; }
+input[type=text], input[type=time], input[type=number], input[type=date], input[type=url], input[type=datetime-local], select, textarea { width: 100%; height: 38px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--surface); transition: border-color .15s, box-shadow .15s; }
 input:hover, select:hover { border-color: var(--faint); }
 input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .check { display: flex; gap: 9px; align-items: center; font-weight: 500; margin: 0; cursor: pointer; }
@@ -361,6 +361,36 @@ dialog.cmd { border-radius: 16px; width: min(560px, calc(100vw - 28px)); margin-
   .head .btn .lbl-long { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+/* Bausteine und Infoleiste */
+.bst-add { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.bst-add button { all: unset; box-sizing: border-box; cursor: pointer; border: 1.5px dashed var(--line-strong); border-radius: 12px; padding: 11px 13px; display: flex; flex-direction: column; gap: 3px; }
+.bst-add button:hover { border-color: var(--accent); background: var(--surface-2); }
+.bst-add button:focus-visible { outline: 2px solid var(--accent); }
+.bst-add b { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.bst-add span { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.bst { border: 1px solid var(--line); border-radius: 13px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.bst.is-off { opacity: .55; }
+.bst-h { display: flex; align-items: center; gap: 8px; }
+.bst-h b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; }
+.bst-f { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px 12px; }
+.bst-f .wide { grid-column: 1 / -1; }
+.bst-f label, .zr label { font-size: 12px; margin-bottom: 3px; color: var(--muted); }
+.zr { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1fr); gap: 9px 12px; align-items: end; padding-top: 10px; border-top: 1px dashed var(--line); }
+.zr .days { grid-column: 1 / -1; }
+.zr input, .zr select, .bst-f input { min-width: 0; }
+.zr .days button { width: 38px; height: 32px; font-size: 12px; }
+.leiste-f { display: grid; grid-template-columns: 1fr auto; gap: 9px 12px; align-items: end; }
+textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; resize: vertical; }
+.mlist input[type=date] { width: 150px; height: 32px; font-size: 13px; padding: 0 8px; }
+.pop { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.pop li { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 4px 10px; align-items: center; font-size: 13px; }
+.pop li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop li b { text-align: right; font-variant-numeric: tabular-nums; }
+.pop li i { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.pop li i::before { content: ""; display: block; height: 100%; width: var(--w); background: var(--accent); border-radius: 3px; }
+.alertset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13px; color: var(--muted); margin: -6px 0 18px; }
+.alertset select { width: auto; height: 32px; font-size: 13px; }
+@media (max-width: 640px) { .bst-f, .zr { grid-template-columns: 1fr; } .zr .days { grid-column: auto; } .mlist input[type=date] { width: 128px; } }
 </style>
 </head>
 <body>

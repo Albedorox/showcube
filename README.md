@@ -15,6 +15,7 @@ Internet läuft.
 | --- | --- | --- |
 | `player/` | Player v0: läuft im Vollbild auf der Box, offline, mit Vorlagen, eigenen Bildern und Videos und Zeitplan (Tag, Abend, Bildschirm aus). Einstellungen mit Taste `E`. | Prototyp, im Browser getestet, noch nicht auf einem Raspberry Pi |
 | `panel/` | Cloud-Panel: Bildschirme mit Fernwartung, Preistabelle mit „heute aus“, Sofort-Hinweis auf alle Bildschirme, Zeitplan mit Ruhetagen, Versionen zum Zurückholen, Medien, Vorlagen, Befehlsleiste (Strg + K), hell/dunkel, fürs Handy gebaut. „Live öffnen“ startet einen echten Player im zweiten Tab, der die Inhalte bekommt. | Klick-Prototyp ohne Server |
+| Bausteine | Zusatzfolien für jede Slideshow: echter QR-Code, Google-Bewertungen mit Bewerten-QR, Countdown-Aktion. Jede Folie und jedes Medium kann einen Zeitraum haben (ab, bis, Wochentage) und verschwindet danach von selbst. Infoleiste unten mit Laufband, Uhr und Wetter (Open-Meteo, ohne Konto). Im Panel: Wiedergabe-Nachweis pro Bildschirm mit CSV-Bericht und Meldung bei Ausfall. Code in `shared/bausteine.ts`. | Prototyp, Wetter braucht Internet auf der Box |
 | `konfigurator/` | Schaufenster-Konfigurator für den Vertrieb: Foto vom Schaufenster, Bildschirm perspektivisch hineinmontieren, Vorher/Nachher, Postkarte A6. | Prototyp |
 | `shared/` | Gemeinsame Folien-Vorlagen, Schriften und das Paket-Format zwischen Panel und Player (Bricolage Grotesque, Figtree; beide OFL 1.1). | |
 | `release/` | Fertig gebaute Einzeldateien `player.html`, `panel.html` und `konfigurator.html`. | wird bei jedem Build erneuert |

@@ -1,6 +1,7 @@
 import '../shared/fonts.css';
 import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates';
 import { CHANNEL, paketFromFile, type Msg, type Paket } from '../shared/paket';
+import { activeOn, bausteinActive, bausteinSlide, bausteinTitle, BAUSTEINE, drawLeiste, leisteH, fetchWetter, type Wetter } from '../shared/bausteine';
 
 // ?live=<id>: dieser Player ist ein Bildschirm im Cloud-Panel (Prototyp: anderer Tab im selben Browser).
 // Er bekommt eigene Speicherplätze, damit der normale Test-Player nicht überschrieben wird.
@@ -9,7 +10,7 @@ const SUFFIX = LIVE ? '-live-' + LIVE : '';
 
 // ---------- Speicher: Einstellungen in localStorage, Dateien in IndexedDB ----------
 const KEY = 'svizzbox-player-v0' + SUFFIX;
-const DEF = { revision: 0, tpl: 'makler', tplOn: true, name: '', items: '', accent: '', dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', offDays: [], notice: null, dur: 8, fit: 'cover', media: [] };
+const DEF = { revision: 0, tpl: 'makler', tplOn: true, name: '', items: '', accent: '', dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', offDays: [], notice: null, dur: 8, fit: 'cover', media: [], extras: [], leiste: null };
 let C = Object.assign({}, DEF);
 let storeOK = true;
 try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) C = Object.assign({}, DEF, s); } catch (e) { storeOK = false; }
@@ -67,9 +68,44 @@ function data() {
 function playlist(p) {
   if (p === 'off') return [];
   const d = data(), list = [];
-  if (C.tplOn && TEMPLATES[C.tpl]) TEMPLATES[C.tpl].slides(p === 'eve', d).forEach(fn => list.push({ kind: 'tpl', fn }));
-  C.media.filter(m => m.when === 'always' || m.when === p).forEach(m => { if (blobs.has(m.id)) list.push({ kind: m.type, id: m.id }); });
+  const now = new Date(), fits = (x: any) => x.when === 'always' || x.when === p;
+  if (C.tplOn && TEMPLATES[C.tpl]) TEMPLATES[C.tpl].slides(p === 'eve', d).forEach((fn, i) => list.push({ kind: 'tpl', fn, label: TEMPLATES[C.tpl].label.split(':')[0] + ', Folie ' + (i + 1) }));
+  (C.extras || []).filter(b => fits(b) && bausteinActive(b, now)).forEach(b => list.push({ kind: 'tpl', fn: bausteinSlide(b), label: BAUSTEINE[b.kind].label + ': ' + bausteinTitle(b) }));
+  C.media.filter(m => fits(m) && activeOn(m, now)).forEach(m => { if (blobs.has(m.id)) list.push({ kind: m.type, id: m.id, label: m.name }); });
   return list;
+}
+
+// ---------- Wiedergabe-Nachweis: wie oft lief welche Folie heute ----------
+const PKEY = KEY + '-plays', today = () => new Date().toDateString();
+let plays: { day: string; n: Record<string, number> } = { day: today(), n: {} };
+try { const s = JSON.parse(localStorage.getItem(PKEY) || 'null'); if (s && s.day === today()) plays = s; } catch (e) {}
+function countPlay(label: string) {
+  if (!label) return; if (plays.day !== today()) plays = { day: today(), n: {} };
+  plays.n[label] = (plays.n[label] || 0) + 1; try { localStorage.setItem(PKEY, JSON.stringify(plays)); } catch (e) {}
+}
+
+// ---------- Infoleiste: Laufband, Uhr, Wetter ----------
+const leiste = document.getElementById('leiste') as HTMLCanvasElement;
+let wx: Wetter | null = null, wxFail = false;
+try { wx = JSON.parse(localStorage.getItem(KEY + '-wx') || 'null'); } catch (e) {}
+async function loadWetter() {
+  const L = C.leiste; if (!L || !L.on || !L.weather || L.lat == null) return;
+  try { wx = await fetchWetter(L.lat, L.lon); wxFail = false; try { localStorage.setItem(KEY + '-wx', JSON.stringify(wx)); } catch (e) {} } catch (e) { wxFail = true; }
+}
+setInterval(loadWetter, 15 * 60e3);
+const leisteOn = () => !!(C.leiste && C.leiste.on) && period(new Date()) !== 'off';
+function layoutLeiste() {
+  const on = leisteOn(), bh = on ? leisteH(innerWidth, innerHeight) : 0;
+  document.body.style.setProperty('--lh', bh + 'px'); leiste.hidden = !on;
+  if (cur && cur.canvas) sizeCanvas(cur);
+}
+// Wetter älter als drei Stunden zeigen wir nicht mehr an.
+const wxNow = () => wx && Date.now() - wx.at < 3 * 3600e3 ? wx : null;
+function paintLeiste(t: number) {
+  if (leiste.hidden) return;
+  const f = Math.min(devicePixelRatio || 1, 2), w = Math.round(leiste.clientWidth * f), h = Math.round(leiste.clientHeight * f);
+  if (!w || !h) return; if (leiste.width !== w || leiste.height !== h) { leiste.width = w; leiste.height = h; }
+  drawLeiste(leiste.getContext('2d'), 0, w, h, C.leiste, { name: C.name || ' ', accent: C.accent || '#0b7a67' }, t, wxNow());
 }
 
 // ---------- Wiedergabe mit Überblendung ----------
@@ -101,7 +137,7 @@ function advance() {
     timer = setTimeout(advance, 5000); return;
   }
   empty.hidden = true; offhint.hidden = true;
-  idx = (idx + 1) % list.length;
+  idx = (idx + 1) % list.length; countPlay(list[idx].label);
   const L = makeLayer(list[idx]); screen.appendChild(L.el);
   if (L.canvas) { sizeCanvas(L); L.fn = list[idx].fn; L.fn(L.ctx, L.canvas.width, L.canvas.height, data(), performance.now() / 1000); }
   requestAnimationFrame(() => L.el.classList.add('on'));
@@ -116,9 +152,10 @@ function advance() {
 }
 function tick() {
   if (cur && cur.canvas && cur.fn) { sizeCanvas(cur); cur.fn(cur.ctx, cur.canvas.width, cur.canvas.height, data(), performance.now() / 1000); }
+  paintLeiste(performance.now() / 1000);
   requestAnimationFrame(tick);
 }
-setInterval(() => { const p = period(new Date()); if (p !== lastPeriod) { idx = -1; advance(); } status(); }, 15000);
+setInterval(() => { const p = period(new Date()); if (p !== lastPeriod) { idx = -1; advance(); } layoutLeiste(); status(); }, 15000);
 
 // ---------- Einstellungen ----------
 const $ = (id: string) => document.getElementById(id) as any;
@@ -144,7 +181,7 @@ function status() {
   $('stNext').textContent = sim === 'live' ? 'Nächster Wechsel um ' + nextChange(now) + ' Uhr' : 'Zum Testen fest eingestellt';
   $('storeNote').textContent = storeOK ? 'Alles wird in diesem Browser gespeichert und läuft ohne Internet weiter.' : 'Speichern ist hier blockiert: Änderungen gehen beim Neuladen verloren.';
 }
-function restart() { save(); idx = -1; advance(); status(); }
+function restart() { save(); idx = -1; layoutLeiste(); advance(); status(); }
 
 const tplSel = $('tpl');
 Object.entries(TEMPLATES).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v.label; tplSel.appendChild(o); });
@@ -202,7 +239,7 @@ function syncForm() {
   $('tplOn').checked = C.tplOn; ['dayStart', 'eveStart', 'offFrom', 'offTo'].forEach(k => $(k).value = C[k]);
   $('offOn').checked = C.offOn; $('dur').value = C.dur; $('fit').value = C.fit; $('logoOff').hidden = !blobs.has('logo');
 }
-addEventListener('resize', () => { if (cur && cur.canvas) sizeCanvas(cur); });
+addEventListener('resize', () => { layoutLeiste(); if (cur && cur.canvas) sizeCanvas(cur); });
 
 // ---------- Paket übernehmen: aus der Cloud oder vom USB-Stick ----------
 function applyPaket(p: Paket) {
@@ -210,8 +247,8 @@ function applyPaket(p: Paket) {
   C.media.forEach(m => dbDel(m.id)); dbDel('logo'); logoImg = null;
   Object.entries(p.files || {}).forEach(([id, b]) => { if (b instanceof Blob) dbPut(id, b); });
   Object.assign(C, { revision: p.show.revision, tplOn: !!c.tpl, tpl: c.tpl || C.tpl, name: c.name, items: c.items, accent: c.accent, dur: c.dur, fit: c.fit,
-    dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays || [], notice: c.notice || null, media: c.media.map(m => ({ ...m })) });
-  loadLogo(); applyTpl(C.tpl, true); syncForm(); renderMedia(); restart(); showNotice();
+    dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays || [], notice: c.notice || null, media: c.media.map(m => ({ ...m })), extras: (c.extras || []).map(b => ({ ...b, f: { ...b.f } })), leiste: c.leiste ? { ...c.leiste } : null });
+  layoutLeiste(); loadWetter(); loadLogo(); applyTpl(C.tpl, true); syncForm(); renderMedia(); restart(); showNotice();
   toast('Neue Inhalte: „' + p.show.name + '“ (Stand ' + p.show.revision + ')');
 }
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.remove('gone'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.add('gone'), 4000); }
@@ -229,13 +266,14 @@ setInterval(showNotice, 5000);
 // ---------- Verbindung zum Cloud-Panel (nur mit ?live=...) ----------
 const born = Date.now();
 function snapshot(): string {
-  const c = document.createElement('canvas'), w = 480, h = Math.round(480 * screen.clientHeight / Math.max(screen.clientWidth, 1));
-  c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, w, h);
+  const lh = leiste.hidden ? 0 : leiste.clientHeight, c = document.createElement('canvas'), w = 480, full = Math.round(480 * (screen.clientHeight + lh) / Math.max(screen.clientWidth, 1)), h = full - Math.round(480 * lh / Math.max(screen.clientWidth, 1));
+  c.width = w; c.height = full; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, w, full);
   const src: any = cur && (cur.canvas || cur.video || cur.el.querySelector('img'));
   if (src && period(new Date()) !== 'off') {
     const sw = src.videoWidth || src.naturalWidth || src.width, sh = src.videoHeight || src.naturalHeight || src.height;
     if (sw && sh) { const s = cur.canvas || C.fit === 'cover' ? Math.max(w / sw, h / sh) : Math.min(w / sw, h / sh); try { x.drawImage(src, (w - sw * s) / 2, (h - sh * s) / 2, sw * s, sh * s); } catch (e) {} }
     if (noticeNow()) drawNotice(x, w, h, noticeNow(), C.accent);
+    if (lh) drawLeiste(x, h, w, full - h, C.leiste, { name: C.name || ' ', accent: C.accent || '#0b7a67' }, performance.now() / 1000, wxNow());
   }
   return c.toDataURL('image/jpeg', .8);
 }
@@ -257,7 +295,7 @@ if (LIVE && 'BroadcastChannel' in window) {
       if (m.cmd === 'shot') send({ t: 'shot', screen: LIVE, url: snapshot() });
     }
   };
-  const beat = () => send({ t: 'beat', screen: LIVE, period: period(new Date()), slide: idx + 1, of: playlist(period(new Date())).length, revision: C.revision, power: !forcedOff, w: innerWidth, h: innerHeight, uptime: Math.round((Date.now() - born) / 1000) });
+  const beat = () => send({ t: 'beat', screen: LIVE, period: period(new Date()), slide: idx + 1, of: playlist(period(new Date())).length, revision: C.revision, power: !forcedOff, w: innerWidth, h: innerHeight, uptime: Math.round((Date.now() - born) / 1000), plays: plays.day === today() ? plays.n : {}, wx: !!wxNow() });
   setInterval(beat, 3000);
   window['__live'] = () => { send({ t: 'hello', screen: LIVE }); beat(); };
 }
@@ -265,7 +303,7 @@ if (LIVE && 'BroadcastChannel' in window) {
 // ---------- Start ----------
 const start = async () => {
   await openDB(); await dbLoadAll(); loadLogo();
-  applyTpl(C.tpl, !!C.name); syncForm(); renderMedia(); status(); advance(); requestAnimationFrame(tick);
+  applyTpl(C.tpl, !!C.name); syncForm(); renderMedia(); status(); layoutLeiste(); loadWetter(); advance(); requestAnimationFrame(tick);
   showNotice();
   if (LIVE) { $('liveNote').hidden = false; $('liveNote').textContent = 'Mit dem Cloud-Panel verbunden als Bildschirm „' + LIVE + '“. Änderungen im Panel kommen automatisch an.'; window['__live'](); }
 };
