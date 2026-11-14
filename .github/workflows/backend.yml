@@ -19,8 +19,8 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta,realtime
@@ -35,13 +35,13 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_YES: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - name: Mit dem Supabase-Projekt verbinden
         run: npx supabase link --project-ref "${{ vars.SUPABASE_PROJECT_ID }}"
       - name: Datenbank auf den neuesten Stand bringen
-        run: npx supabase db push --password "$SUPABASE_DB_PASSWORD"
+        run: npx supabase db push --remote --password "$SUPABASE_DB_PASSWORD"
       - name: Anmelde-Einstellungen übernehmen (anonyme Boxen an, E-Mail-Bestätigung aus)
         run: npx supabase config push --yes
