@@ -494,7 +494,7 @@ function drawScreenDlg() {
 function openPair() {
   const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' });
   fill($('pairForm'), 
-    h('div', { class: 'dlg-h' }, h('h2', { id: 'dpTitle' }, 'Bildschirm koppeln'), h('button', { class: 'btn icon ghost', value: 'cancel', formnovalidate: true, 'aria-label': 'Schließen' }, icon('x'))),
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dpTitle' }, 'Bildschirm koppeln'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
     h('p', { class: 'small' }, 'Box an den Fernseher stecken und mit dem WLAN verbinden. Auf dem Fernseher erscheint ein sechsstelliger Code.' + (konto ? '' : ' Im Prototyp geht jeder Code.')),
     h('div', null, h('label', { for: 'pCode' }, 'Code vom Fernseher'), h('input', { class: 'code', type: 'text', id: 'pCode', inputmode: 'numeric', maxlength: '7', placeholder: '482 915', autocomplete: 'off' })),
     h('div', { class: 'grid2' },
@@ -532,7 +532,7 @@ function openNotice() {
   const t = tv('land', { cfg: () => { const sc = first(), sh = sc && showById(sc.show); return sh ? sh.pub || sh.cfg : baseCfg('gastro'); }, period: () => 'day', notice: () => text.value.trim() || 'Dein Hinweis' });
   const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Dauer' }, [['hour', '1 Stunde'], ['today', 'Heute'], ['open', 'Bis ich ihn beende']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(k === len), onclick: (e: any) => { len = k; [...seg.children].forEach((x: any) => x.setAttribute('aria-pressed', String(x === e.currentTarget))); } }, l)));
   fill($('noticeForm'), 
-    h('div', { class: 'dlg-h' }, h('h2', { id: 'dnTitle' }, 'Sofort-Hinweis'), h('button', { class: 'btn icon ghost', value: 'cancel', formnovalidate: true, 'aria-label': 'Schließen' }, icon('x'))),
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dnTitle' }, 'Sofort-Hinweis'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
     h('p', { class: 'small' }, 'Ein Band über allen Folien, sofort auf den gewählten Bildschirmen. Die Slideshow läuft darunter weiter.'),
     h('div', { class: 'stage round', style: 'aspect-ratio:16/8' }, t.frame),
     h('div', { class: 'fld' }, h('label', { for: 'nText', style: 'margin:0' }, 'Text'), text,
@@ -1109,7 +1109,7 @@ async function cloudEntfernen(sc: Screen) {
 function openLogin(neu = false) {
   const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' });
   fill($('loginForm'),
-    h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, neu ? 'Konto anlegen' : 'Anmelden'), h('button', { class: 'btn icon ghost', value: 'cancel', formnovalidate: true, 'aria-label': 'Schließen' }, icon('x'))),
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, neu ? 'Konto anlegen' : 'Anmelden'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
     h('p', { class: 'small' }, neu ? 'Mit einem Konto liegen Slideshows und Bildschirme auf dem ShowCube-Server, und echte Boxen lassen sich koppeln.' : 'Mit deinem ShowCube-Konto. Danach siehst du deine echten Bildschirme.'),
     neu ? h('div', null, h('label', { for: 'lBetrieb' }, 'Name des Betriebs'), h('input', { type: 'text', id: 'lBetrieb', autocomplete: 'organization', placeholder: 'z. B. Pizzeria Da Marco' })) : null,
     h('div', null, h('label', { for: 'lMail' }, 'E-Mail'), h('input', { type: 'email', id: 'lMail', autocomplete: 'email', required: true })),
@@ -1144,8 +1144,9 @@ async function abmelden() {
 async function openBetriebe() {
   const list = h('div', { class: 'targets' }, h('span', { class: 'small' }, 'Lade …'));
   fill($('loginForm'),
-    h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, 'Betrieb öffnen'), h('button', { class: 'btn icon ghost', value: 'cancel', formnovalidate: true, 'aria-label': 'Schließen' }, icon('x'))),
-    h('p', { class: 'small' }, 'Admin-Ansicht: alle Kunden. Du siehst und änderst, was der Kunde sieht, und kannst Boxen für ihn koppeln.'), list);
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, 'Betrieb öffnen'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
+    h('p', { class: 'small' }, 'Admin-Ansicht: alle Kunden. Du siehst und änderst, was der Kunde sieht, und kannst Boxen für ihn koppeln.'), list,
+    h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', { class: 'small' }, 'Angemeldet als ' + konto.email), h('button', { class: 'btn ghost sm', type: 'button', onclick: abmelden }, 'Abmelden')));
   $('loginForm').onsubmit = null;
   if (!$('dlgLogin').open) $('dlgLogin').showModal();
   const r = await sb.rpc('admin_betriebe');
@@ -1162,7 +1163,7 @@ async function wechsleBetrieb(id: string) {
 function paintKonto() {
   if (!sb) return;
   $('konto').hidden = false;
-  fill($('konto'), icon('user'), h('span', { class: 'lbl' }, konto ? konto.email.split('@')[0] : 'Anmelden'));
+  fill($('konto'), icon('user'), h('span', { class: 'lbl' }, konto ? konto.email.split('@')[0] : 'Anmelden'), konto && konto.admin ? h('span', { class: 'badge ok' }, 'Admin') : null);
   $('konto').title = konto ? 'Angemeldet als ' + konto.email : 'Mit ShowCube-Konto anmelden';
   const st = !konto ? '' : syncFehler ? 'Nicht gespeichert: ' + syncFehler + ' Wird wiederholt.' : syncLaeuft || syncT && (offenePakete.size || S.shows.some(sh => synced.shows.get(sh.id) !== JSON.stringify(sh))) ? 'Wird gespeichert …' : ladeN ? 'Lade ' + plural(ladeN, 'Datei', 'Dateien') + ' …' : 'Alles auf dem Server gespeichert.';
   fill($('proto'), konto
