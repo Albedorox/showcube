@@ -78,6 +78,31 @@ Soll die Box nur mit Inhalten vom Stick laufen (ShowCube Light, ohne Koppel-Code
 in Schritt 3 `bash box-einrichten.sh --light` aufrufen. Kennung und Schlüssel bekommt sie trotzdem,
 später lässt sie sich mit Taste `E` und „Mit ShowCube Cloud verbinden“ in die Cloud holen.
 
+## Ohne echten Pi testen
+
+Der Browser spielt die Box. Server und Panel sind dabei die echten.
+
+1. `release/player.html?testbox=1a2b3c4d` öffnen (auf GitHub Pages oder lokal). Statt `1a2b3c4d`
+   eine beliebige ausgedachte Seriennummer.
+2. Der Player rechnet daraus die Kennung genau wie das Skript auf dem Pi, würfelt einen Schlüssel und
+   springt auf `player.html?cloud&box=SC-…&key=…`. **Diese Adresse als Lesezeichen speichern:** Sie ist
+   das, was auf der echten Box in der Autostart-Zeile steht.
+3. Im Panel den Code koppeln. Im Panel steht die Box-Kennung unter dem Bildschirm.
+4. Browser-Reset nachstellen: Website-Daten löschen (Chrome: Schloss-Symbol neben der Adresse,
+   „Cookies und Websitedaten“, löschen) oder ein Inkognito-Fenster nehmen, dann das Lesezeichen öffnen.
+   Die Box ist sofort wieder gekoppelt, ohne neuen Code.
+5. Gegenprobe Diebstahl: In der Adresse den `key` ändern. Die Box wird abgewiesen
+   („mit einem anderen Schlüssel angemeldet“).
+
+Gleiche ausgedachte Seriennummer heißt gleiche Kennung. Ein zweites `?testbox=` mit derselben Nummer
+würfelt aber einen neuen Schlüssel und wird deshalb abgewiesen, genau wie eine neu bespielte SD-Karte.
+Zum Nachstellen der Admin-Freigabe siehe [backend.md](backend.md#box-kennung-an-den-pi-gebunden).
+
+Das Einrichtungs-Skript selbst lässt sich auf einem Linux-Rechner mit ausgedachter Seriennummer
+probieren, ohne etwas am Rechner zu ändern:
+`HOME=$(mktemp -d) SHOWCUBE_SERIE=1a2b3c4d bash scripts/box-einrichten.sh release/player.html`.
+Es zeigt dieselbe Kennung wie Schritt 1.
+
 ## 5. Vor dem Ausliefern prüfen
 
 - [ ] Strom ziehen und wieder einstecken: Startet der Player von selbst?

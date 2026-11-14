@@ -308,6 +308,21 @@ if (LIVE && 'BroadcastChannel' in window) {
 const VERSION = '0.4.0';
 const CKEY = KEY + '-cloud';
 const q = new URLSearchParams(location.search);
+// Testbox ohne echten Pi: player.html?testbox=<ausgedachte Seriennummer>
+// rechnet die Kennung genau wie scripts/box-einrichten.sh, würfelt einen Schlüssel und lädt neu mit
+// ?cloud&box=…&key=…. Diese Adresse ist dann wie die Autostart-Zeile auf der Box: als Lesezeichen merken.
+export async function kennungAus(serie: string): Promise<string> {
+  const s = serie.replace(/\s/g, '').toLowerCase().replace(/^0+/, '');
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('showcube-box:' + s)));
+  let bits = 0n; for (const b of h.slice(0, 5)) bits = (bits << 8n) | BigInt(b);
+  let k = ''; for (let i = 7; i >= 0; i--) k += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[Number((bits >> BigInt(i * 5)) & 31n)];
+  return 'SC-' + k.slice(0, 4) + '-' + k.slice(4);
+}
+if (q.get('testbox')) {
+  const zufall = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  kennungAus(q.get('testbox')!).then(k => location.replace(location.pathname + '?cloud&box=' + k + '&key=' + zufall));
+  throw new Error('Testbox wird eingerichtet');
+}
 // Auf der echten Box übergibt scripts/box-einrichten.sh Kennung (aus der Seriennummer des Pi) und Schlüssel in der Adresse.
 // Damit findet der Server die Box wieder, auch wenn der Browser-Speicher gelöscht wurde. Ohne beides: Test im Browser.
 const BOXK = (q.get('box') || '').trim().toUpperCase(), BOXS = q.get('key') || '';
