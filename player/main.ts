@@ -1,6 +1,7 @@
 import '../shared/fonts.css';
 import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates';
 import { CHANNEL, paketFromFile, type Msg, type Paket } from '../shared/paket';
+import { hatServer, verbinden, SPEICHER, BUCKET, type SupabaseClient } from '../shared/cloud';
 import { activeOn, bausteinActive, bausteinSlide, bausteinTitle, BAUSTEINE, drawLeiste, leisteH, fetchWetter, type Wetter } from '../shared/bausteine';
 
 // ?live=<id>: dieser Player ist ein Bildschirm im Cloud-Panel (Prototyp: anderer Tab im selben Browser).
@@ -300,11 +301,106 @@ if (LIVE && 'BroadcastChannel' in window) {
   window['__live'] = () => { send({ t: 'hello', screen: LIVE }); beat(); };
 }
 
+// ---------- ShowCube Cloud: Box koppeln, Pakete abholen, Herzschlag ----------
+// Mit player.html?cloud (oder in den Einstellungen) wird der Player zur Cloud-Box:
+// Er meldet sich anonym beim Server an, zeigt einen Koppel-Code und holt sich danach alle 10 Sekunden seinen Stand.
+// Ohne Internet läuft er einfach mit dem zuletzt geholten Paket weiter.
+const VERSION = '0.4.0';
+const CKEY = KEY + '-cloud';
+const q = new URLSearchParams(location.search);
+if (hatServer && q.has('cloud')) { try { localStorage.setItem(CKEY, '1'); } catch (e) {} }
+let cloudOn = false; try { cloudOn = hatServer && !LIVE && localStorage.getItem(CKEY) === '1'; } catch (e) {}
+let cloudState: 'start' | 'pair' | 'ok' | 'offline' = 'start', cloudName = '', cloudAt = 0;
+let stand = ''; try { stand = localStorage.getItem(CKEY + '-stand') || ''; } catch (e) {}
+function zustand() {
+  const p = period(new Date());
+  return { period: p, slide: idx + 1, of: playlist(p).length, revision: C.revision, power: !forcedOff, w: innerWidth, h: innerHeight, uptime: Math.round((Date.now() - born) / 1000), plays: plays.day === today() ? plays.n : {}, wx: !!wxNow() };
+}
+let pairCode: string | null = null;
+function showPair(code: string | null, offline = false) {
+  $('pair').hidden = false; if (code) pairCode = code; else code = offline ? pairCode : null;
+  $('pairCode').textContent = code ? code.slice(0, 3) + ' ' + code.slice(3) : '···';
+  $('pairText').textContent = code ? 'Im ShowCube-Panel auf „Bildschirm koppeln“ tippen und diesen Code eingeben.' : 'Die Box verbindet sich mit ShowCube.';
+  $('pairSt').textContent = offline ? 'Keine Verbindung zum Server. Die Box versucht es weiter. Ist das WLAN eingerichtet?' : '';
+}
+// Dateien aus dem Speicher holen. Bilder und Videos behalten ihre Nummer, schon vorhandene laden wir nicht nochmal.
+async function holePaket(sb: SupabaseClient, p: Paket): Promise<Paket> {
+  const files: Record<string, Blob> = {};
+  for (const [k, v] of Object.entries(p.files || {})) {
+    if (typeof v !== 'string' || !v.startsWith(SPEICHER)) continue;
+    if (k !== 'logo' && blobs.has(k)) { files[k] = blobs.get(k); continue; }
+    const r = await sb.storage.from(BUCKET).download(v.slice(SPEICHER.length));
+    if (r.error) throw r.error;
+    files[k] = r.data;
+  }
+  return { ...p, files };
+}
+function cloudNote() {
+  if (!hatServer) return;
+  $('cloudGroup').hidden = !!LIVE;
+  $('cloudBtn').textContent = cloudOn ? 'Von der Cloud trennen' : 'Mit ShowCube Cloud verbinden';
+  $('cloudNote').textContent = !cloudOn ? 'Die Box holt sich ihre Inhalte dann aus dem Panel, statt vom USB-Stick.'
+    : cloudState === 'ok' ? 'Verbunden als „' + cloudName + '“. Inhalte kommen aus dem Panel.'
+    : cloudState === 'pair' ? 'Wartet aufs Koppeln. Den Code auf dem Bildschirm im Panel eingeben.'
+    : cloudState === 'offline' ? 'Gerade keine Verbindung' + (cloudAt ? ', zuletzt um ' + new Date(cloudAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' : '') + '. Der letzte Stand läuft weiter.'
+    : 'Verbindet …';
+}
+$('cloudBtn').onclick = () => {
+  try { if (cloudOn) { localStorage.removeItem(CKEY); localStorage.removeItem(CKEY + '-stand'); localStorage.removeItem('showcube-box'); } else localStorage.setItem(CKEY, '1'); } catch (e) {}
+  location.reload();
+};
+async function cloudLoop() {
+  const sb = verbinden('showcube-box');
+  let erledigt: number[] = [], lastHint = JSON.stringify(C.notice || null);
+  const tick = async () => {
+    try {
+      const { data: s } = await sb.auth.getSession();
+      if (!s.session) { const r = await sb.auth.signInAnonymously(); if (r.error) throw r.error; }
+      const { data, error } = await sb.rpc('box_stand', { p_zustand: zustand(), p_stand: stand, p_erledigt: erledigt, p_version: VERSION });
+      if (error) throw error;
+      erledigt = [];
+      if (!data.bekannt || (!data.gekoppelt && !data.code)) {
+        const a = await sb.rpc('box_anmelden'); if (a.error) throw a.error;
+        cloudState = a.data.gekoppelt ? 'ok' : 'pair'; if (!a.data.gekoppelt) showPair(a.data.code);
+        // Neu angemeldet (z.B. im Panel entfernt): alter Stand gilt nicht mehr.
+        stand = ''; try { localStorage.removeItem(CKEY + '-stand'); } catch (e) {}
+        return;
+      }
+      cloudAt = Date.now();
+      if (!data.gekoppelt) { cloudState = 'pair'; showPair(data.code); return; }
+      cloudState = 'ok'; cloudName = data.name; $('pair').hidden = true;
+      if (data.paket) {
+        const p = await holePaket(sb, data.paket);
+        applyPaket(p); stand = data.stand; try { localStorage.setItem(CKEY + '-stand', stand); } catch (e) {}
+      }
+      const hint = JSON.stringify(data.hinweis || null);
+      if (hint !== lastHint || JSON.stringify(C.notice || null) !== hint) { lastHint = hint; C.notice = data.hinweis || null; save(); showNotice(); }
+      if (forcedOff !== !data.strom) { forcedOff = !data.strom; restart(); showNotice(); }
+      for (const b of data.befehle || []) {
+        if (b.befehl === 'identify') { identify(data.name); erledigt.push(b.id); }
+        if (b.befehl === 'shot') { const r = await sb.rpc('box_foto', { p_befehl: b.id, p_bild: snapshot() }); if (r.error) erledigt.push(b.id); }
+        if (b.befehl === 'restart') { await sb.rpc('box_stand', { p_zustand: zustand(), p_stand: stand, p_erledigt: [...erledigt, b.id], p_version: VERSION }); location.reload(); return; }
+      }
+    } catch (e) {
+      cloudState = 'offline';
+      // Noch nie gekoppelt: Hinweis auf dem Fernseher. Sonst einfach weiterspielen.
+      if (!stand && !cloudName) showPair(null, true);
+    } finally {
+      cloudNote();
+      // Befehle (Foto, Finden) sollen schnell ankommen. Mehr als alle 10 Sekunden muss die Box nicht fragen.
+      setTimeout(tick, cloudState === 'pair' ? 5000 : 10000);
+    }
+  };
+  if (!stand) showPair(null);
+  tick();
+}
+
 // ---------- Start ----------
 const start = async () => {
   await openDB(); await dbLoadAll(); loadLogo();
   applyTpl(C.tpl, !!C.name); syncForm(); renderMedia(); status(); layoutLeiste(); loadWetter(); advance(); requestAnimationFrame(tick);
   showNotice();
+  cloudNote(); if (cloudOn) cloudLoop();
   if (LIVE) { $('liveNote').hidden = false; $('liveNote').textContent = 'Mit dem Cloud-Panel verbunden als Bildschirm „' + LIVE + '“. Änderungen im Panel kommen automatisch an.'; window['__live'](); }
 };
 fontsReady().then(start, start);

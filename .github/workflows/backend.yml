@@ -1,0 +1,47 @@
+# Backend (Supabase) prüfen und ausrollen.
+# - Bei jedem Pull Request, der supabase/ oder das Testskript ändert: lokalen Supabase-Server starten und
+#   scripts/backend-test.mjs durchspielen (Koppeln, Veröffentlichen, Zugriffsregeln).
+# - Auf main: Datenbank-Änderungen (supabase/migrations) und Auth-Einstellungen (supabase/config.toml)
+#   auf das echte Projekt bringen. Läuft erst, wenn die Variable SUPABASE_PROJECT_ID gesetzt ist,
+#   siehe docs/backend.md.
+name: Backend
+
+on:
+  pull_request:
+    paths: ['supabase/**', 'scripts/backend-test.mjs', '.github/workflows/backend.yml']
+  push:
+    branches: [main]
+    paths: ['supabase/**', '.github/workflows/backend.yml']
+  workflow_dispatch:
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta,realtime
+      - run: node scripts/backend-test.mjs
+
+  deploy:
+    if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    concurrency: backend-deploy
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_YES: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Mit dem Supabase-Projekt verbinden
+        run: npx supabase link --project-ref "${{ vars.SUPABASE_PROJECT_ID }}"
+      - name: Datenbank auf den neuesten Stand bringen
+        run: npx supabase db push --password "$SUPABASE_DB_PASSWORD"
+      - name: Anmelde-Einstellungen übernehmen (anonyme Boxen an, E-Mail-Bestätigung aus)
+        run: npx supabase config push --yes

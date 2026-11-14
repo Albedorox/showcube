@@ -8,12 +8,17 @@
     "dev:konfigurator": "vite konfigurator",
     "dev:panel": "vite panel",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && node scripts/build.mjs"
+    "build": "npm run typecheck && node scripts/build.mjs",
+    "backend:start": "supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta,realtime",
+    "backend:stop": "supabase stop",
+    "backend:test": "node scripts/backend-test.mjs"
   },
   "devDependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/figtree": "^5.3.0",
+    "@supabase/supabase-js": "^2.119.0",
     "qrcode-generator": "^1.4.4",
+    "supabase": "^3.1.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vite-plugin-singlefile": "^2.3.4"

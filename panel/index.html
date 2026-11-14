@@ -71,6 +71,7 @@ svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor;
 .nav .n.alert { background: var(--warn-soft); color: var(--warn); padding: 0 7px; border-radius: 999px; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .plan { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 12px; font-size: 13px; color: var(--muted); background: var(--surface); }
+.plan span { overflow-wrap: anywhere; }
 .plan b { display: block; color: var(--ink); font-size: 14px; }
 .proto { font-size: 12px; color: var(--faint); padding: 0 4px; }
 .proto button { all: unset; cursor: pointer; text-decoration: underline; }
@@ -402,7 +403,7 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
     <nav class="nav" id="nav" aria-label="Bereiche"></nav>
     <div class="side-foot">
       <div class="plan"><b id="planName"></b><span id="planInfo"></span></div>
-      <div class="proto">Prototyp ohne Server. Alles bleibt in diesem Browser. <button id="resetDemo">Demo zurücksetzen</button></div>
+      <div class="proto" id="proto">Prototyp ohne Server. Alles bleibt in diesem Browser. <button id="resetDemo">Demo zurücksetzen</button></div>
     </div>
   </aside>
   <div class="main">
@@ -413,6 +414,7 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
       <div class="chip" id="noticeChip" hidden><span id="noticeChipText"></span><button id="noticeStop" aria-label="Hinweis beenden"></button></div>
       <button class="btn" id="openNotice"><span class="lbl">Sofort-Hinweis</span></button>
       <button class="btn ghost" id="install" hidden title="ShowCube als App auf diesem Gerät installieren"><span class="lbl">App installieren</span></button>
+      <button class="btn ghost" id="konto" hidden></button>
       <button class="btn icon ghost" id="theme" aria-label="Hell oder dunkel"></button>
     </header>
     <main class="view" id="view" tabindex="-1"></main>
@@ -423,6 +425,7 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
 
 <dialog class="sheet" id="dlgScreen" aria-labelledby="dsTitle"><div class="dlg" id="dsBody"></div></dialog>
 <dialog class="modal" id="dlgPair" aria-labelledby="dpTitle"><form class="dlg" method="dialog" id="pairForm"></form></dialog>
+<dialog class="modal" id="dlgLogin" aria-labelledby="dlTitle"><form class="dlg" method="dialog" id="loginForm"></form></dialog>
 <dialog class="modal" id="dlgNotice" aria-labelledby="dnTitle"><form class="dlg" method="dialog" id="noticeForm"></form></dialog>
 <dialog class="cmd" id="dlgCmd" aria-label="Suchen oder Befehl ausführen">
   <div class="cmd-in"><input type="text" id="cmdIn" placeholder="Bildschirm, Slideshow oder Befehl suchen" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="cmdList" aria-label="Suchen"></div>
