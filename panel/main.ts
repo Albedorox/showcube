@@ -4,10 +4,13 @@ import { activeOn, expired, zeitraumText, bausteinActive, bausteinSlide, baustei
 import { hatServer, verbinden, SPEICHER, BUCKET } from '../shared/cloud';
 import { CHANNEL, PAKET_FORMAT, PAKET_VERSION, paketToFile, type Msg, type Notice, type Paket, type ShowConfig, type When } from '../shared/paket';
 
-// Cloud-Panel, Prototyp. Kein Server: Zustand in localStorage, Dateien in IndexedDB.
+// Cloud-Panel. Drei Zustände:
+// - Start: nicht angemeldet. Nur der Anmelde-Bildschirm, keine Inhalte.
+// - Demo: Beispiel-Betriebe zum Ausprobieren. Lebt nur in diesem Tab (sessionStorage), nichts wird gespeichert.
+// - Konto: alles liegt auf dem Server (Abschnitt "ShowCube Cloud" unten), die Bildschirme sind echte Boxen.
+// In der Demo gilt:
 // "Live öffnen" startet einen echten Player in einem zweiten Tab, verbunden über einen BroadcastChannel.
 // Temperatur, Netz und der Online-Status der Demo-Boxen sind gespielt.
-// Mit Konto (Abschnitt "ShowCube Cloud" unten) liegt alles auf dem Server und die Bildschirme sind echte Boxen.
 
 // ---------- Kleine Helfer ----------
 const $ = (id: string) => document.getElementById(id) as any;
@@ -114,18 +117,27 @@ function seed(): State {
   };
 }
 const KEY = 'showcube-panel-v1';
-let S: State = seed();
-try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.shows && s.screens) S = s; } catch (e) {}
-// Ältere gespeicherte Stände kennen noch keine Bausteine und keine Infoleiste.
-S.shows.forEach(sh => [sh.cfg, sh.pub, ...sh.history.map(v => v.cfg)].forEach(c => { if (c) { c.extras = c.extras || []; c.leiste = c.leiste || { ...LEISTE }; } }));
-S.alert = S.alert || { on: true, after: 10, to: 'E-Mail und Push' };
+// Die Demo lebt nur in diesem Tab: Neu laden behält sie, Tab schließen verwirft sie.
+const DKEY = 'showcube-demo';
+const leer = (): State => ({ shows: [], screens: [], assets: [], notice: null });
+// Ohne Server-Zugang (lokale Entwicklung ohne backend.json) gibt es nichts zum Anmelden, dann ist das Panel immer die Demo.
+let demo = !hatServer;
+let S: State = leer();
+try {
+  // Früher lag die Demo dauerhaft im Browser. Das räumen wir weg, damit niemand sie für echte Daten hält.
+  localStorage.removeItem(KEY);
+  const d = sessionStorage.getItem(DKEY);
+  if (d != null) { demo = true; const s = JSON.parse(d || 'null'); if (s && s.shows && s.screens) S = s; else S = seed(); }
+  else if (demo) S = seed();
+} catch (e) { if (demo) S = seed(); }
 let saveOK = true;
-function save() { if (konto) { cacheCloud(); planeSync(); return; } try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { saveOK = false; } }
+function save() { if (konto) { cacheCloud(); planeSync(); return; } if (!demo) return; try { sessionStorage.setItem(DKEY, JSON.stringify(S)); } catch (e) { saveOK = false; } }
 // Ältere oder vom Server geladene Stände ergänzen.
 function normalize(x: State) {
   x.shows.forEach(sh => [sh.cfg, sh.pub, ...sh.history.map(v => v.cfg)].forEach(c => { if (c) { c.extras = c.extras || []; c.leiste = c.leiste || { ...LEISTE }; } }));
   x.alert = x.alert || { on: true, after: 10, to: 'E-Mail und Push' };
 }
+normalize(S);
 const showById = (id: string) => S.shows.find(s => s.id === id);
 const assetById = (id: string) => S.assets.find(a => a.id === id);
 const isDirty = (sh: Show) => !sh.pub || JSON.stringify(sh.cfg) !== JSON.stringify(sh.pub);
@@ -312,7 +324,7 @@ function renderNav() {
   const mk = (withCount: boolean) => VIEWS.map(([k, label, ic]) => h('button', { 'aria-current': view === k ? 'page' : null, onclick: () => go(k) }, icon(ic), label, withCount ? count[k] : null));
   fill($('nav'), ...mk(true)); fill($('tabbar'), ...mk(false));
   $('planName').textContent = 'Cloud · ' + plural(S.screens.length, 'Bildschirm', 'Bildschirme');
-  $('planInfo').textContent = S.screens.length * 12 + ' € im Monat · ' + (konto ? konto.email : 'Konto Demo'); paintKonto();
+  $('planInfo').textContent = S.screens.length * 12 + ' € im Monat · ' + (konto ? konto.email : 'Demo'); paintKonto();
   const n = S.notice && (!S.notice.until || Date.now() < S.notice.until) ? S.notice : null;
   $('noticeChip').hidden = !n; if (n) $('noticeChipText').textContent = 'Hinweis läuft: „' + n.text + '“';
 }
@@ -365,7 +377,8 @@ function renderScreens(v: HTMLElement) {
     h('div', null, h('b', null, '„' + sh.name + '“ hat unveröffentlichte Änderungen'), h('span', { class: 'small' }, changesOf(sh).join(', ') + '. Die Bildschirme zeigen noch Stand ' + sh.revision + '.')),
     h('button', { class: 'btn sm', onclick: () => go('shows', sh.id) }, 'Öffnen'))));
   if (attn.children.length) v.append(attn);
-  if (!n) { v.append(h('div', { class: 'empty' }, h('b', null, 'Box an den Fernseher stecken, Code eingeben, fertig.'), h('button', { class: 'btn primary', onclick: openPair }, icon('plus'), 'Ersten Bildschirm koppeln'))); return; }
+  const hilfe = einrichtung(); if (hilfe) v.append(hilfe);
+  if (!n) { if (!hilfe) v.append(h('div', { class: 'empty' }, h('b', null, 'Box an den Fernseher stecken, Code eingeben, fertig.'), h('button', { class: 'btn primary', onclick: openPair }, icon('plus'), 'Ersten Bildschirm koppeln'))); return; }
   const places = [...new Set(S.screens.map(s => s.place))];
   if (placeFilter && !places.includes(placeFilter)) placeFilter = '';
   if (places.length > 1) v.append(h('div', { class: 'filter' }, h('div', { class: 'seg', role: 'group', 'aria-label': 'Standort' },
@@ -374,7 +387,7 @@ function renderScreens(v: HTMLElement) {
   S.screens.filter(sc => !placeFilter || sc.place === placeFilter).sort((a, b2) => places.indexOf(a.place) - places.indexOf(b2.place)).forEach(sc => {
     const s = stateOf(sc), t = screenTv(sc), dot = h('span', { class: 'dot ' + s.dot }), lab = h('span', { class: 'small' }), tag = h('div', { class: 'tag' });
     const sel = h('select', { id: 'sel-' + sc.id, onchange: () => { sc.show = sel.value; const sh = showById(sc.show); logTo(sc, 'Slideshow gewechselt: ' + sh.name); deliver(sc); save(); render(); toast(isOn(sc) ? '„' + sc.name + '“ zeigt jetzt „' + sh.name + '“.' : 'Gespeichert. „' + sc.name + '“ holt es sich, sobald die Box wieder online ist.'); } },
-      S.shows.map(x => h('option', { value: x.id, selected: x.id === sc.show }, x.name)));
+      showById(sc.show) ? null : h('option', { value: '', selected: true, disabled: true }, S.shows.length ? 'Slideshow wählen' : 'Noch keine Slideshow'), S.shows.map(x => h('option', { value: x.id, selected: x.id === sc.show }, x.name)));
     const upd = () => {
       const st = stateOf(sc), b = st.lv && live.get(sc.id).beat; dot.className = 'dot ' + st.dot; t.upd();
       lab.textContent = sc.place + ' · ' + st.label + (b && b.of ? ' · Folie ' + b.slide + ' von ' + b.of : '');
@@ -391,6 +404,25 @@ function renderScreens(v: HTMLElement) {
   });
   grid.append(h('button', { class: 'addcard', onclick: openPair }, icon('plus'), 'Bildschirm koppeln'));
   v.append(grid);
+}
+// Einrichtungshilfe für frische Konten: drei Schritte, bis der erste Fernseher läuft. Verschwindet, sobald alle erledigt sind.
+function einrichtung() {
+  if (!konto) return null;
+  const hatShow = S.shows.length > 0, hatPub = S.shows.some(sh => sh.pub), hatBox = S.screens.length > 0;
+  if (hatShow && hatPub && hatBox) return null;
+  const erste = S.shows.find(sh => !sh.pub) || S.shows[0];
+  const steps: [boolean, string, string, string, () => void][] = [
+    [hatShow, 'Erste Slideshow anlegen', 'Vorlage aussuchen und Texte, Preise und Logo eintragen.', 'Vorlage wählen', () => go('templates')],
+    [hatPub, 'Veröffentlichen', 'Vorschau prüfen und freigeben. Erst dann kann eine Box die Slideshow zeigen.', 'Zur Slideshow', () => erste ? go('shows', erste.id) : go('templates')],
+    [hatBox, 'Bildschirm koppeln', 'Box an den Fernseher stecken, mit dem WLAN verbinden und den sechsstelligen Code vom Fernseher eingeben.', 'Bildschirm koppeln', openPair],
+  ];
+  const next = steps.findIndex(x => !x[0]);
+  return h('section', { class: 'card setup', 'aria-labelledby': 'setupTitle' },
+    h('div', null, h('h2', { id: 'setupTitle' }, 'Willkommen bei ShowCube' + (konto.name ? ', ' + konto.name : '')), h('p', { class: 'small' }, 'Dein Konto ist noch leer. In drei Schritten läuft dein erster Bildschirm.')),
+    h('ol', null, steps.map(([ok, t, text, label, run], i) => h('li', { class: ok ? 'done' : i === next ? 'next' : '' },
+      h('span', { class: 'num', 'aria-hidden': 'true' }, ok ? icon('check') : String(i + 1)),
+      h('div', null, h('b', null, t, ok ? h('span', { class: 'small' }, ' · erledigt') : null), h('span', { class: 'small' }, text)),
+      ok ? null : h('button', { class: 'btn sm' + (i === next ? ' primary' : ''), onclick: run }, label)))));
 }
 function openLive(sc: Screen) {
   const w = window.open(PLAYER_URL + '?live=' + encodeURIComponent(sc.id), 'showcube-' + sc.id);
@@ -495,14 +527,14 @@ function openPair() {
   const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' });
   fill($('pairForm'), 
     h('div', { class: 'dlg-h' }, h('h2', { id: 'dpTitle' }, 'Bildschirm koppeln'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
-    h('p', { class: 'small' }, 'Box an den Fernseher stecken und mit dem WLAN verbinden. Auf dem Fernseher erscheint ein sechsstelliger Code.' + (konto ? '' : ' Im Prototyp geht jeder Code.')),
+    h('p', { class: 'small' }, 'Box an den Fernseher stecken und mit dem WLAN verbinden. Auf dem Fernseher erscheint ein sechsstelliger Code.' + (konto ? '' : ' In der Demo geht jeder Code.')),
     h('div', null, h('label', { for: 'pCode' }, 'Code vom Fernseher'), h('input', { class: 'code', type: 'text', id: 'pCode', inputmode: 'numeric', maxlength: '7', placeholder: '482 915', autocomplete: 'off' })),
     h('div', { class: 'grid2' },
       h('div', null, h('label', { for: 'pName' }, 'Name'), h('input', { type: 'text', id: 'pName', placeholder: 'z. B. Theke' })),
       h('div', null, h('label', { for: 'pPlace' }, 'Standort'), h('input', { type: 'text', id: 'pPlace', list: 'pPlaces', value: S.screens[0] ? S.screens[0].place : '', placeholder: 'z. B. Filiale Mitte' }))),
     h('datalist', { id: 'pPlaces' }, [...new Set(S.screens.map(x => x.place))].map(p => h('option', { value: p }))),
     h('div', { class: 'grid2' },
-      h('div', null, h('label', { for: 'pShow' }, 'Zeigt'), h('select', { id: 'pShow' }, S.shows.map(x => h('option', { value: x.id }, x.name)))),
+      h('div', null, h('label', { for: 'pShow' }, 'Zeigt'), h('select', { id: 'pShow' }, S.shows.length ? null : h('option', { value: '' }, 'Noch keine Slideshow'), S.shows.map(x => h('option', { value: x.id }, x.name)))),
       h('div', null, h('label', { for: 'pOrient' }, 'Ausrichtung'), h('select', { id: 'pOrient' }, h('option', { value: 'land' }, 'quer'), h('option', { value: 'port' }, 'hochkant')))),
     err, h('button', { class: 'btn primary lg', value: 'ok' }, 'Koppeln'));
   $('pairForm').onsubmit = (e: SubmitEvent) => {
@@ -514,7 +546,7 @@ function openPair() {
     const id = (name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20) || 'box') + '-' + code.slice(-3);
     const sc: Screen = { id, name, place: $('pPlace').value.trim() || 'Neuer Standort', orient: $('pOrient').value, show: $('pShow').value, power: true, sim: 'online', lastSeen: Date.now(), revision: 0, version: '0.3.1', temp: 44, disk: 12, net: 'WLAN, gut', booted: Date.now(), log: [] };
     logTo(sc, 'Gekoppelt mit Code ' + code.slice(0, 3) + ' ' + code.slice(3)); S.screens.push(sc); deliver(sc); save(); go('screens');
-    toast('„' + name + '“ ist gekoppelt und zeigt „' + showById(sc.show).name + '“.');
+    const zeigt = showById(sc.show); toast('„' + name + '“ ist gekoppelt' + (zeigt ? ' und zeigt „' + zeigt.name + '“.' : '.'));
   };
   $('dlgPair').showModal(); $('pCode').focus();
 }
@@ -867,6 +899,7 @@ function renderTemplates(v: HTMLElement) {
 // ---------- Befehlsleiste (Strg + K) ----------
 let cmdItems: { label: string; hint: string; ic: string; run: () => void }[] = [], cmdSel = 0;
 function openCmd() {
+  if (!konto && !demo) return;
   const all = [
     ...VIEWS.map(([k, l, ic]) => ({ label: l, hint: 'Bereich', ic, run: () => go(k) })),
     { label: 'Sofort-Hinweis senden', hint: 'Befehl', ic: 'bolt', run: openNotice }, { label: 'Bildschirm koppeln', hint: 'Befehl', ic: 'plus', run: openPair },
@@ -901,11 +934,10 @@ const isDark = () => (document.documentElement.dataset.theme || (matchMedia('(pr
 function paintTheme() { fill($('theme'), icon(isDark() ? 'sun' : 'moon')); $('theme').title = isDark() ? 'Helles Design' : 'Dunkles Design'; document.querySelector('meta[name=theme-color]').setAttribute('content', isDark() ? '#0d1110' : '#f6f5f1'); }
 function toggleTheme() { const t = isDark() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; try { localStorage.setItem('showcube-theme', t); } catch (e) {} paintTheme(); }
 $('theme').onclick = toggleTheme; paintTheme();
-const resetDemo = () => undoable('Demo-Daten zurückgesetzt.', () => { S = seed(); cur = null; });
-$('resetDemo').onclick = resetDemo;
+const resetDemo = () => undoable('Demo zurückgesetzt.', () => { S = seed(); normalize(S); cur = null; });
 
 // ---------- ShowCube Cloud: Konto, Speichern auf dem Server, echte Boxen ----------
-// Ohne Anmeldung bleibt das Panel die Demo im Browser. Mit Konto:
+// Ohne Anmeldung zeigt das Panel den Anmelde-Bildschirm (oder auf Wunsch die Demo). Mit Konto:
 // - Slideshows, Dateien, Hinweis und Einstellungen werden kurz nach jeder Änderung auf den Server geschrieben.
 //   Bis dahin (und ohne Netz) liegt alles im Browser zwischengespeichert und wird nachgeschoben.
 // - Veröffentlichen legt ein Paket auf dem Server ab. Die Boxen holen es sich selbst.
@@ -957,12 +989,14 @@ async function cloudStart(email: string) {
   const betrieb = gewaehlt || b.data || (cache && cache.betrieb);
   if (!betrieb) throw new Error('Zu diesem Konto gibt es keinen Betrieb.');
   konto = { email, betrieb, admin };
+  // Ab hier gelten nur noch die echten Daten. Die Demo wird verworfen.
+  demo = false; try { sessionStorage.removeItem(DKEY); } catch (e) {}
   if (cache && cache.betrieb === betrieb) {
     S = cache.S; normalize(S); (cache.offen || []).forEach((id: string) => offenePakete.add(id));
     synced = { shows: new Map(cache.synced.shows), screens: new Map(cache.synced.screens), betrieb: cache.synced.betrieb };
     // Was offline geändert wurde, zuerst hochschieben, dann den Stand vom Server holen.
     await sync();
-  } else { S = { shows: [], screens: [], assets: [], notice: null }; normalize(S); merkeSync(); }
+  } else { S = leer(); normalize(S); merkeSync(); }
   if (b.error) { syncFehler = fehlerText(b.error); return; }
   await cloudLaden();
   holeBildschirmeLoop();
@@ -979,8 +1013,7 @@ async function cloudLaden() {
   S = { shows: shows.data.map((r: any) => r.daten), screens: scr.data.map((r: any) => vomServer(r, oldScreens.get(r.id))), assets: dat.data.filter((d: any) => d.typ !== 'logo').map((d: any) => ({ id: d.id, type: d.typ, name: d.name, size: d.groesse, added: Date.parse(d.erstellt) })),
     notice: bt.data.hinweis, alert: (bt.data.einstellungen || {}).alert };
   normalize(S); dat.data.forEach((d: any) => hochgeladen.add(d.id)); merkeSync(); konto.name = bt.data.name;
-  // Neues Konto: mit einer Slideshow aus einer Vorlage starten, damit nichts leer ist.
-  if (!S.shows.length) { const sh = newShow('laden', 'Meine Slideshow'); if (bt.data.name) sh.cfg.name = bt.data.name; S.shows.push(sh); planeSync(); }
+  // Ein neues Konto startet leer. Die Einrichtungshilfe unter „Bildschirme“ führt durch die ersten Schritte.
   cacheCloud();
   // Dateien, die auf diesem Gerät noch fehlen, im Hintergrund holen.
   const fehlt = dat.data.filter((d: any) => !blobs.has(d.id));
@@ -1117,7 +1150,7 @@ function openLogin(neu = false) {
     err,
     h('button', { class: 'btn primary lg', value: 'ok' }, neu ? 'Konto anlegen' : 'Anmelden'),
     h('button', { class: 'btn ghost sm', type: 'button', onclick: () => openLogin(!neu) }, neu ? 'Ich habe schon ein Konto' : 'Neu hier? Konto anlegen'),
-    h('span', { class: 'small' }, 'Die Demo-Daten in diesem Browser bleiben, wie sie sind.'));
+    demo ? h('span', { class: 'small' }, 'Die Demo endet mit der Anmeldung. Dein Konto startet ohne die Beispiel-Inhalte.') : null);
   $('loginForm').onsubmit = async (e: SubmitEvent) => {
     if ((e.submitter as any)?.value !== 'ok') return;
     e.preventDefault();
@@ -1128,8 +1161,8 @@ function openLogin(neu = false) {
     if (r.error) { err.textContent = /Invalid login/i.test(r.error.message) ? 'E-Mail oder Passwort stimmt nicht.' : /already registered/i.test(r.error.message) ? 'Zu dieser E-Mail gibt es schon ein Konto.' : fehlerText(r.error); return; }
     if (!r.data.session) { err.textContent = 'Fast geschafft: Bitte den Link in der E-Mail bestätigen und dann anmelden.'; return; }
     try { await cloudStart(email); } catch (x) { err.textContent = fehlerText(x); return; }
-    $('dlgLogin').close(); cur = null; go('screens'); render();
-    toast(neu ? 'Konto angelegt. Jetzt die Box an den Fernseher und „Bildschirm koppeln“.' : 'Angemeldet.');
+    $('dlgLogin').close(); cur = null; paintModus(); go('screens'); render();
+    toast(neu ? 'Konto angelegt. Die drei Schritte unter „Bildschirme“ zeigen, wie es weitergeht.' : 'Angemeldet.');
   };
   if (!$('dlgLogin').open) $('dlgLogin').showModal(); (neu ? $('lBetrieb') : $('lMail')).focus();
 }
@@ -1160,15 +1193,32 @@ async function wechsleBetrieb(id: string) {
   try { localStorage.setItem(AKEY, id); localStorage.removeItem(CKEY); } catch (e) {}
   location.reload();
 }
+// ---------- Start, Demo oder Konto ----------
+function demoStart() { demo = true; S = seed(); normalize(S); cur = null; save(); paintModus(); go('screens'); render(); }
+function demoEnde() { try { sessionStorage.removeItem(DKEY); } catch (e) {} location.reload(); }
+function paintModus() {
+  const start = !konto && !demo;
+  document.body.classList.toggle('gate', start); $('start').hidden = !start; $('demoBar').hidden = !demo || !!konto;
+  if (start) fill($('startBtns'),
+    h('button', { class: 'btn primary lg', onclick: () => openLogin() }, 'Anmelden'),
+    h('button', { class: 'btn lg', onclick: () => openLogin(true) }, 'Konto anlegen'),
+    h('div', { class: 'or' }, 'oder erst mal umsehen'),
+    h('button', { class: 'btn ghost lg', onclick: demoStart }, icon('screens'), 'Demo ansehen'),
+    h('span', { class: 'small' }, 'Die Demo zeigt drei Beispiel-Betriebe. Nichts davon wird gespeichert.'));
+  if (demo && !konto) fill($('demoBar'), icon('alert'),
+    h('span', null, h('b', null, 'Demo.'), ' Beispiel-Betriebe zum Ausprobieren. ', h('b', null, 'Nichts wird gespeichert'), ', und es hängen keine echten Bildschirme dran.'),
+    sb ? h('button', { class: 'btn sm primary', onclick: () => openLogin(true) }, 'Konto anlegen') : null,
+    sb ? h('button', { class: 'btn sm', onclick: demoEnde }, 'Demo beenden') : null);
+}
 function paintKonto() {
-  if (!sb) return;
+  if (!sb) { fill($('proto'), 'Demo ohne Server. Nichts wird gespeichert. ', h('button', { onclick: resetDemo }, 'Zurücksetzen')); return; }
   $('konto').hidden = false;
   fill($('konto'), icon('user'), h('span', { class: 'lbl' }, konto ? konto.email.split('@')[0] : 'Anmelden'), konto && konto.admin ? h('span', { class: 'badge ok' }, 'Admin') : null);
   $('konto').title = konto ? 'Angemeldet als ' + konto.email : 'Mit ShowCube-Konto anmelden';
   const st = !konto ? '' : syncFehler ? 'Nicht gespeichert: ' + syncFehler + ' Wird wiederholt.' : syncLaeuft || syncT && (offenePakete.size || S.shows.some(sh => synced.shows.get(sh.id) !== JSON.stringify(sh))) ? 'Wird gespeichert …' : ladeN ? 'Lade ' + plural(ladeN, 'Datei', 'Dateien') + ' …' : 'Alles auf dem Server gespeichert.';
   fill($('proto'), konto
     ? [konto.admin ? ['Admin · ', h('b', null, konto.name || 'Betrieb'), ' ', h('button', { onclick: openBetriebe }, 'wechseln'), h('br')] : null, st + ' ', h('button', { onclick: abmelden }, 'Abmelden')]
-    : ['Demo ohne Konto. Alles bleibt in diesem Browser. ', h('button', { onclick: () => openLogin() }, 'Anmelden'), ' · ', h('button', { onclick: resetDemo }, 'Demo zurücksetzen')]);
+    : ['Demo. Nichts wird gespeichert. ', h('button', { onclick: resetDemo }, 'Zurücksetzen'), ' · ', h('button', { onclick: demoEnde }, 'Beenden')]);
 }
 if (sb) { $('konto').onclick = () => !konto ? openLogin() : konto.admin ? openBetriebe() : abmelden(); $('dlgLogin').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgLogin')) $('dlgLogin').close(); }); }
 
@@ -1217,10 +1267,10 @@ offline();
 // Kurzbefehle vom App-Icon (lange drücken): panel.html?do=notice
 function shortcut() {
   const q = new URLSearchParams(location.search), d = q.get('do');
-  if (!d) return;
+  if (!d || (!konto && !demo)) return;
   history.replaceState(null, '', location.pathname + location.hash);
   if (d === 'notice') openNotice();
 }
 
-const start = async () => { await openDB(); await loadAll(); if (sb) await cloudBeimStart(); sweepBlobs(); route(); requestAnimationFrame(frame); shortcut(); paintKonto(); };
+const start = async () => { await openDB(); await loadAll(); if (sb) await cloudBeimStart(); sweepBlobs(); paintModus(); route(); requestAnimationFrame(frame); shortcut(); paintKonto(); };
 fontsReady().then(start, start);
