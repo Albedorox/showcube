@@ -42,7 +42,9 @@ kein Einschlafen, 100 GB Dateien, größere Videos.
    (`sb_publishable_…`) in `shared/backend.json` eintragen und `npm run build` laufen lassen.
    Beide Werte sind öffentlich und dürfen ins Repository. Der „secret key“ gehört **nicht** hinein.
 
-Ab dann zeigt das Panel oben rechts „Anmelden“. Ohne Konto bleibt es die Demo wie bisher.
+Ab dann startet das Panel ohne Anmeldung mit einem Anmelde-Bildschirm. Dort geht es zu „Anmelden“, „Konto anlegen“
+oder „Demo ansehen“. Die Demo zeigt Beispiel-Betriebe mit einem Banner, lebt nur im offenen Tab und speichert nichts.
+Ein neues Konto startet leer, eine Einrichtungshilfe unter „Bildschirme“ führt durch die ersten drei Schritte.
 
 ## Admin-Konto (ShowCube-Team)
 

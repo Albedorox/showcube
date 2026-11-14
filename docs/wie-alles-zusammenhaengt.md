@@ -74,7 +74,7 @@ Mit Konto (sobald der Server eingerichtet ist, siehe [backend.md](backend.md)) i
   spätestens nach 10 Sekunden. Das Panel zeigt, wann sich jede Box zuletzt gemeldet hat.
 
 Gespielt (in der Demo ohne Konto):
-- Kein Server, kein Login. Alles liegt im Browser (localStorage und IndexedDB).
+- Kein Server, kein Login. Die Demo lebt nur im offenen Tab und speichert nichts dauerhaft.
 - Die Verbindung zwischen Panel und Player ist ein BroadcastChannel, funktioniert also nur im selben Browser.
 - Temperatur, Speicher, Netz und der Online-Status der Demo-Bildschirme sind erfunden.
 - Koppeln nimmt jeden sechsstelligen Code (mit Konto nur den echten).

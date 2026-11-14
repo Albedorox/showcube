@@ -111,6 +111,24 @@ svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor;
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-1); }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .small { font-size: 13px; color: var(--muted); }
+.demobar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 9px 28px; background: var(--warn-soft); color: var(--ink); font-size: 13.5px; border-bottom: 1px solid var(--line); }
+.demobar > span { flex: 1; min-width: 220px; } .demobar svg { color: var(--warn); flex-shrink: 0; }
+body.gate .app, body.gate .tabbar, body.gate .pubbar { display: none !important; }
+.start { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; }
+.start-card { width: min(420px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 28px; display: flex; flex-direction: column; gap: 14px; }
+.start-card .brand { padding: 0; } .start-card h1 { margin: 6px 0 0; font: 800 26px/1.15 var(--font-display); letter-spacing: -.02em; } .start-card p { margin: 0; color: var(--muted); }
+.start-btns { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; } .start-btns .btn { justify-content: center; } .start-btns .small { text-align: center; }
+.start-btns .or { display: flex; align-items: center; gap: 10px; color: var(--faint); font-size: 12.5px; margin-top: 6px; } .start-btns .or::before, .start-btns .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.setup { padding: 20px; margin-bottom: 26px; display: flex; flex-direction: column; gap: 16px; }
+.setup h2 { margin: 0 0 2px; font: 800 19px var(--font-display); letter-spacing: -.01em; } .setup p { margin: 0; }
+.setup ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.setup li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.setup li.next { border-color: var(--accent); background: var(--accent-soft); } .setup li.done { color: var(--muted); }
+.setup li > div { flex: 1; min-width: 0; display: flex; flex-direction: column; } .setup li b .small { font-weight: 500; }
+.setup .num { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; font-weight: 700; font-size: 13px; background: var(--surface-2); border: 1px solid var(--line-strong); }
+.setup li.next .num { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); } .setup li.done .num { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); }
+.setup .num svg { width: 16px; height: 16px; }
+@media (max-width: 560px) { .demobar { padding: 9px 16px; } .setup li { flex-wrap: wrap; } .setup li .btn { margin-left: 40px; } }
 .steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
 .offline .top::after { content: "Offline"; position: absolute; top: 4px; right: 12px; font-size: 11px; font-weight: 700; color: var(--warn); background: var(--warn-soft); border-radius: 999px; padding: 1px 8px; }
 .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
@@ -408,10 +426,11 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
     <nav class="nav" id="nav" aria-label="Bereiche"></nav>
     <div class="side-foot">
       <div class="plan"><b id="planName"></b><span id="planInfo"></span></div>
-      <div class="proto" id="proto">Prototyp ohne Server. Alles bleibt in diesem Browser. <button id="resetDemo">Demo zurücksetzen</button></div>
+      <div class="proto" id="proto"></div>
     </div>
   </aside>
   <div class="main">
+    <div class="demobar" id="demoBar" role="note" hidden></div>
     <header class="top">
       <div class="brand"><span class="cube" aria-hidden="true"></span>ShowCube</div>
       <button class="search" id="openCmd" aria-label="Suchen oder Befehl ausführen"><span>Suchen oder Befehl …</span><kbd id="kbd">Strg K</kbd></button>
@@ -425,6 +444,14 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
     <main class="view" id="view" tabindex="-1"></main>
   </div>
 </div>
+<section class="start" id="start" aria-labelledby="startTitle" hidden>
+  <div class="start-card">
+    <div class="brand"><span class="cube" aria-hidden="true"></span>ShowCube</div>
+    <h1 id="startTitle">Deine Bildschirme, von überall gesteuert.</h1>
+    <p>Melde dich an, um Inhalte zu ändern, Bildschirme zu koppeln und zu sehen, ob alles läuft.</p>
+    <div class="start-btns" id="startBtns"></div>
+  </div>
+</section>
 <nav class="tabbar" id="tabbar" aria-label="Bereiche"></nav>
 <div class="pubbar" id="pubbar" hidden><span class="small" id="pubbarText"></span><button class="btn primary" id="pubbarBtn">Veröffentlichen</button></div>
 
