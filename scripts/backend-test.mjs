@@ -122,4 +122,28 @@ await check('Bildschirm entfernen: Box bekommt einen neuen Code', async () => {
   assert.match(neuInfo.code, /^\d{6}$/);
 });
 
+await check('Admin sieht alle Betriebe und kann für einen Kunden koppeln', async () => {
+  const admin = neu();
+  ok(await admin.auth.signUp({ email: `admin-${stamp}@example.com`, password: 'geheim-123' }), 'signup admin');
+  assert.equal(ok(await admin.rpc('ist_admin'), 'ist_admin'), false);
+  assert.equal(ok(await admin.rpc('admin_betriebe'), 'liste ohne admin').length, 0, 'ohne Admin-Recht leer');
+  const uid = (await admin.auth.getUser()).data.user.id;
+  execSync(`docker exec supabase_db_showcube psql -U postgres -qc "insert into public.admins (user_id) values ('${uid}')"`);
+  assert.equal(ok(await admin.rpc('ist_admin'), 'ist_admin'), true);
+  const liste = ok(await admin.rpc('admin_betriebe'), 'liste');
+  const da = liste.find(x => x.id === betriebA);
+  assert.ok(da, 'Betrieb A in der Liste'); assert.equal(da.email, `a-${stamp}@example.com`);
+  assert.ok(ok(await admin.from('shows').select('*').eq('betrieb_id', betriebA), 'shows A').length >= 1);
+  const d = await admin.storage.from('medien').download(betriebA + '/m1');
+  assert.ok(!d.error, 'Admin liest Dateien des Kunden');
+  const boxC = neu(); ok(await boxC.auth.signInAnonymously(), 'anon C');
+  const info = ok(await boxC.rpc('box_anmelden'), 'anmelden C');
+  const s = ok(await admin.rpc('bildschirm_koppeln', { p_code: info.code, p_name: 'Fenster', p_standort: '', p_ausrichtung: 'land', p_show_id: 'pizza', p_betrieb: betriebA }), 'koppeln für A');
+  assert.equal(s.betrieb_id, betriebA);
+  assert.ok(ok(await a.from('bildschirme').select('id'), 'A sieht').some(x => x.id === info.id), 'Kunde sieht die Box');
+  assert.equal(ok(await b.rpc('admin_betriebe'), 'b').length, 0, 'normale Konten sehen keine Liste');
+  const r = await b.rpc('bildschirm_koppeln', { p_code: '123456', p_name: 'x', p_standort: '', p_ausrichtung: 'land', p_show_id: null, p_betrieb: betriebA });
+  assert.ok(r.error && /Kein Betrieb/.test(r.error.message), 'fremder Betrieb gesperrt');
+});
+
 console.log(process.exitCode ? '\nFehler gefunden.' : `\nAlle ${n} Prüfungen bestanden.`);

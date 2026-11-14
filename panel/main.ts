@@ -871,6 +871,7 @@ function openCmd() {
     ...VIEWS.map(([k, l, ic]) => ({ label: l, hint: 'Bereich', ic, run: () => go(k) })),
     { label: 'Sofort-Hinweis senden', hint: 'Befehl', ic: 'bolt', run: openNotice }, { label: 'Bildschirm koppeln', hint: 'Befehl', ic: 'plus', run: openPair },
     { label: 'Neue Slideshow', hint: 'Befehl', ic: 'plus', run: () => go('templates') }, { label: 'Hell oder dunkel umschalten', hint: 'Befehl', ic: 'moon', run: toggleTheme },
+    ...(konto && konto.admin ? [{ label: 'Betrieb öffnen', hint: 'Admin', ic: 'shop', run: openBetriebe }] : []),
     ...(sb ? [konto ? { label: 'Abmelden', hint: 'Konto · ' + konto.email, ic: 'user', run: abmelden } : { label: 'Anmelden', hint: 'Konto', ic: 'user', run: () => openLogin() }] : []),
     ...S.screens.map(sc => ({ label: sc.name, hint: 'Bildschirm · ' + sc.place, ic: 'screens', run: () => { go('screens'); openScreen(sc.id); } })),
     ...S.shows.map(sh => ({ label: sh.name, hint: 'Slideshow', ic: 'slides', run: () => go('shows', sh.id) })),
@@ -910,7 +911,9 @@ $('resetDemo').onclick = resetDemo;
 // - Veröffentlichen legt ein Paket auf dem Server ab. Die Boxen holen es sich selbst.
 // - Bildschirme sind echte Boxen. Ihren Zustand holt das Panel alle 5 Sekunden.
 const sb = hatServer ? verbinden('showcube-panel') : null;
-let konto: { email: string; betrieb: string } | null = null;
+let konto: { email: string; betrieb: string; admin?: boolean; name?: string } | null = null;
+// Admins (ShowCube-Team) können jeden Betrieb öffnen. Welcher gerade offen ist, merkt sich der Browser.
+const AKEY = 'showcube-admin-betrieb';
 const CKEY = KEY + '-cloud';
 const hochgeladen = new Set<string>(), offenePakete = new Set<string>();
 let synced = { shows: new Map<string, string>(), screens: new Map<string, string>(), betrieb: '' };
@@ -948,9 +951,12 @@ async function cloudStart(email: string) {
   let cache: any = null; try { cache = JSON.parse(localStorage.getItem(CKEY) || 'null'); } catch (e) {}
   const b = await sb.rpc('mein_betrieb');
   if (b.error && !cache) throw b.error;
-  const betrieb = b.data || (cache && cache.betrieb);
+  const adm = b.error ? null : await sb.rpc('ist_admin');
+  const admin = !!(adm && adm.data);
+  let gewaehlt = ''; try { gewaehlt = admin ? localStorage.getItem(AKEY) || '' : ''; } catch (e) {}
+  const betrieb = gewaehlt || b.data || (cache && cache.betrieb);
   if (!betrieb) throw new Error('Zu diesem Konto gibt es keinen Betrieb.');
-  konto = { email, betrieb };
+  konto = { email, betrieb, admin };
   if (cache && cache.betrieb === betrieb) {
     S = cache.S; normalize(S); (cache.offen || []).forEach((id: string) => offenePakete.add(id));
     synced = { shows: new Map(cache.synced.shows), screens: new Map(cache.synced.screens), betrieb: cache.synced.betrieb };
@@ -972,7 +978,7 @@ async function cloudLaden() {
   const oldScreens = new Map(S.screens.map(sc => [sc.id, sc]));
   S = { shows: shows.data.map((r: any) => r.daten), screens: scr.data.map((r: any) => vomServer(r, oldScreens.get(r.id))), assets: dat.data.filter((d: any) => d.typ !== 'logo').map((d: any) => ({ id: d.id, type: d.typ, name: d.name, size: d.groesse, added: Date.parse(d.erstellt) })),
     notice: bt.data.hinweis, alert: (bt.data.einstellungen || {}).alert };
-  normalize(S); dat.data.forEach((d: any) => hochgeladen.add(d.id)); merkeSync();
+  normalize(S); dat.data.forEach((d: any) => hochgeladen.add(d.id)); merkeSync(); konto.name = bt.data.name;
   // Neues Konto: mit einer Slideshow aus einer Vorlage starten, damit nichts leer ist.
   if (!S.shows.length) { const sh = newShow('laden', 'Meine Slideshow'); if (bt.data.name) sh.cfg.name = bt.data.name; S.shows.push(sh); planeSync(); }
   cacheCloud();
@@ -1083,7 +1089,7 @@ document.addEventListener('visibilitychange', () => { if (konto && !document.hid
 
 async function cloudKoppeln(code: string, name: string, place: string, orient: string, show: string, err: HTMLElement, btn: HTMLButtonElement) {
   btn.disabled = true; err.textContent = '';
-  const r = await sb.rpc('bildschirm_koppeln', { p_code: code, p_name: name, p_standort: place || 'Neuer Standort', p_ausrichtung: orient, p_show_id: show || null });
+  const r = await sb.rpc('bildschirm_koppeln', { p_code: code, p_name: name, p_standort: place || 'Neuer Standort', p_ausrichtung: orient, p_show_id: show || null, p_betrieb: konto.betrieb });
   btn.disabled = false;
   if (r.error) { err.textContent = fehlerText(r.error); $('pCode').focus(); return; }
   if (!S.screens.some(sc => sc.id === r.data.id)) { const sc = vomServer({ ...r.data, her: 0 }); S.screens.push(sc); synced.screens.set(sc.id, scFields(sc)); }
@@ -1131,7 +1137,26 @@ async function abmelden() {
   await sync();
   if (syncFehler && !confirm('Einige Änderungen sind noch nicht auf dem Server. Trotzdem abmelden?')) return;
   await sb.auth.signOut().catch(() => {});
-  try { localStorage.removeItem(CKEY); } catch (e) {}
+  try { localStorage.removeItem(CKEY); localStorage.removeItem(AKEY); } catch (e) {}
+  location.reload();
+}
+// Admin: Liste aller Betriebe, einer davon wird geöffnet.
+async function openBetriebe() {
+  const list = h('div', { class: 'targets' }, h('span', { class: 'small' }, 'Lade …'));
+  fill($('loginForm'),
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, 'Betrieb öffnen'), h('button', { class: 'btn icon ghost', value: 'cancel', 'aria-label': 'Schließen' }, icon('x'))),
+    h('p', { class: 'small' }, 'Admin-Ansicht: alle Kunden. Du siehst und änderst, was der Kunde sieht, und kannst Boxen für ihn koppeln.'), list);
+  $('loginForm').onsubmit = null;
+  if (!$('dlgLogin').open) $('dlgLogin').showModal();
+  const r = await sb.rpc('admin_betriebe');
+  if (r.error) { fill(list, h('span', { class: 'small' }, fehlerText(r.error))); return; }
+  fill(list, (r.data as any[]).map(x => h('button', { type: 'button', class: 'btn', style: 'justify-content:space-between;gap:12px;width:100%;text-align:left' + (x.id === konto.betrieb ? ';border-color:var(--accent)' : ''), onclick: () => wechsleBetrieb(x.id) },
+    h('span', null, h('b', null, x.name || 'Ohne Namen'), h('br'), h('span', { class: 'small' }, (x.email || '–') + ' · seit ' + new Date(x.erstellt).toLocaleDateString('de-DE'))),
+    h('span', { class: 'small' }, x.online + ' / ' + plural(+x.bildschirme, 'Bildschirm', 'Bildschirme') + ' online'))));
+}
+async function wechsleBetrieb(id: string) {
+  await sync();
+  try { localStorage.setItem(AKEY, id); localStorage.removeItem(CKEY); } catch (e) {}
   location.reload();
 }
 function paintKonto() {
@@ -1141,10 +1166,10 @@ function paintKonto() {
   $('konto').title = konto ? 'Angemeldet als ' + konto.email : 'Mit ShowCube-Konto anmelden';
   const st = !konto ? '' : syncFehler ? 'Nicht gespeichert: ' + syncFehler + ' Wird wiederholt.' : syncLaeuft || syncT && (offenePakete.size || S.shows.some(sh => synced.shows.get(sh.id) !== JSON.stringify(sh))) ? 'Wird gespeichert …' : ladeN ? 'Lade ' + plural(ladeN, 'Datei', 'Dateien') + ' …' : 'Alles auf dem Server gespeichert.';
   fill($('proto'), konto
-    ? [st + ' ', h('button', { onclick: abmelden }, 'Abmelden')]
+    ? [konto.admin ? ['Admin · ', h('b', null, konto.name || 'Betrieb'), ' ', h('button', { onclick: openBetriebe }, 'wechseln'), h('br')] : null, st + ' ', h('button', { onclick: abmelden }, 'Abmelden')]
     : ['Demo ohne Konto. Alles bleibt in diesem Browser. ', h('button', { onclick: () => openLogin() }, 'Anmelden'), ' · ', h('button', { onclick: resetDemo }, 'Demo zurücksetzen')]);
 }
-if (sb) { $('konto').onclick = () => konto ? abmelden() : openLogin(); $('dlgLogin').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgLogin')) $('dlgLogin').close(); }); }
+if (sb) { $('konto').onclick = () => !konto ? openLogin() : konto.admin ? openBetriebe() : abmelden(); $('dlgLogin').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgLogin')) $('dlgLogin').close(); }); }
 
 // ---------- Start ----------
 let liveKey = '';

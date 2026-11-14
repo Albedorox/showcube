@@ -44,6 +44,22 @@ kein Einschlafen, 100 GB Dateien, größere Videos.
 
 Ab dann zeigt das Panel oben rechts „Anmelden“. Ohne Konto bleibt es die Demo wie bisher.
 
+## Admin-Konto (ShowCube-Team)
+
+Ein Admin sieht alle Kunden, ihre Bildschirme und Inhalte, kann alles ändern und Boxen für einen
+Kunden koppeln. So wird ein Konto zum Admin:
+
+1. Im Panel ganz normal ein Konto anlegen.
+2. In Supabase links **SQL Editor** öffnen, diese Zeile mit der eigenen E-Mail einfügen und auf **Run** klicken:
+   ```sql
+   insert into public.admins (user_id) select id from auth.users where email = 'deine@email.de';
+   ```
+3. Panel neu laden. Unten links steht dann „Admin“, und der Konto-Knopf oben rechts öffnet die Liste
+   aller Betriebe. Ein Klick öffnet den Betrieb, so wie der Kunde ihn sieht.
+
+Admin werden geht bewusst nur über das Dashboard, nie über die Website. Wieder entfernen:
+`delete from public.admins where user_id = (select id from auth.users where email = 'deine@email.de');`
+
 ## Eine Box koppeln
 
 1. Auf der Box `player.html?cloud` öffnen (in der Testbox-Anleitung statt `player.html`),
