@@ -33,18 +33,27 @@ dazu die Bilder und Videos, die laufen sollen.
 ## 3. Pi starten und einrichten
 
 Pi an den Fernseher, Tastatur, Maus und Stick anschließen, Netzteil zuletzt einstecken.
-Im Terminal diese Zeilen einzeln eingeben:
+Im Terminal:
 
 ```bash
-mkdir -p ~/player ~/.config/labwc
-cp /media/svizz/*/player.html ~/player/index.html
-echo '$(command -v chromium || command -v chromium-browser) --kiosk --noerrdialogs --disable-infobars --autoplay-policy=no-user-gesture-required file:///home/svizz/player/index.html &' >> ~/.config/labwc/autostart
-sudo raspi-config nonint do_blanking 1
+curl -fsSLO https://albedorox.github.io/showcube/release/box-einrichten.sh
+bash box-einrichten.sh
 sudo reboot
 ```
 
-Die Zeilen legen den Player ab, starten ihn beim Hochfahren automatisch im Vollbild und
-verhindern, dass der Bildschirm nach 10 Minuten schwarz wird.
+Ohne Internet: `box-einrichten.sh` aus `release/` mit auf den Stick legen und
+`bash /media/svizz/*/box-einrichten.sh` aufrufen.
+
+Das Skript legt den Player vom Stick ab, startet ihn beim Hochfahren automatisch im Vollbild,
+verhindert, dass der Bildschirm nach 10 Minuten schwarz wird, und gibt der Box ihre
+**Box-Kennung** (zum Beispiel `SC-K7QD-2MXA`). Die Kennung wird aus der Seriennummer des Pi
+berechnet, bleibt also für diesen Pi immer gleich. Sie steht am Ende im Terminal:
+**aufs Gehäuse drucken oder kleben.** Dazu legt das Skript einen geheimen Schlüssel auf die
+SD-Karte. Mit beiden zusammen erkennt der Server die Box wieder, auch wenn der Browser
+zurückgesetzt wird (mehr in [backend.md](backend.md#box-kennung-an-den-pi-gebunden)).
+
+Das Skript kann jederzeit nochmal laufen, zum Beispiel für einen neuen Player vom Stick.
+Kennung und Schlüssel bleiben dabei gleich.
 
 ## 4. Inhalte einstellen
 
@@ -56,19 +65,23 @@ verhindern, dass der Bildschirm nach 10 Minuten schwarz wird.
 
 ## 4b. Oder: Inhalte aus der Cloud
 
-Statt Inhalte auf der Box einzustellen, kann die Box sie sich aus dem Panel holen
+Nach dem Einrichten aus Schritt 3 ist die Box schon eine Cloud-Box
 (Server eingerichtet, siehe [backend.md](backend.md)):
 
-1. In der Autostart-Zeile aus Schritt 3 `index.html` durch `index.html?cloud` ersetzen:
-   `nano ~/.config/labwc/autostart`, ändern, mit Strg+O speichern, Strg+X schließen, `sudo reboot`.
-   Alternativ im Player Taste `E` und „Mit ShowCube Cloud verbinden“.
-2. Das WLAN des Kunden muss dauerhaft eingerichtet sein.
-3. Der Fernseher zeigt einen sechsstelligen Code. Im Panel anmelden, „Bildschirm koppeln“, Code eingeben.
+1. Das WLAN des Kunden muss dauerhaft eingerichtet sein.
+2. Der Fernseher zeigt einen sechsstelligen Code und darunter die Box-Kennung.
+3. Im Panel anmelden, „Bildschirm koppeln“, Code eingeben. Im Panel steht die Box-Kennung danach
+   unter dem Bildschirm, so lässt sich jede Box im Laden ihrem Eintrag zuordnen.
 4. Ohne Internet spielt die Box den zuletzt geholten Stand weiter.
+
+Soll die Box nur mit Inhalten vom Stick laufen (ShowCube Light, ohne Koppel-Code auf dem Fernseher),
+in Schritt 3 `bash box-einrichten.sh --light` aufrufen. Kennung und Schlüssel bekommt sie trotzdem,
+später lässt sie sich mit Taste `E` und „Mit ShowCube Cloud verbinden“ in die Cloud holen.
 
 ## 5. Vor dem Ausliefern prüfen
 
 - [ ] Strom ziehen und wieder einstecken: Startet der Player von selbst?
+- [ ] Box-Kennung aufs Gehäuse gedruckt? Stimmt sie mit dem Fernseher überein?
 - [ ] Stimmt die Uhrzeit? (Taste `E`, oben im Status-Kasten)
 - [ ] Laufen alle Folien und Videos durch?
 - [ ] Tastatur, Maus und Stick abziehen. Die Box läuft weiter.

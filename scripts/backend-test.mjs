@@ -146,4 +146,50 @@ await check('Admin sieht alle Betriebe und kann für einen Kunden koppeln', asyn
   assert.ok(r.error && /Kein Betrieb/.test(r.error.message), 'fremder Betrieb gesperrt');
 });
 
+const zufallsKennung = () => { const z = () => Array.from({ length: 4 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[Math.floor(Math.random() * 32)]).join(''); return 'SC-' + z() + '-' + z(); };
+await check('Box mit Kennung übersteht ein Zurücksetzen des Browsers', async () => {
+  const kennung = zufallsKennung();
+  const schluessel = 'k'.repeat(20) + stamp.padEnd(23, 'x');
+  const box1 = neu(); ok(await box1.auth.signInAnonymously(), 'anon 1');
+  const i1 = ok(await box1.rpc('box_anmelden', { p_kennung: kennung, p_schluessel: schluessel }), 'anmelden mit Kennung');
+  assert.equal(i1.kennung, kennung); assert.match(i1.code, /^\d{6}$/);
+  ok(await a.rpc('bildschirm_koppeln', { p_code: i1.code, p_name: 'Schaufenster', p_standort: '', p_ausrichtung: 'land', p_show_id: 'pizza' }), 'koppeln');
+  const zeile = ok(await a.from('bildschirme_panel').select('id,kennung').eq('id', i1.id), 'panel sieht Kennung');
+  assert.equal(zeile[0].kennung, kennung);
+  // Browser gelöscht: neues anonymes Konto, gleiche Kennung und gleicher Schlüssel.
+  const box2b = neu(); ok(await box2b.auth.signInAnonymously(), 'anon 2');
+  assert.equal(ok(await box2b.rpc('box_stand', {}), 'stand vorher').bekannt, false);
+  const i2 = ok(await box2b.rpc('box_anmelden', { p_kennung: kennung, p_schluessel: schluessel }), 'wieder anmelden');
+  assert.equal(i2.id, i1.id, 'derselbe Bildschirm'); assert.equal(i2.gekoppelt, true); assert.equal(i2.code, null);
+  const st = ok(await box2b.rpc('box_stand', {}), 'stand nachher');
+  assert.equal(st.gekoppelt, true); assert.equal(st.name, 'Schaufenster');
+  assert.equal(ok(await box1.rpc('box_stand', {}), 'altes Konto').bekannt, false, 'altes Konto ist abgehängt');
+  // Wer nur die Kennung vom Gehäuse kennt, kommt nicht dran.
+  const dieb = neu(); ok(await dieb.auth.signInAnonymously(), 'anon dieb');
+  const r = await dieb.rpc('box_anmelden', { p_kennung: kennung, p_schluessel: 'falsch'.repeat(8) });
+  assert.ok(r.error && r.error.code === '42501', 'falscher Schlüssel abgelehnt');
+  assert.equal(ok(await dieb.rpc('box_stand', {}), 'dieb stand').bekannt, false);
+  assert.ok((await dieb.rpc('box_anmelden', { p_kennung: kennung, p_schluessel: 'kurz' })).error, 'kurzer Schlüssel abgelehnt');
+  assert.ok((await dieb.rpc('box_anmelden', { p_kennung: 'SC-0000-0000', p_schluessel: schluessel })).error, 'falsches Format abgelehnt');
+  assert.equal((await dieb.from('boxen').select('*')).data?.length ?? 0, 0, 'Schlüssel-Tabelle nicht lesbar');
+  assert.equal((await a.from('boxen').select('*')).data?.length ?? 0, 0, 'auch nicht fürs Panel');
+  // Admin gibt die Box frei (neu bespielte Karte, neuer Schlüssel): Kopplung bleibt.
+  assert.ok((await a.rpc('admin_box_freigeben', { p_kennung: kennung })).error, 'nur Admins');
+  const admin = neu(); ok(await admin.auth.signInWithPassword({ email: `admin-${stamp}@example.com`, password: 'geheim-123' }), 'admin login');
+  ok(await admin.rpc('admin_box_freigeben', { p_kennung: kennung }), 'freigeben');
+  const box3 = neu(); ok(await box3.auth.signInAnonymously(), 'anon 3');
+  const i3 = ok(await box3.rpc('box_anmelden', { p_kennung: kennung, p_schluessel: 'n'.repeat(43) }), 'neuer Schlüssel');
+  assert.equal(i3.id, i1.id); assert.equal(i3.gekoppelt, true);
+  assert.ok((await box2b.rpc('box_anmelden', { p_kennung: kennung, p_schluessel: schluessel })).error, 'alter Schlüssel gilt nicht mehr');
+});
+
+await check('Bestehende Testbox ohne Kennung bekommt sie und bleibt gekoppelt', async () => {
+  const k2 = zufallsKennung();
+  const alt = neu(); ok(await alt.auth.signInAnonymously(), 'anon alt');
+  const i = ok(await alt.rpc('box_anmelden'), 'ohne Kennung');
+  ok(await a.rpc('bildschirm_koppeln', { p_code: i.code, p_name: 'Alt', p_standort: '', p_ausrichtung: 'land', p_show_id: 'pizza' }), 'koppeln');
+  const j = ok(await alt.rpc('box_anmelden', { p_kennung: k2, p_schluessel: 'a'.repeat(40) + stamp }), 'mit Kennung');
+  assert.equal(j.id, i.id); assert.equal(j.gekoppelt, true); assert.equal(j.kennung, k2);
+});
+
 console.log(process.exitCode ? '\nFehler gefunden.' : `\nAlle ${n} Prüfungen bestanden.`);

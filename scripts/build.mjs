@@ -44,4 +44,6 @@ const hash = createHash('sha256');
 for (const f of ['panel.html', 'player.html', 'panel.webmanifest', ...(await readdir(resolve(rel, 'pwa'))).map(f => 'pwa/' + f)]) hash.update(await readFile(resolve(rel, f)));
 const sw = (await readFile(resolve(root, 'pwa/sw.js'), 'utf8')).replace('__VERSION__', hash.digest('hex').slice(0, 12));
 await writeFile(resolve(rel, 'sw.js'), sw);
-console.log('Fertig: ' + apps.map(a => 'release/' + a + '.html').join(', ') + ', dazu release/sw.js und das App-Manifest');
+// Einrichtungs-Skript für den Pi daneben legen, damit es sich auf der Box direkt herunterladen lässt.
+await copyFile(resolve(root, 'scripts/box-einrichten.sh'), resolve(rel, 'box-einrichten.sh'));
+console.log('Fertig: ' + apps.map(a => 'release/' + a + '.html').join(', ') + ', dazu release/sw.js, release/box-einrichten.sh und das App-Manifest');

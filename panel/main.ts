@@ -82,7 +82,7 @@ type MediaUse = { id: string; when: When } & Zeitraum;
 interface Cfg { tpl: string | null; name: string; rows: Row[]; accent: string; logo: string | null; dur: number; fit: 'cover' | 'contain'; dayStart: string; eveStart: string; offOn: boolean; offFrom: string; offTo: string; offDays: number[]; media: MediaUse[]; extras: Baustein[]; leiste: Leiste; }
 interface Version { revision: number; at: number; cfg: Cfg; }
 interface Show { id: string; name: string; revision: number; published: number | null; cfg: Cfg; pub: Cfg | null; history: Version[]; }
-interface Screen { id: string; name: string; place: string; orient: 'land' | 'port'; show: string; power: boolean; sim: 'online' | 'offline'; lastSeen: number; revision: number; version: string; temp: number; disk: number; net: string; booted: number; log: { t: number; msg: string }[]; }
+interface Screen { id: string; name: string; place: string; orient: 'land' | 'port'; show: string; power: boolean; sim: 'online' | 'offline'; lastSeen: number; revision: number; version: string; kennung?: string; temp: number; disk: number; net: string; booted: number; log: { t: number; msg: string }[]; }
 interface Asset { id: string; type: 'image' | 'video'; name: string; size: number; added: number; }
 interface State { shows: Show[]; screens: Screen[]; assets: Asset[]; notice: (Notice & { screens: string[] }) | null; alert?: { on: boolean; after: number; to: string }; }
 
@@ -474,7 +474,7 @@ function drawScreenDlg() {
       ['Gerade', beat ? PERIOD[beat.period] + (beat.of ? ', Folie ' + beat.slide + ' von ' + beat.of : '') : sh ? PERIOD[periodOf(sh.pub || sh.cfg)] : '–'],
       ['Auflösung', beat ? beat.w + ' × ' + beat.h : sc.orient === 'port' ? '1080 × 1920' : '1920 × 1080'],
       ['Läuft seit', dur(beat ? beat.uptime : Math.round((Date.now() - sc.booted) / 1000))],
-      ...(konto ? [['Box', 'ShowCube ' + (sc.version || '–')] as [string, string]] : [['Box', 'ShowCube ' + sc.version + ' · ' + sc.temp + ' °C · Speicher ' + sc.disk + ' %'], ['Netz', sc.net]] as [string, string][])];
+      ...(konto ? [['Box', 'ShowCube ' + (sc.version || '–')] as [string, string], ...(sc.kennung ? [['Box-Kennung', sc.kennung] as [string, string]] : [])] : [['Box', 'ShowCube ' + sc.version + ' · ' + sc.temp + ' °C · Speicher ' + sc.disk + ' %'], ['Netz', sc.net]] as [string, string][])];
     fill(kv, ...rows.flatMap(([k, val]) => [h('dt', null, k), h('dd', null, val)]));
   };
   upd(); dticks.push(upd);
@@ -964,7 +964,7 @@ function vomServer(r: any, old?: Screen): Screen {
   if (r.zustand && at) live.set(r.id, { beat: r.zustand, at });
   const sc: Screen = old || { id: r.id, name: r.name, place: r.standort, orient: r.ausrichtung, show: r.show_id || '', power: r.strom, sim: 'offline', lastSeen: 0, revision: 0, version: '', temp: 0, disk: 0, net: '', booted: Date.now(), log: [] };
   sc.sim = 'offline'; sc.lastSeen = at || Date.parse(r.gekoppelt || r.erstellt || '') || Date.now();
-  sc.revision = r.stand || 0; sc.version = r.version || '';
+  sc.revision = r.stand || 0; sc.version = r.version || ''; sc.kennung = r.kennung || '';
   if (r.zustand && r.zustand.uptime != null && at) sc.booted = at - r.zustand.uptime * 1000;
   // Protokoll: Einträge vom Server (Box meldet sich, Stand übernommen) und eigene aus dem Panel zusammen.
   const seen = new Set<string>(), all = [...(r.protokoll || []), ...sc.log].filter(l => { const k = l.t + l.msg; if (seen.has(k)) return false; seen.add(k); return true; });
@@ -1007,7 +1007,7 @@ async function cloudLaden() {
     sb.from('betriebe').select('name, hinweis, einstellungen').eq('id', b).single(),
     sb.from('shows').select('daten').eq('betrieb_id', b),
     sb.from('dateien').select('*').eq('betrieb_id', b).order('erstellt', { ascending: false }),
-    sb.from('bildschirme_panel').select('id,name,standort,ausrichtung,show_id,strom,zuletzt,her,zustand,stand,version,protokoll,gekoppelt,erstellt').eq('betrieb_id', b)]);
+    sb.from('bildschirme_panel').select('id,name,standort,ausrichtung,show_id,strom,zuletzt,her,zustand,stand,version,kennung,protokoll,gekoppelt,erstellt').eq('betrieb_id', b)]);
   const err = [bt, shows, dat, scr].find(r => r.error); if (err) throw err.error;
   const oldScreens = new Map(S.screens.map(sc => [sc.id, sc]));
   S = { shows: shows.data.map((r: any) => r.daten), screens: scr.data.map((r: any) => vomServer(r, oldScreens.get(r.id))), assets: dat.data.filter((d: any) => d.typ !== 'logo').map((d: any) => ({ id: d.id, type: d.typ, name: d.name, size: d.groesse, added: Date.parse(d.erstellt) })),
@@ -1092,7 +1092,7 @@ function cloudSend(m: Msg) {
 }
 let pollT: any;
 async function holeBildschirme() {
-  const r = await sb.from('bildschirme_panel').select('id,name,standort,ausrichtung,show_id,strom,zuletzt,her,zustand,stand,version,protokoll,foto_zeit,gekoppelt,erstellt').eq('betrieb_id', konto.betrieb);
+  const r = await sb.from('bildschirme_panel').select('id,name,standort,ausrichtung,show_id,strom,zuletzt,her,zustand,stand,version,kennung,protokoll,foto_zeit,gekoppelt,erstellt').eq('betrieb_id', konto.betrieb);
   if (r.error) return;
   let neu = false;
   const ids = new Set(r.data.map((x: any) => x.id));
