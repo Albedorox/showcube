@@ -271,9 +271,9 @@ if (ch) ch.onmessage = (e: MessageEvent<Msg>) => {
 
 // ---------- Rückmeldungen: Toast mit Rückgängig ----------
 let toastT: any, undoFn: (() => void) | null = null;
-function toast(text: string, undo?: () => void) {
-  $('toastText').textContent = text; undoFn = undo || null; $('toastUndo').hidden = !undo;
-  $('toast').classList.remove('gone'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.add('gone'), undo ? 7000 : 3800);
+function toast(text: string, undo?: () => void, label = 'Rückgängig', ms = 0) {
+  $('toastText').textContent = text; undoFn = undo || null; $('toastUndo').hidden = !undo; $('toastUndo').textContent = label;
+  $('toast').classList.remove('gone'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.add('gone'), ms || (undo ? 7000 : 3800));
 }
 $('toastUndo').onclick = () => { const f = undoFn; undoFn = null; $('toast').classList.add('gone'); if (f) f(); };
 function undoable(text: string, change: () => void) {
@@ -897,5 +897,48 @@ setInterval(() => {
   const k = S.screens.filter(s => isLive(s.id)).map(s => s.id).join();
   if (k !== liveKey) { liveKey = k; render(); if (openId) drawScreenDlg(); } else { runTicks(); dticks.forEach(f => f()); }
 }, 4000);
-const start = async () => { await openDB(); await loadAll(); sweepBlobs(); route(); requestAnimationFrame(frame); };
+// ---------- Als App installieren (PWA) ----------
+// Nur im fertigen Build aktiv: der Build legt Manifest und sw.js neben panel.html. Über file:// gibt es keinen Service Worker.
+const standalone = () => matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let installEvt: any = null;
+function paintInstall() { $('install').hidden = standalone() || !(installEvt || (isIOS && pwaOn)); }
+const pwaOn = !!document.querySelector('link[rel=manifest]') && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol);
+addEventListener('beforeinstallprompt', (e: any) => { e.preventDefault(); installEvt = e; paintInstall(); });
+addEventListener('appinstalled', () => { installEvt = null; paintInstall(); toast('ShowCube ist jetzt als App installiert.'); });
+$('install').prepend(icon('download'));
+$('install').onclick = async () => {
+  if (installEvt) { const e = installEvt; installEvt = null; e.prompt(); await e.userChoice.catch(() => null); paintInstall(); return; }
+  $('dlgInstall').showModal();
+};
+$('dlgInstall').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgInstall')) $('dlgInstall').close(); });
+if (pwaOn) {
+  let reloading = false;
+  // Beim ersten Besuch übernimmt der Worker still. Erst ein Wechsel von einem Worker zum nächsten ist ein Update.
+  let ctrl = navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const update = !!ctrl; ctrl = navigator.serviceWorker.controller;
+    if (!update || reloading) return;
+    toast('Neue Version von ShowCube ist da.', () => { reloading = true; location.reload(); }, 'Neu laden', 20000);
+  });
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(reg => {
+    // Bei längerem Offen-Lassen (z.B. Tablet an der Theke) stündlich nach Updates schauen.
+    setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+  }).catch(() => {}));
+}
+paintInstall();
+const offline = () => document.documentElement.classList.toggle('offline', !navigator.onLine);
+addEventListener('online', () => { offline(); toast('Wieder online.'); });
+addEventListener('offline', () => { offline(); toast('Offline. Änderungen bleiben auf diesem Gerät, bis du wieder Netz hast.', undefined, undefined, 6000); });
+offline();
+
+// Kurzbefehle vom App-Icon (lange drücken): panel.html?do=notice
+function shortcut() {
+  const q = new URLSearchParams(location.search), d = q.get('do');
+  if (!d) return;
+  history.replaceState(null, '', location.pathname + location.hash);
+  if (d === 'notice') openNotice();
+}
+
+const start = async () => { await openDB(); await loadAll(); sweepBlobs(); route(); requestAnimationFrame(frame); shortcut(); };
 fontsReady().then(start, start);
