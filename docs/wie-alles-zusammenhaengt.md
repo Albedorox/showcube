@@ -49,7 +49,7 @@ Teilweise, und so ist es richtig:
 3. **Panel-Prototyp mit Pilotkunden durchklicken** (Pizzeria, Makler): Was fehlt, was ist zu viel?
 4. **Echtes Backend** für die Cloud-Stufe (#8): Konto und Login, Bildschirm koppeln per Code,
    Pakete und Dateien speichern, die Box holt sich neue Pakete und meldet ihren Zustand.
-   Geplant ist Supabase (EU, Frankfurt). Das Paket-Format bleibt, nur der Transportweg ändert sich.
+   Gebaut mit Supabase (EU, Frankfurt), siehe [backend.md](backend.md). Das Paket-Format bleibt, nur der Transportweg ändert sich.
 5. **Abrechnung** (Stripe) erst, wenn ein Pilot die Cloud-Stufe tatsächlich nutzt.
 
 ## Was der Panel-Prototyp echt macht und was gespielt ist
@@ -67,10 +67,16 @@ Echt:
 - Der Player zählt, wie oft jede Folie heute lief, und meldet das mit dem Herzschlag ans Panel (Fernwartung, „Heute gezeigt“, CSV-Bericht).
 - „Für USB-Stick exportieren“ erzeugt `showcube-paket.json`, das der Player unter „Paket laden“ einliest.
 
-Gespielt:
+Mit Konto (sobald der Server eingerichtet ist, siehe [backend.md](backend.md)) ist auch das hier echt:
+- Anmelden, Slideshows, Dateien, Hinweis und Einstellungen liegen auf dem Server, auf jedem Gerät gleich.
+- Bildschirme sind echte Boxen (`player.html?cloud`), gekoppelt mit dem Code vom Fernseher.
+- Veröffentlichen, An/Aus, Neustart, Finden, Foto und Sofort-Hinweis erreichen die Box über das Internet,
+  spätestens nach 10 Sekunden. Das Panel zeigt, wann sich jede Box zuletzt gemeldet hat.
+
+Gespielt (in der Demo ohne Konto):
 - Kein Server, kein Login. Alles liegt im Browser (localStorage und IndexedDB).
 - Die Verbindung zwischen Panel und Player ist ein BroadcastChannel, funktioniert also nur im selben Browser.
 - Temperatur, Speicher, Netz und der Online-Status der Demo-Bildschirme sind erfunden.
-- Koppeln nimmt jeden sechsstelligen Code.
-- Die Wiedergabezahlen der Demo-Bildschirme sind aus dem Zeitplan hochgerechnet. Die Meldung bei Ausfall verschickt nichts.
+- Koppeln nimmt jeden sechsstelligen Code (mit Konto nur den echten).
+- Die Wiedergabezahlen der Demo-Bildschirme sind aus dem Zeitplan hochgerechnet. Die Meldung bei Ausfall verschickt nichts, auch mit Konto noch nicht.
 - Bewertungen tippt man im Prototyp ab. Später holt ShowCube Sterne und Stimmen aus dem Google-Unternehmensprofil.
