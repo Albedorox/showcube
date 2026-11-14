@@ -16,6 +16,7 @@ Internet läuft.
 | `player/` | Player v0: läuft im Vollbild auf der Box, offline, mit Vorlagen, eigenen Bildern und Videos und Zeitplan (Tag, Abend, Bildschirm aus). Einstellungen mit Taste `E`. | Prototyp, im Browser getestet, noch nicht auf einem Raspberry Pi |
 | `panel/` | Cloud-Panel: Bildschirme mit Fernwartung, Preistabelle mit „heute aus“, Sofort-Hinweis auf alle Bildschirme, Zeitplan mit Ruhetagen, Versionen zum Zurückholen, Medien, Vorlagen, Befehlsleiste (Strg + K), hell/dunkel, fürs Handy gebaut. „Live öffnen“ startet einen echten Player im zweiten Tab, der die Inhalte bekommt. | Klick-Prototyp ohne Server |
 | Bausteine | Zusatzfolien für jede Slideshow: echter QR-Code, Google-Bewertungen mit Bewerten-QR, Countdown-Aktion. Jede Folie und jedes Medium kann einen Zeitraum haben (ab, bis, Wochentage) und verschwindet danach von selbst. Infoleiste unten mit Laufband, Uhr und Wetter (Open-Meteo, ohne Konto). Im Panel: Wiedergabe-Nachweis pro Bildschirm mit CSV-Bericht und Meldung bei Ausfall. Code in `shared/bausteine.ts`. | Prototyp, Wetter braucht Internet auf der Box |
+| App (PWA) | Das Panel lässt sich als App installieren: eigenes Icon auf Handy, Tablet und Rechner, Vollbild, startet auch ohne Netz, meldet neue Versionen mit „Neu laden“. Android und Chrome zeigen „App installieren“ oben im Panel, auf dem iPhone erklärt derselbe Knopf den Weg über Teilen. Langes Drücken aufs Icon: Sofort-Hinweis oder Inhalte. Dateien in `pwa/`, der Build legt sie nach `release/`. | Prototyp, Push-Meldungen brauchen erst das Backend |
 | `konfigurator/` | Schaufenster-Konfigurator für den Vertrieb: Foto vom Schaufenster, Bildschirm perspektivisch hineinmontieren, Vorher/Nachher, Postkarte A6. | Prototyp |
 | `shared/` | Gemeinsame Folien-Vorlagen, Schriften und das Paket-Format zwischen Panel und Player (Bricolage Grotesque, Figtree; beide OFL 1.1). | |
 | `index.html` | Startseite für GitHub Pages (https://albedorox.github.io/showcube/), führt zu den drei Apps. | |
@@ -47,6 +48,12 @@ npm run build              # Typprüfung, dann release/*.html neu bauen
 ```
 
 Nach Änderungen `npm run build` ausführen und `release/` mit einchecken.
+
+App-Icon oder Aussehen des Panels geändert? Dann auch die Bilder fürs Installieren neu machen:
+`npm run build`, dann `node scripts/pwa-bilder.mjs` (braucht Playwright), dann noch einmal `npm run build`.
+Das Icon selbst steht in `pwa/icon.svg`.
+
+Installieren und Offline-Start gehen nur über `https://` (z.B. GitHub Pages) oder `localhost`, nicht beim Öffnen der Datei per Doppelklick.
 
 ## Geplante Stufen
 

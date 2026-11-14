@@ -110,6 +110,8 @@ svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor;
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-1); }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .small { font-size: 13px; color: var(--muted); }
+.steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.offline .top::after { content: "Offline"; position: absolute; top: 4px; right: 12px; font-size: 11px; font-weight: 700; color: var(--warn); background: var(--warn-soft); border-radius: 999px; padding: 1px 8px; }
 .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
 .badge.ok { background: var(--accent-soft); color: var(--accent-text); }
 .badge.warn { background: var(--warn-soft); color: var(--warn); }
@@ -410,6 +412,7 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
       <div class="sp"></div>
       <div class="chip" id="noticeChip" hidden><span id="noticeChipText"></span><button id="noticeStop" aria-label="Hinweis beenden"></button></div>
       <button class="btn" id="openNotice"><span class="lbl">Sofort-Hinweis</span></button>
+      <button class="btn ghost" id="install" hidden title="ShowCube als App auf diesem Gerät installieren"><span class="lbl">App installieren</span></button>
       <button class="btn icon ghost" id="theme" aria-label="Hell oder dunkel"></button>
     </header>
     <main class="view" id="view" tabindex="-1"></main>
@@ -425,6 +428,16 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
   <div class="cmd-in"><input type="text" id="cmdIn" placeholder="Bildschirm, Slideshow oder Befehl suchen" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="cmdList" aria-label="Suchen"></div>
   <div class="cmd-list" id="cmdList" role="listbox"></div>
 </dialog>
+<dialog class="modal" id="dlgInstall" aria-labelledby="diTitle"><form class="dlg" method="dialog">
+  <h2 id="diTitle">ShowCube auf den Home-Bildschirm</h2>
+  <p class="small">So hast du das Panel wie eine App auf dem iPhone oder iPad, im Vollbild und mit eigenem Symbol.</p>
+  <ol class="steps">
+    <li>In Safari auf <b>Teilen</b> tippen (Quadrat mit Pfeil nach oben, bei neuem iOS erst auf <b>…</b>).</li>
+    <li><b>Zum Home-Bildschirm</b> wählen. Falls nicht sichtbar, in der Liste nach unten wischen.</li>
+    <li>Oben rechts auf <b>Hinzufügen</b> tippen.</li>
+  </ol>
+  <div class="row" style="justify-content:flex-end"><button class="btn primary" value="ok">Verstanden</button></div>
+</form></dialog>
 <div class="toast gone" id="toast" role="status"><span id="toastText"></span><button id="toastUndo" hidden>Rückgängig</button></div>
 
 <script type="module" src="./main.ts"></script>
