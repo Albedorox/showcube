@@ -335,6 +335,11 @@ dialog.cmd { border-radius: 16px; width: min(560px, calc(100vw - 28px)); margin-
   .search { width: 38px; padding: 0; justify-content: center; }
   .search span, .search kbd { display: none; }
   .top .lbl { display: none; }
+  .top { gap: 6px; }
+  .top .btn { flex-shrink: 0; }
+  .search { flex-shrink: 0; }
+  #konto:has(.badge) .i { display: none; }
+  #konto .badge { padding: 2px 7px; font-size: 11.5px; }
   .view { padding: 6px 16px calc(40px + var(--tabbar)); }
   .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
   .tabbar button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border-radius: 10px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
