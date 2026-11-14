@@ -1,11 +1,13 @@
 import '../shared/fonts.css';
 import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates';
 import { activeOn, expired, zeitraumText, bausteinActive, bausteinSlide, bausteinTitle, BAUSTEINE, LEISTE, leisteH, drawLeiste, fetchWetter, findPlace, WETTER_DEMO, type Baustein, type BausteinKind, type Leiste, type Wetter, type Zeitraum } from '../shared/bausteine';
+import { hatServer, verbinden, SPEICHER, BUCKET } from '../shared/cloud';
 import { CHANNEL, PAKET_FORMAT, PAKET_VERSION, paketToFile, type Msg, type Notice, type Paket, type ShowConfig, type When } from '../shared/paket';
 
 // Cloud-Panel, Prototyp. Kein Server: Zustand in localStorage, Dateien in IndexedDB.
 // "Live öffnen" startet einen echten Player in einem zweiten Tab, verbunden über einen BroadcastChannel.
 // Temperatur, Netz und der Online-Status der Demo-Boxen sind gespielt.
+// Mit Konto (Abschnitt "ShowCube Cloud" unten) liegt alles auf dem Server und die Bildschirme sind echte Boxen.
 
 // ---------- Kleine Helfer ----------
 const $ = (id: string) => document.getElementById(id) as any;
@@ -49,6 +51,7 @@ const ICONS: Record<string, string> = {
   qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4"/>',
   star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>', timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5"/>',
   ticker: '<rect x="2" y="15" width="20" height="6" rx="1.5"/><path d="M6 18h8M3 5h18M3 10h12"/>', chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   shop: '<path d="M3 9l1.5-5h15L21 9M4 9v11h16V9M9 20v-6h6v6"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 const icon = (n: string) => { const t = document.createElement('template'); t.innerHTML = `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`; return t.content.firstChild as SVGElement; };
@@ -117,7 +120,12 @@ try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.show
 S.shows.forEach(sh => [sh.cfg, sh.pub, ...sh.history.map(v => v.cfg)].forEach(c => { if (c) { c.extras = c.extras || []; c.leiste = c.leiste || { ...LEISTE }; } }));
 S.alert = S.alert || { on: true, after: 10, to: 'E-Mail und Push' };
 let saveOK = true;
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { saveOK = false; } }
+function save() { if (konto) { cacheCloud(); planeSync(); return; } try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { saveOK = false; } }
+// Ältere oder vom Server geladene Stände ergänzen.
+function normalize(x: State) {
+  x.shows.forEach(sh => [sh.cfg, sh.pub, ...sh.history.map(v => v.cfg)].forEach(c => { if (c) { c.extras = c.extras || []; c.leiste = c.leiste || { ...LEISTE }; } }));
+  x.alert = x.alert || { on: true, after: 10, to: 'E-Mail und Push' };
+}
 const showById = (id: string) => S.shows.find(s => s.id === id);
 const assetById = (id: string) => S.assets.find(a => a.id === id);
 const isDirty = (sh: Show) => !sh.pub || JSON.stringify(sh.cfg) !== JSON.stringify(sh.pub);
@@ -239,12 +247,13 @@ function frame(now: number) {
 // ---------- Verbindung zu echten Playern (Tabs mit ?live=...) ----------
 const ch = 'BroadcastChannel' in window ? new BroadcastChannel(CHANNEL) : null;
 const live = new Map<string, { beat?: any; at: number }>();
-const isLive = (id: string) => { const l = live.get(id); return !!l && Date.now() - l.at < 8000; };
-const send = (m: Msg) => ch && ch.postMessage(m);
+// Echte Boxen melden sich alle 10 Sekunden, Player-Tabs alle 3 Sekunden.
+const isLive = (id: string) => { const l = live.get(id); return !!l && Date.now() - l.at < (konto ? 35000 : 8000); };
+const send = (m: Msg) => { if (konto) cloudSend(m); else if (ch) ch.postMessage(m); };
 const isOn = (sc: Screen) => isLive(sc.id) || sc.sim === 'online';
 function noticeFor(id: string): Notice | null { const n = S.notice; return n && n.screens.includes(id) && (!n.until || Date.now() < n.until) ? { text: n.text, until: n.until } : null; }
 function toConfig(c: Cfg, sc?: Screen): ShowConfig {
-  const media = c.media.map(m => { const a = assetById(m.id); return a && blobs.has(a.id) ? { id: a.id, type: a.type, name: a.name, when: m.when, from: m.from, to: m.to, days: m.days } : null; }).filter(Boolean);
+  const media = c.media.map(m => { const a = assetById(m.id); return a && (blobs.has(a.id) || (konto && hochgeladen.has(a.id))) ? { id: a.id, type: a.type, name: a.name, when: m.when, from: m.from, to: m.to, days: m.days } : null; }).filter(Boolean);
   return { tpl: c.tpl, name: c.name, items: itemsOf(c), accent: c.accent, dur: c.dur, fit: c.fit, dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays, notice: sc ? noticeFor(sc.id) : null, media, extras: clone(c.extras || []), leiste: c.leiste && c.leiste.on ? { ...c.leiste } : null };
 }
 function paketFor(sh: Show, c: Cfg, sc?: Screen): Paket {
@@ -303,7 +312,7 @@ function renderNav() {
   const mk = (withCount: boolean) => VIEWS.map(([k, label, ic]) => h('button', { 'aria-current': view === k ? 'page' : null, onclick: () => go(k) }, icon(ic), label, withCount ? count[k] : null));
   fill($('nav'), ...mk(true)); fill($('tabbar'), ...mk(false));
   $('planName').textContent = 'Cloud · ' + plural(S.screens.length, 'Bildschirm', 'Bildschirme');
-  $('planInfo').textContent = S.screens.length * 12 + ' € im Monat · Konto Demo';
+  $('planInfo').textContent = S.screens.length * 12 + ' € im Monat · ' + (konto ? konto.email : 'Konto Demo'); paintKonto();
   const n = S.notice && (!S.notice.until || Date.now() < S.notice.until) ? S.notice : null;
   $('noticeChip').hidden = !n; if (n) $('noticeChipText').textContent = 'Hinweis läuft: „' + n.text + '“';
 }
@@ -369,7 +378,7 @@ function renderScreens(v: HTMLElement) {
     const upd = () => {
       const st = stateOf(sc), b = st.lv && live.get(sc.id).beat; dot.className = 'dot ' + st.dot; t.upd();
       lab.textContent = sc.place + ' · ' + st.label + (b && b.of ? ' · Folie ' + b.slide + ' von ' + b.of : '');
-      fill(tag, st.lv ? h('span', { class: 'badge live' }, 'LIVE') : null, noticeFor(sc.id) && st.on ? h('span', { class: 'badge' }, 'Hinweis') : null);
+      fill(tag, st.lv && !konto ? h('span', { class: 'badge live' }, 'LIVE') : null, noticeFor(sc.id) && st.on ? h('span', { class: 'badge' }, 'Hinweis') : null);
     };
     upd(); ticks.push(upd);
     grid.append(h('article', { class: 'card scr' },
@@ -378,7 +387,7 @@ function renderScreens(v: HTMLElement) {
         h('div', null, h('div', { class: 'title' }, dot, h('h2', null, sc.name)), lab),
         h('div', { class: 'shows' }, h('label', { for: 'sel-' + sc.id }, 'Zeigt'), sel),
         h('div', { class: 'foot' }, h('button', { class: 'btn sm', onclick: () => openScreen(sc.id) }, 'Fernwartung'),
-          h('button', { class: 'btn sm', title: 'Startet einen echten Player in einem neuen Tab, verbunden mit diesem Bildschirm', onclick: () => openLive(sc) }, s.lv ? 'Player-Tab zeigen' : 'Live öffnen', icon('ext'))))));
+          konto ? null : h('button', { class: 'btn sm', title: 'Startet einen echten Player in einem neuen Tab, verbunden mit diesem Bildschirm', onclick: () => openLive(sc) }, s.lv ? 'Player-Tab zeigen' : 'Live öffnen', icon('ext'))))));
   });
   grid.append(h('button', { class: 'addcard', onclick: openPair }, icon('plus'), 'Bildschirm koppeln'));
   v.append(grid);
@@ -433,7 +442,7 @@ function drawScreenDlg() {
       ['Gerade', beat ? PERIOD[beat.period] + (beat.of ? ', Folie ' + beat.slide + ' von ' + beat.of : '') : sh ? PERIOD[periodOf(sh.pub || sh.cfg)] : '–'],
       ['Auflösung', beat ? beat.w + ' × ' + beat.h : sc.orient === 'port' ? '1080 × 1920' : '1920 × 1080'],
       ['Läuft seit', dur(beat ? beat.uptime : Math.round((Date.now() - sc.booted) / 1000))],
-      ['Box', 'ShowCube ' + sc.version + ' · ' + sc.temp + ' °C · Speicher ' + sc.disk + ' %'], ['Netz', sc.net]];
+      ...(konto ? [['Box', 'ShowCube ' + (sc.version || '–')] as [string, string]] : [['Box', 'ShowCube ' + sc.version + ' · ' + sc.temp + ' °C · Speicher ' + sc.disk + ' %'], ['Netz', sc.net]] as [string, string][])];
     fill(kv, ...rows.flatMap(([k, val]) => [h('dt', null, k), h('dd', null, val)]));
   };
   upd(); dticks.push(upd);
@@ -472,12 +481,13 @@ function drawScreenDlg() {
       };
       upd2(); dticks.push(upd2); return box;
     })(),
-    s.lv ? h('div', { class: 'row' }, h('button', { class: 'btn sm', onclick: () => openLive(sc) }, 'Player-Tab zeigen', icon('ext')))
+    konto ? h('span', { class: 'small' }, 'Echte Box. Sie meldet sich alle 10 Sekunden. Befehle kommen beim nächsten Melden an.')
+    : s.lv ? h('div', { class: 'row' }, h('button', { class: 'btn sm', onclick: () => openLive(sc) }, 'Player-Tab zeigen', icon('ext')))
       : h('div', { class: 'sim' }, h('span', null, 'Demo-Box, Werte sind gespielt. Mit „Live öffnen“ wird daraus ein echter Player.'),
         h('button', { class: 'btn sm', onclick: () => { if (sc.sim === 'online') { sc.sim = 'offline'; sc.lastSeen = Date.now(); logTo(sc, 'Verbindung verloren'); } else { sc.sim = 'online'; logTo(sc, 'Wieder online'); if (sh && sc.revision < sh.revision) deliver(sc); } redraw(); } }, sc.sim === 'online' ? 'Ausfall testen' : 'Wieder online'),
         h('button', { class: 'btn sm', onclick: () => openLive(sc) }, 'Live öffnen')),
     h('div', { class: 'fld' }, h('h3', null, 'Protokoll'), h('ul', { class: 'log' }, sc.log.slice(0, 8).map(l => h('li', null, h('time', null, clock(l.t)), h('span', null, l.msg))))),
-    h('div', null, h('button', { class: 'btn ghost danger sm', onclick: () => { $('dlgScreen').close(); undoable('„' + sc.name + '“ entfernt.', () => { S.screens = S.screens.filter(z => z.id !== sc.id); }); } }, icon('trash'), 'Bildschirm entfernen')));
+    h('div', null, h('button', { class: 'btn ghost danger sm', onclick: () => { $('dlgScreen').close(); if (konto) { cloudEntfernen(sc); return; } undoable('„' + sc.name + '“ entfernt.', () => { S.screens = S.screens.filter(z => z.id !== sc.id); }); } }, icon('trash'), 'Bildschirm entfernen')));
 }
 
 // ---------- Bildschirm koppeln ----------
@@ -485,7 +495,7 @@ function openPair() {
   const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' });
   fill($('pairForm'), 
     h('div', { class: 'dlg-h' }, h('h2', { id: 'dpTitle' }, 'Bildschirm koppeln'), h('button', { class: 'btn icon ghost', value: 'cancel', 'aria-label': 'Schließen' }, icon('x'))),
-    h('p', { class: 'small' }, 'Box an den Fernseher stecken und mit dem WLAN verbinden. Auf dem Fernseher erscheint ein sechsstelliger Code. Im Prototyp geht jeder Code.'),
+    h('p', { class: 'small' }, 'Box an den Fernseher stecken und mit dem WLAN verbinden. Auf dem Fernseher erscheint ein sechsstelliger Code.' + (konto ? '' : ' Im Prototyp geht jeder Code.')),
     h('div', null, h('label', { for: 'pCode' }, 'Code vom Fernseher'), h('input', { class: 'code', type: 'text', id: 'pCode', inputmode: 'numeric', maxlength: '7', placeholder: '482 915', autocomplete: 'off' })),
     h('div', { class: 'grid2' },
       h('div', null, h('label', { for: 'pName' }, 'Name'), h('input', { type: 'text', id: 'pName', placeholder: 'z. B. Theke' })),
@@ -500,6 +510,7 @@ function openPair() {
     const code = $('pCode').value.replace(/\D/g, ''), name = $('pName').value.trim();
     if (code.length !== 6) { e.preventDefault(); err.textContent = 'Der Code hat sechs Ziffern.'; $('pCode').focus(); return; }
     if (!name) { e.preventDefault(); err.textContent = 'Bitte einen Namen eingeben.'; $('pName').focus(); return; }
+    if (konto) { e.preventDefault(); cloudKoppeln(code, name, $('pPlace').value.trim(), $('pOrient').value, $('pShow').value, err, e.submitter as HTMLButtonElement); return; }
     const id = (name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20) || 'box') + '-' + code.slice(-3);
     const sc: Screen = { id, name, place: $('pPlace').value.trim() || 'Neuer Standort', orient: $('pOrient').value, show: $('pShow').value, power: true, sim: 'online', lastSeen: Date.now(), revision: 0, version: '0.3.1', temp: 44, disk: 12, net: 'WLAN, gut', booted: Date.now(), log: [] };
     logTo(sc, 'Gekoppelt mit Code ' + code.slice(0, 3) + ' ' + code.slice(3)); S.screens.push(sc); deliver(sc); save(); go('screens');
@@ -623,7 +634,7 @@ function renderFilm() {
 }
 function publish(sh: Show) {
   sh.revision++; sh.published = Date.now(); sh.pub = clone(sh.cfg); sh.history.unshift({ revision: sh.revision, at: sh.published, cfg: clone(sh.cfg) }); sh.history = sh.history.slice(0, 8);
-  const to = S.screens.filter(s => s.show === sh.id); to.forEach(deliver); save(); render();
+  const to = S.screens.filter(s => s.show === sh.id); to.forEach(deliver); if (konto) offenePakete.add(sh.id); save(); render();
   const off = to.filter(s => !isOn(s)).length;
   toast(!to.length ? 'Stand ' + sh.revision + ' veröffentlicht. Noch keinem Bildschirm zugewiesen.' : off ? 'Veröffentlicht. ' + (to.length - off) + ' von ' + to.length + ' Bildschirmen zeigen es schon, der Rest holt es nach.' : 'Veröffentlicht. ' + (to.length === 1 ? 'Der Bildschirm zeigt' : to.length === 2 ? 'Beide Bildschirme zeigen' : 'Alle ' + to.length + ' Bildschirme zeigen') + ' jetzt Stand ' + sh.revision + '.');
 }
@@ -860,6 +871,7 @@ function openCmd() {
     ...VIEWS.map(([k, l, ic]) => ({ label: l, hint: 'Bereich', ic, run: () => go(k) })),
     { label: 'Sofort-Hinweis senden', hint: 'Befehl', ic: 'bolt', run: openNotice }, { label: 'Bildschirm koppeln', hint: 'Befehl', ic: 'plus', run: openPair },
     { label: 'Neue Slideshow', hint: 'Befehl', ic: 'plus', run: () => go('templates') }, { label: 'Hell oder dunkel umschalten', hint: 'Befehl', ic: 'moon', run: toggleTheme },
+    ...(sb ? [konto ? { label: 'Abmelden', hint: 'Konto · ' + konto.email, ic: 'user', run: abmelden } : { label: 'Anmelden', hint: 'Konto', ic: 'user', run: () => openLogin() }] : []),
     ...S.screens.map(sc => ({ label: sc.name, hint: 'Bildschirm · ' + sc.place, ic: 'screens', run: () => { go('screens'); openScreen(sc.id); } })),
     ...S.shows.map(sh => ({ label: sh.name, hint: 'Slideshow', ic: 'slides', run: () => go('shows', sh.id) })),
     ...S.shows.flatMap(sh => sh.cfg.rows.filter(r => r.c[0]).map(r => ({ label: r.c[0], hint: (r.c[r.c.length - 1] !== r.c[0] ? r.c.slice(1).filter(Boolean).pop() + ' · ' : '') + sh.name, ic: 'search', run: () => { tab = 'content'; go('shows', sh.id); } }))),
@@ -888,7 +900,251 @@ const isDark = () => (document.documentElement.dataset.theme || (matchMedia('(pr
 function paintTheme() { fill($('theme'), icon(isDark() ? 'sun' : 'moon')); $('theme').title = isDark() ? 'Helles Design' : 'Dunkles Design'; document.querySelector('meta[name=theme-color]').setAttribute('content', isDark() ? '#0d1110' : '#f6f5f1'); }
 function toggleTheme() { const t = isDark() ? 'light' : 'dark'; document.documentElement.dataset.theme = t; try { localStorage.setItem('showcube-theme', t); } catch (e) {} paintTheme(); }
 $('theme').onclick = toggleTheme; paintTheme();
-$('resetDemo').onclick = () => undoable('Demo-Daten zurückgesetzt.', () => { S = seed(); cur = null; });
+const resetDemo = () => undoable('Demo-Daten zurückgesetzt.', () => { S = seed(); cur = null; });
+$('resetDemo').onclick = resetDemo;
+
+// ---------- ShowCube Cloud: Konto, Speichern auf dem Server, echte Boxen ----------
+// Ohne Anmeldung bleibt das Panel die Demo im Browser. Mit Konto:
+// - Slideshows, Dateien, Hinweis und Einstellungen werden kurz nach jeder Änderung auf den Server geschrieben.
+//   Bis dahin (und ohne Netz) liegt alles im Browser zwischengespeichert und wird nachgeschoben.
+// - Veröffentlichen legt ein Paket auf dem Server ab. Die Boxen holen es sich selbst.
+// - Bildschirme sind echte Boxen. Ihren Zustand holt das Panel alle 5 Sekunden.
+const sb = hatServer ? verbinden('showcube-panel') : null;
+let konto: { email: string; betrieb: string } | null = null;
+const CKEY = KEY + '-cloud';
+const hochgeladen = new Set<string>(), offenePakete = new Set<string>();
+let synced = { shows: new Map<string, string>(), screens: new Map<string, string>(), betrieb: '' };
+let syncT: any, syncLaeuft = false, syncNochmal = false, syncFehler = '', ladeN = 0;
+const scFields = (sc: Screen) => JSON.stringify({ name: sc.name, standort: sc.place, ausrichtung: sc.orient, show_id: sc.show || null, strom: sc.power });
+const btFields = () => JSON.stringify({ hinweis: S.notice || null, einstellungen: { alert: S.alert } });
+function merkeSync() { synced = { shows: new Map(S.shows.map(sh => [sh.id, JSON.stringify(sh)])), screens: new Map(S.screens.map(sc => [sc.id, scFields(sc)])), betrieb: btFields() }; }
+function cacheCloud() {
+  try { localStorage.setItem(CKEY, JSON.stringify({ betrieb: konto.betrieb, S, offen: [...offenePakete], synced: { shows: [...synced.shows], screens: [...synced.screens], betrieb: synced.betrieb } })); } catch (e) { saveOK = false; }
+}
+const fehlerText = (e: any) => { const m = (e && e.message) || String(e); return /fetch|network|Failed/i.test(m) ? 'Keine Verbindung zum Server.' : m; };
+
+// Eine Box, wie der Server sie meldet, in einen Bildschirm des Panels übersetzen.
+function vomServer(r: any, old?: Screen): Screen {
+  const at = r.zuletzt ? Date.now() - (r.her ?? 0) * 1000 : 0;
+  if (r.zustand && at) live.set(r.id, { beat: r.zustand, at });
+  const sc: Screen = old || { id: r.id, name: r.name, place: r.standort, orient: r.ausrichtung, show: r.show_id || '', power: r.strom, sim: 'offline', lastSeen: 0, revision: 0, version: '', temp: 0, disk: 0, net: '', booted: Date.now(), log: [] };
+  sc.sim = 'offline'; sc.lastSeen = at || Date.parse(r.gekoppelt || r.erstellt || '') || Date.now();
+  sc.revision = r.stand || 0; sc.version = r.version || '';
+  if (r.zustand && r.zustand.uptime != null && at) sc.booted = at - r.zustand.uptime * 1000;
+  // Protokoll: Einträge vom Server (Box meldet sich, Stand übernommen) und eigene aus dem Panel zusammen.
+  const seen = new Set<string>(), all = [...(r.protokoll || []), ...sc.log].filter(l => { const k = l.t + l.msg; if (seen.has(k)) return false; seen.add(k); return true; });
+  sc.log = all.sort((a, b) => b.t - a.t).slice(0, 30);
+  return sc;
+}
+
+async function cloudBeimStart() {
+  const { data } = await sb.auth.getSession();
+  const u = data.session && data.session.user;
+  if (!u || u.is_anonymous) return;
+  try { await cloudStart(u.email); } catch (e) { toast('Anmeldung: ' + fehlerText(e)); }
+}
+async function cloudStart(email: string) {
+  // Zuerst den zwischengespeicherten Stand zeigen, damit das Panel auch ohne Netz sofort da ist.
+  let cache: any = null; try { cache = JSON.parse(localStorage.getItem(CKEY) || 'null'); } catch (e) {}
+  const b = await sb.rpc('mein_betrieb');
+  if (b.error && !cache) throw b.error;
+  const betrieb = b.data || (cache && cache.betrieb);
+  if (!betrieb) throw new Error('Zu diesem Konto gibt es keinen Betrieb.');
+  konto = { email, betrieb };
+  if (cache && cache.betrieb === betrieb) {
+    S = cache.S; normalize(S); (cache.offen || []).forEach((id: string) => offenePakete.add(id));
+    synced = { shows: new Map(cache.synced.shows), screens: new Map(cache.synced.screens), betrieb: cache.synced.betrieb };
+    // Was offline geändert wurde, zuerst hochschieben, dann den Stand vom Server holen.
+    await sync();
+  } else { S = { shows: [], screens: [], assets: [], notice: null }; normalize(S); merkeSync(); }
+  if (b.error) { syncFehler = fehlerText(b.error); return; }
+  await cloudLaden();
+  holeBildschirmeLoop();
+}
+async function cloudLaden() {
+  const b = konto.betrieb;
+  const [bt, shows, dat, scr] = await Promise.all([
+    sb.from('betriebe').select('name, hinweis, einstellungen').eq('id', b).single(),
+    sb.from('shows').select('daten').eq('betrieb_id', b),
+    sb.from('dateien').select('*').eq('betrieb_id', b).order('erstellt', { ascending: false }),
+    sb.from('bildschirme_panel').select('id,name,standort,ausrichtung,show_id,strom,zuletzt,her,zustand,stand,version,protokoll,gekoppelt,erstellt').eq('betrieb_id', b)]);
+  const err = [bt, shows, dat, scr].find(r => r.error); if (err) throw err.error;
+  const oldScreens = new Map(S.screens.map(sc => [sc.id, sc]));
+  S = { shows: shows.data.map((r: any) => r.daten), screens: scr.data.map((r: any) => vomServer(r, oldScreens.get(r.id))), assets: dat.data.filter((d: any) => d.typ !== 'logo').map((d: any) => ({ id: d.id, type: d.typ, name: d.name, size: d.groesse, added: Date.parse(d.erstellt) })),
+    notice: bt.data.hinweis, alert: (bt.data.einstellungen || {}).alert };
+  normalize(S); dat.data.forEach((d: any) => hochgeladen.add(d.id)); merkeSync();
+  // Neues Konto: mit einer Slideshow aus einer Vorlage starten, damit nichts leer ist.
+  if (!S.shows.length) { const sh = newShow('laden', 'Meine Slideshow'); if (bt.data.name) sh.cfg.name = bt.data.name; S.shows.push(sh); planeSync(); }
+  cacheCloud();
+  // Dateien, die auf diesem Gerät noch fehlen, im Hintergrund holen.
+  const fehlt = dat.data.filter((d: any) => !blobs.has(d.id));
+  ladeN = fehlt.length; paintKonto();
+  for (const d of fehlt) {
+    const r = await sb.storage.from(BUCKET).download(b + '/' + d.id);
+    if (!r.error) { putBlob(d.id, r.data); imgs.delete(d.id); vids.delete(d.id); }
+    ladeN--; paintKonto();
+    if (!ladeN) render();
+  }
+}
+
+function planeSync(ms = 800) { clearTimeout(syncT); syncT = setTimeout(sync, ms); paintKonto(); }
+async function dateienHoch() {
+  const b = konto.betrieb, todo: { id: string; typ: string; name: string; groesse: number }[] = [];
+  S.assets.forEach(a => { if (!hochgeladen.has(a.id) && blobs.has(a.id)) todo.push({ id: a.id, typ: a.type, name: a.name, groesse: a.size }); });
+  S.shows.forEach(sh => [sh.cfg, sh.pub, ...sh.history.map(v => v.cfg)].forEach(c => {
+    if (c && c.logo && !hochgeladen.has(c.logo) && blobs.has(c.logo) && !todo.some(t => t.id === c.logo)) todo.push({ id: c.logo, typ: 'logo', name: 'Logo', groesse: blobs.get(c.logo).size });
+  }));
+  for (const t of todo) {
+    const blob = blobs.get(t.id);
+    const up = await sb.storage.from(BUCKET).upload(b + '/' + t.id, blob, { upsert: true, contentType: blob.type || undefined });
+    if (up.error) throw new Error('„' + t.name + '“ ließ sich nicht hochladen: ' + up.error.message);
+    const r = await sb.from('dateien').upsert({ betrieb_id: b, id: t.id, typ: t.typ, name: t.name, groesse: t.groesse });
+    if (r.error) throw r.error;
+    hochgeladen.add(t.id);
+  }
+}
+async function sync() {
+  if (!konto) return;
+  if (syncLaeuft) { syncNochmal = true; return; }
+  syncLaeuft = true; clearTimeout(syncT);
+  const b = konto.betrieb;
+  try {
+    await dateienHoch();
+    const neu = S.shows.filter(sh => synced.shows.get(sh.id) !== JSON.stringify(sh)), js = neu.map(sh => JSON.stringify(sh));
+    if (neu.length) {
+      const r = await sb.from('shows').upsert(neu.map(sh => ({ betrieb_id: b, id: sh.id, daten: sh, revision: sh.revision, geaendert: new Date().toISOString() })));
+      if (r.error) throw r.error; neu.forEach((sh, i) => synced.shows.set(sh.id, js[i]));
+    }
+    const weg = [...synced.shows.keys()].filter(id => !showById(id));
+    if (weg.length) { const r = await sb.from('shows').delete().eq('betrieb_id', b).in('id', weg); if (r.error) throw r.error; weg.forEach(id => synced.shows.delete(id)); }
+    for (const sc of S.screens) {
+      const f = scFields(sc); if (synced.screens.get(sc.id) === f) continue;
+      const r = await sb.from('bildschirme').update(JSON.parse(f)).eq('id', sc.id); if (r.error) throw r.error; synced.screens.set(sc.id, f);
+    }
+    const bf = btFields();
+    if (bf !== synced.betrieb) { const r = await sb.from('betriebe').update(JSON.parse(bf)).eq('id', b); if (r.error) throw r.error; synced.betrieb = bf; }
+    // Veröffentlichte Stände als Paket ablegen. Dateien sind Verweise in den Speicher, die Box lädt sie selbst.
+    for (const id of [...offenePakete]) {
+      const sh = showById(id); if (!sh || !sh.pub) { offenePakete.delete(id); continue; }
+      const p = paketFor(sh, sh.pub), files: Record<string, string> = {};
+      p.config.media.forEach(m => { files[m.id] = SPEICHER + b + '/' + m.id; });
+      if (sh.pub.logo && hochgeladen.has(sh.pub.logo)) files.logo = SPEICHER + b + '/' + sh.pub.logo;
+      const r = await sb.from('pakete').upsert({ betrieb_id: b, show_id: sh.id, revision: sh.revision, paket: { ...p, files } });
+      if (r.error) throw r.error; offenePakete.delete(id);
+    }
+    syncFehler = '';
+  } catch (e) {
+    syncFehler = fehlerText(e);
+    syncT = setTimeout(sync, 15000);
+  } finally {
+    syncLaeuft = false; cacheCloud(); paintKonto();
+    if (syncNochmal) { syncNochmal = false; planeSync(200); }
+  }
+}
+
+// Befehle an die Box. An/Aus ist ein Feld am Bildschirm und reist mit dem normalen Speichern.
+const fotoSeit = new Map<string, number>();
+function cloudSend(m: Msg) {
+  if (m.t !== 'cmd' || m.cmd === 'power') return;
+  sb.from('befehle').insert({ betrieb_id: konto.betrieb, bildschirm_id: m.screen, befehl: m.cmd, daten: m.label ? { label: m.label } : {} }).select('erstellt').single().then(r => {
+    if (r.error) { toast('Befehl kam nicht an: ' + fehlerText(r.error)); shotWait.delete(m.screen); return; }
+    if (m.cmd === 'shot') { fotoSeit.set(m.screen, Date.parse(r.data.erstellt)); holeBildschirmeLoop(1500); }
+  });
+}
+let pollT: any;
+async function holeBildschirme() {
+  const r = await sb.from('bildschirme_panel').select('id,name,standort,ausrichtung,show_id,strom,zuletzt,her,zustand,stand,version,protokoll,foto_zeit,gekoppelt,erstellt').eq('betrieb_id', konto.betrieb);
+  if (r.error) return;
+  let neu = false;
+  const ids = new Set(r.data.map((x: any) => x.id));
+  for (const row of r.data as any[]) {
+    const old = S.screens.find(sc => sc.id === row.id);
+    if (old) vomServer(row, old); else { const sc = vomServer(row); S.screens.push(sc); synced.screens.set(sc.id, scFields(sc)); neu = true; }
+    const since = fotoSeit.get(row.id);
+    if (since && row.foto_zeit && Date.parse(row.foto_zeit) >= since) {
+      fotoSeit.delete(row.id);
+      const f = await sb.from('bildschirme').select('foto').eq('id', row.id).single(), cb = shotWait.get(row.id);
+      if (cb && !f.error) { shotWait.delete(row.id); cb(f.data.foto); }
+    }
+  }
+  if (S.screens.some(sc => !ids.has(sc.id))) { S.screens = S.screens.filter(sc => ids.has(sc.id)); neu = true; }
+  cacheCloud();
+  if (neu) { render(); if (openId) drawScreenDlg(); } else { runTicks(); dticks.forEach(f => f()); }
+}
+function holeBildschirmeLoop(ms = 5000) {
+  clearTimeout(pollT);
+  pollT = setTimeout(async () => {
+    if (!konto) return;
+    if (!document.hidden) await holeBildschirme().catch(() => {});
+    holeBildschirmeLoop(fotoSeit.size ? 1500 : 5000);
+  }, ms === 5000 && !S.screens.length ? 0 : ms);
+}
+document.addEventListener('visibilitychange', () => { if (konto && !document.hidden) holeBildschirmeLoop(0); });
+
+async function cloudKoppeln(code: string, name: string, place: string, orient: string, show: string, err: HTMLElement, btn: HTMLButtonElement) {
+  btn.disabled = true; err.textContent = '';
+  const r = await sb.rpc('bildschirm_koppeln', { p_code: code, p_name: name, p_standort: place || 'Neuer Standort', p_ausrichtung: orient, p_show_id: show || null });
+  btn.disabled = false;
+  if (r.error) { err.textContent = fehlerText(r.error); $('pCode').focus(); return; }
+  if (!S.screens.some(sc => sc.id === r.data.id)) { const sc = vomServer({ ...r.data, her: 0 }); S.screens.push(sc); synced.screens.set(sc.id, scFields(sc)); }
+  cacheCloud(); $('dlgPair').close(); go('screens');
+  const sh = showById(show);
+  toast('„' + name + '“ ist gekoppelt' + (sh ? (sh.pub ? ' und zeigt gleich „' + sh.name + '“.' : '. „' + sh.name + '“ erscheint, sobald du sie veröffentlichst.') : '.'));
+  holeBildschirmeLoop(1000);
+}
+async function cloudEntfernen(sc: Screen) {
+  const r = await sb.from('bildschirme').delete().eq('id', sc.id);
+  if (r.error) { toast('Entfernen ging nicht: ' + fehlerText(r.error)); return; }
+  S.screens = S.screens.filter(z => z.id !== sc.id); synced.screens.delete(sc.id); cacheCloud(); render();
+  toast('„' + sc.name + '“ entfernt. Die Box zeigt wieder einen Koppel-Code.');
+}
+
+// Anmelden und Konto anlegen
+function openLogin(neu = false) {
+  const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' });
+  fill($('loginForm'),
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, neu ? 'Konto anlegen' : 'Anmelden'), h('button', { class: 'btn icon ghost', value: 'cancel', 'aria-label': 'Schließen' }, icon('x'))),
+    h('p', { class: 'small' }, neu ? 'Mit einem Konto liegen Slideshows und Bildschirme auf dem ShowCube-Server, und echte Boxen lassen sich koppeln.' : 'Mit deinem ShowCube-Konto. Danach siehst du deine echten Bildschirme.'),
+    neu ? h('div', null, h('label', { for: 'lBetrieb' }, 'Name des Betriebs'), h('input', { type: 'text', id: 'lBetrieb', autocomplete: 'organization', placeholder: 'z. B. Pizzeria Da Marco' })) : null,
+    h('div', null, h('label', { for: 'lMail' }, 'E-Mail'), h('input', { type: 'email', id: 'lMail', autocomplete: 'email', required: true })),
+    h('div', null, h('label', { for: 'lPass' }, 'Passwort'), h('input', { type: 'password', id: 'lPass', autocomplete: neu ? 'new-password' : 'current-password', minlength: '8', required: true }), neu ? h('span', { class: 'small' }, 'Mindestens 8 Zeichen.') : null),
+    err,
+    h('button', { class: 'btn primary lg', value: 'ok' }, neu ? 'Konto anlegen' : 'Anmelden'),
+    h('button', { class: 'btn ghost sm', type: 'button', onclick: () => openLogin(!neu) }, neu ? 'Ich habe schon ein Konto' : 'Neu hier? Konto anlegen'),
+    h('span', { class: 'small' }, 'Die Demo-Daten in diesem Browser bleiben, wie sie sind.'));
+  $('loginForm').onsubmit = async (e: SubmitEvent) => {
+    if ((e.submitter as any)?.value !== 'ok') return;
+    e.preventDefault();
+    const email = $('lMail').value.trim(), password = $('lPass').value, btn = e.submitter as HTMLButtonElement;
+    btn.disabled = true; err.textContent = '';
+    const r = neu ? await sb.auth.signUp({ email, password, options: { data: { betrieb: $('lBetrieb').value.trim() } } }) : await sb.auth.signInWithPassword({ email, password });
+    btn.disabled = false;
+    if (r.error) { err.textContent = /Invalid login/i.test(r.error.message) ? 'E-Mail oder Passwort stimmt nicht.' : /already registered/i.test(r.error.message) ? 'Zu dieser E-Mail gibt es schon ein Konto.' : fehlerText(r.error); return; }
+    if (!r.data.session) { err.textContent = 'Fast geschafft: Bitte den Link in der E-Mail bestätigen und dann anmelden.'; return; }
+    try { await cloudStart(email); } catch (x) { err.textContent = fehlerText(x); return; }
+    $('dlgLogin').close(); cur = null; go('screens'); render();
+    toast(neu ? 'Konto angelegt. Jetzt die Box an den Fernseher und „Bildschirm koppeln“.' : 'Angemeldet.');
+  };
+  if (!$('dlgLogin').open) $('dlgLogin').showModal(); (neu ? $('lBetrieb') : $('lMail')).focus();
+}
+async function abmelden() {
+  await sync();
+  if (syncFehler && !confirm('Einige Änderungen sind noch nicht auf dem Server. Trotzdem abmelden?')) return;
+  await sb.auth.signOut().catch(() => {});
+  try { localStorage.removeItem(CKEY); } catch (e) {}
+  location.reload();
+}
+function paintKonto() {
+  if (!sb) return;
+  $('konto').hidden = false;
+  fill($('konto'), icon('user'), h('span', { class: 'lbl' }, konto ? konto.email.split('@')[0] : 'Anmelden'));
+  $('konto').title = konto ? 'Angemeldet als ' + konto.email : 'Mit ShowCube-Konto anmelden';
+  const st = !konto ? '' : syncFehler ? 'Nicht gespeichert: ' + syncFehler + ' Wird wiederholt.' : syncLaeuft || syncT && (offenePakete.size || S.shows.some(sh => synced.shows.get(sh.id) !== JSON.stringify(sh))) ? 'Wird gespeichert …' : ladeN ? 'Lade ' + plural(ladeN, 'Datei', 'Dateien') + ' …' : 'Alles auf dem Server gespeichert.';
+  fill($('proto'), konto
+    ? [st + ' ', h('button', { onclick: abmelden }, 'Abmelden')]
+    : ['Demo ohne Konto. Alles bleibt in diesem Browser. ', h('button', { onclick: () => openLogin() }, 'Anmelden'), ' · ', h('button', { onclick: resetDemo }, 'Demo zurücksetzen')]);
+}
+if (sb) { $('konto').onclick = () => konto ? abmelden() : openLogin(); $('dlgLogin').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgLogin')) $('dlgLogin').close(); }); }
 
 // ---------- Start ----------
 let liveKey = '';
@@ -940,5 +1196,5 @@ function shortcut() {
   if (d === 'notice') openNotice();
 }
 
-const start = async () => { await openDB(); await loadAll(); sweepBlobs(); route(); requestAnimationFrame(frame); shortcut(); };
+const start = async () => { await openDB(); await loadAll(); if (sb) await cloudBeimStart(); sweepBlobs(); route(); requestAnimationFrame(frame); shortcut(); paintKonto(); };
 fontsReady().then(start, start);

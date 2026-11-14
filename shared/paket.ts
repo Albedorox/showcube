@@ -4,8 +4,9 @@
 // - Cloud: Das Panel schickt das Paket an die Box, die Box speichert es und spielt offline weiter.
 // - Light: Dasselbe Paket als Datei auf dem USB-Stick (showcube-paket.json).
 //
-// Im Prototyp läuft die "Cloud" über einen BroadcastChannel zwischen zwei Browser-Tabs.
-// Später ersetzt ein Server (Supabase) den Kanal, das Paket bleibt gleich.
+// Demo: die "Cloud" läuft über einen BroadcastChannel zwischen zwei Browser-Tabs.
+// Mit Konto: das Panel legt das Paket auf dem Server ab (Tabelle `pakete`), die Box holt es mit box_stand().
+// Dateien sind dann Verweise "speicher:<betrieb>/<datei>" (siehe shared/cloud.ts und docs/backend.md).
 
 export const PAKET_FORMAT = 'showcube-paket';
 export const PAKET_VERSION = 1;
@@ -43,7 +44,7 @@ export interface Paket {
   show: { id: string; name: string; revision: number; published: string };
   screen?: { id: string; name: string };
   config: ShowConfig;
-  // Im Kanal: Blobs. In der USB-Datei: data:-URLs. Der Schlüssel `logo` ist das Logo des Betriebs.
+  // Im Kanal: Blobs. In der USB-Datei: data:-URLs. Vom Server: "speicher:<pfad>". Der Schlüssel `logo` ist das Logo des Betriebs.
   files: Record<string, Blob | string>;
 }
 

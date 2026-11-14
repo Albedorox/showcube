@@ -54,6 +54,18 @@ verhindern, dass der Bildschirm nach 10 Minuten schwarz wird.
 4. Zeitplan an die Öffnungszeiten anpassen.
 5. Mit `E` schließen. Alles bleibt auf der Box gespeichert, auch ohne Internet.
 
+## 4b. Oder: Inhalte aus der Cloud
+
+Statt Inhalte auf der Box einzustellen, kann die Box sie sich aus dem Panel holen
+(Server eingerichtet, siehe [backend.md](backend.md)):
+
+1. In der Autostart-Zeile aus Schritt 3 `index.html` durch `index.html?cloud` ersetzen:
+   `nano ~/.config/labwc/autostart`, ändern, mit Strg+O speichern, Strg+X schließen, `sudo reboot`.
+   Alternativ im Player Taste `E` und „Mit ShowCube Cloud verbinden“.
+2. Das WLAN des Kunden muss dauerhaft eingerichtet sein.
+3. Der Fernseher zeigt einen sechsstelligen Code. Im Panel anmelden, „Bildschirm koppeln“, Code eingeben.
+4. Ohne Internet spielt die Box den zuletzt geholten Stand weiter.
+
 ## 5. Vor dem Ausliefern prüfen
 
 - [ ] Strom ziehen und wieder einstecken: Startet der Player von selbst?

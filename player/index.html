@@ -75,6 +75,12 @@ textarea { min-height: 90px; resize: vertical; font-size: 12.5px; }
 .live { background: var(--field); border-left: 3px solid var(--accent); padding: 8px 10px; border-radius: 6px; font-size: 13px; }
 .notice { position: fixed; left: 0; right: 0; bottom: var(--lh, 0px); z-index: 3; height: 13vmin; display: flex; align-items: center; padding: 0 5vmin 0 7vmin; background: #fff; color: #111; font: 800 6vmin/1 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 2.2vmin solid var(--nc, #111); }
 .ident { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(0,0,0,.6); color: #fff; font: 800 min(12vw, 140px)/1 var(--font-display); text-align: center; padding: 24px; animation: blink 1s ease-in-out infinite alternate; }
+.pair { position: fixed; inset: 0; z-index: 15; display: grid; place-content: center; gap: 3vmin; background: #0d1110; color: #f6f5f1; text-align: center; padding: 6vmin; font-family: var(--font-body); }
+.pair[hidden] { display: none; }
+.pair .k { font: 600 2.6vmin var(--font-body); letter-spacing: .2em; text-transform: uppercase; color: #46c9b0; }
+.pair .code { font: 800 18vmin/1 var(--font-display); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.pair p { margin: 0 auto; max-width: 60ch; font-size: 3vmin; line-height: 1.4; color: #c9cfcc; }
+.pair .st { font-size: 2.2vmin; color: #8a938f; }
 @keyframes blink { from { background: rgba(0,0,0,.75); } to { background: rgba(15,123,108,.75); } }
 .swatches { display: flex; gap: 8px; }
 .swatches button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
@@ -89,6 +95,7 @@ textarea { min-height: 90px; resize: vertical; font-size: 12.5px; }
 <div class="notice" id="notice" hidden></div>
 <div class="empty" id="empty" hidden></div>
 <div class="offhint" id="offhint" hidden></div>
+<div class="pair" id="pair" hidden role="status"><span class="k">ShowCube Cloud</span><div class="code" id="pairCode"></div><p id="pairText"></p><span class="st" id="pairSt"></span></div>
 <button class="gear" id="gear" aria-controls="panel" aria-expanded="false">Einstellungen</button>
 <div class="toast" id="toast">Taste E oder Klick oben rechts: Einstellungen</div>
 
@@ -153,6 +160,12 @@ textarea { min-height: 90px; resize: vertical; font-size: 12.5px; }
     <h2>Paket vom USB-Stick</h2>
     <span class="btn file">Paket laden<input type="file" id="paketIn" accept=".json,application/json" aria-label="ShowCube-Paket laden"></span>
     <span class="small" id="paketNote">Ein Paket aus dem Cloud-Panel („Für USB-Stick exportieren“) ersetzt Vorlage, Dateien und Zeitplan.</span>
+  </div>
+
+  <div class="group" id="cloudGroup" hidden>
+    <h2>ShowCube Cloud</h2>
+    <span class="small" id="cloudNote"></span>
+    <div class="row"><button class="btn" id="cloudBtn"></button></div>
   </div>
 </aside>
 
