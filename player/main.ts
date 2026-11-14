@@ -308,9 +308,28 @@ if (LIVE && 'BroadcastChannel' in window) {
 const VERSION = '0.4.0';
 const CKEY = KEY + '-cloud';
 const q = new URLSearchParams(location.search);
+// Testbox ohne echten Pi: player.html?testbox=<ausgedachte Seriennummer>
+// rechnet die Kennung genau wie scripts/box-einrichten.sh, würfelt einen Schlüssel und lädt neu mit
+// ?cloud&box=…&key=…. Diese Adresse ist dann wie die Autostart-Zeile auf der Box: als Lesezeichen merken.
+export async function kennungAus(serie: string): Promise<string> {
+  const s = serie.replace(/\s/g, '').toLowerCase().replace(/^0+/, '');
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('showcube-box:' + s)));
+  let bits = 0n; for (const b of h.slice(0, 5)) bits = (bits << 8n) | BigInt(b);
+  let k = ''; for (let i = 7; i >= 0; i--) k += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[Number((bits >> BigInt(i * 5)) & 31n)];
+  return 'SC-' + k.slice(0, 4) + '-' + k.slice(4);
+}
+if (q.get('testbox')) {
+  const zufall = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  kennungAus(q.get('testbox')!).then(k => location.replace(location.pathname + '?cloud&box=' + k + '&key=' + zufall));
+  throw new Error('Testbox wird eingerichtet');
+}
+// Auf der echten Box übergibt scripts/box-einrichten.sh Kennung (aus der Seriennummer des Pi) und Schlüssel in der Adresse.
+// Damit findet der Server die Box wieder, auch wenn der Browser-Speicher gelöscht wurde. Ohne beides: Test im Browser.
+const BOXK = (q.get('box') || '').trim().toUpperCase(), BOXS = q.get('key') || '';
+const mitKennung = /^SC-[A-Z2-7]{4}-[A-Z2-7]{4}$/.test(BOXK) && BOXS.length >= 32;
 if (hatServer && q.has('cloud')) { try { localStorage.setItem(CKEY, '1'); } catch (e) {} }
 let cloudOn = false; try { cloudOn = hatServer && !LIVE && localStorage.getItem(CKEY) === '1'; } catch (e) {}
-let cloudState: 'start' | 'pair' | 'ok' | 'offline' = 'start', cloudName = '', cloudAt = 0;
+let cloudState: 'start' | 'pair' | 'ok' | 'offline' | 'fremd' = 'start', cloudName = '', cloudAt = 0;
 let stand = ''; try { stand = localStorage.getItem(CKEY + '-stand') || ''; } catch (e) {}
 function zustand() {
   const p = period(new Date());
@@ -322,6 +341,7 @@ function showPair(code: string | null, offline = false) {
   $('pairCode').textContent = code ? code.slice(0, 3) + ' ' + code.slice(3) : '···';
   $('pairText').textContent = code ? 'Im ShowCube-Panel auf „Bildschirm koppeln“ tippen und diesen Code eingeben.' : 'Die Box verbindet sich mit ShowCube.';
   $('pairSt').textContent = offline ? 'Keine Verbindung zum Server. Die Box versucht es weiter. Ist das WLAN eingerichtet?' : '';
+  $('pairBox').textContent = mitKennung ? 'Box ' + BOXK : '';
 }
 // Dateien aus dem Speicher holen. Bilder und Videos behalten ihre Nummer, schon vorhandene laden wir nicht nochmal.
 async function holePaket(sb: SupabaseClient, p: Paket): Promise<Paket> {
@@ -339,11 +359,15 @@ function cloudNote() {
   if (!hatServer) return;
   $('cloudGroup').hidden = !!LIVE;
   $('cloudBtn').textContent = cloudOn ? 'Von der Cloud trennen' : 'Mit ShowCube Cloud verbinden';
+  // Mit Kennung ist die Box fest als Cloud-Box eingerichtet (Autostart), Trennen ginge nach dem Neustart wieder verloren.
+  $('cloudBtn').hidden = mitKennung && cloudOn;
   $('cloudNote').textContent = !cloudOn ? 'Die Box holt sich ihre Inhalte dann aus dem Panel, statt vom USB-Stick.'
     : cloudState === 'ok' ? 'Verbunden als „' + cloudName + '“. Inhalte kommen aus dem Panel.'
     : cloudState === 'pair' ? 'Wartet aufs Koppeln. Den Code auf dem Bildschirm im Panel eingeben.'
+    : cloudState === 'fremd' ? 'Die Box-Kennung ' + BOXK + ' ist auf dem Server mit einem anderen Schlüssel angemeldet. Bitte den ShowCube-Support anrufen.'
     : cloudState === 'offline' ? 'Gerade keine Verbindung' + (cloudAt ? ', zuletzt um ' + new Date(cloudAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' : '') + '. Der letzte Stand läuft weiter.'
     : 'Verbindet …';
+  if (mitKennung) $('cloudNote').textContent += ' Box-Kennung ' + BOXK + '.';
 }
 $('cloudBtn').onclick = () => {
   try { if (cloudOn) { localStorage.removeItem(CKEY); localStorage.removeItem(CKEY + '-stand'); localStorage.removeItem('showcube-box'); } else localStorage.setItem(CKEY, '1'); } catch (e) {}
@@ -351,16 +375,23 @@ $('cloudBtn').onclick = () => {
 };
 async function cloudLoop() {
   const sb = verbinden('showcube-box');
-  let erledigt: number[] = [], lastHint = JSON.stringify(C.notice || null);
+  let erledigt: number[] = [], lastHint = JSON.stringify(C.notice || null), gebunden = false;
+  const anmelden = () => sb.rpc('box_anmelden', mitKennung ? { p_kennung: BOXK, p_schluessel: BOXS } : {});
   const tick = async () => {
     try {
       const { data: s } = await sb.auth.getSession();
       if (!s.session) { const r = await sb.auth.signInAnonymously(); if (r.error) throw r.error; }
+      // Mit Kennung einmal pro Start anmelden: hängt den Bildschirm an dieses Browser-Konto, falls es neu ist.
+      if (mitKennung && !gebunden) {
+        const a = await anmelden();
+        if (a.error) { if (a.error.code === '42501') { cloudState = 'fremd'; showPair(null); $('pairText').textContent = 'Diese Box ist auf dem Server mit einem anderen Schlüssel angemeldet. Bitte den ShowCube-Support anrufen.'; return; } throw a.error; }
+        gebunden = true;
+      }
       const { data, error } = await sb.rpc('box_stand', { p_zustand: zustand(), p_stand: stand, p_erledigt: erledigt, p_version: VERSION });
       if (error) throw error;
       erledigt = [];
       if (!data.bekannt || (!data.gekoppelt && !data.code)) {
-        const a = await sb.rpc('box_anmelden'); if (a.error) throw a.error;
+        const a = await anmelden(); if (a.error) throw a.error;
         cloudState = a.data.gekoppelt ? 'ok' : 'pair'; if (!a.data.gekoppelt) showPair(a.data.code);
         // Neu angemeldet (z.B. im Panel entfernt): alter Stand gilt nicht mehr.
         stand = ''; try { localStorage.removeItem(CKEY + '-stand'); } catch (e) {}
@@ -388,7 +419,7 @@ async function cloudLoop() {
     } finally {
       cloudNote();
       // Befehle (Foto, Finden) sollen schnell ankommen. Mehr als alle 10 Sekunden muss die Box nicht fragen.
-      setTimeout(tick, cloudState === 'pair' ? 5000 : 10000);
+      setTimeout(tick, cloudState === 'pair' ? 5000 : cloudState === 'fremd' ? 300000 : 10000);
     }
   };
   if (!stand) showPair(null);

@@ -72,6 +72,37 @@ Admin werden geht bewusst nur über das Dashboard, nie über die Website. Wieder
 
 Fällt das Internet aus, spielt die Box den letzten Stand weiter, auch nach einem Neustart.
 
+## Box-Kennung (an den Pi gebunden)
+
+Eine echte Box wird mit `scripts/box-einrichten.sh` eingerichtet (siehe [testbox-einrichten.md](testbox-einrichten.md)).
+Das Skript gibt ihr zwei Werte:
+
+| | Woher | Wofür |
+| --- | --- | --- |
+| **Kennung**, z.B. `SC-K7QD-2MXA` | aus der Seriennummer des Pi berechnet (SHA-256, 8 Zeichen) | steht aufs Gehäuse, auf dem Fernseher beim Koppeln und im Panel unter „Box-Kennung“ |
+| **Schlüssel** (43 Zeichen) | einmal zufällig erzeugt | bleibt geheim in `~/.config/showcube/box` auf der SD-Karte |
+
+Der Player bekommt beide beim Start über die Adresse (`index.html?cloud&box=…&key=…`, steht im Autostart).
+`box_anmelden()` legt die Box beim ersten Mal in der Tabelle `boxen` an und merkt sich nur den
+SHA-256 des Schlüssels. Danach gilt:
+
+- **Browser-Speicher gelöscht:** Die Box meldet sich mit neuem anonymem Konto, aber gleicher Kennung und
+  gleichem Schlüssel. Der Server hängt den alten Bildschirm samt Kopplung an das neue Konto. Kein Neu-Koppeln.
+- **Jemand liest die Kennung vom Gehäuse ab:** Ohne Schlüssel kommt er nicht an die Box. Gekoppelt wird
+  weiterhin nur über den Code auf dem Fernseher, also mit Zugang zum Bildschirm.
+- **SD-Karte neu bespielt:** Die Kennung ist gleich (gleicher Pi), der Schlüssel neu. Die Box zeigt dann
+  „mit einem anderen Schlüssel angemeldet“. Als Admin im SQL Editor freigeben, die Kopplung bleibt:
+  `select public.admin_box_freigeben('SC-K7QD-2MXA');` (geht nur als Admin-Konto, im SQL Editor direkt:
+  `update public.boxen set schluessel = null where kennung = 'SC-K7QD-2MXA';`).
+  Erst kurz vor dem Neustart der Box freigeben: bis dahin könnte sich jede Box mit dieser Kennung melden.
+- **Ohne Kennung** (Player im normalen Browser, `?cloud`) läuft alles wie vorher mit anonymem Konto.
+  Eine schon gekoppelte Testbox, die später das Skript bekommt, übernimmt die Kennung und bleibt gekoppelt.
+
+Bekannte Grenze: Wer die Kennung einer Box kennt, bevor diese sich das erste Mal meldet, könnte sie mit
+eigenem Schlüssel belegen. Er übernimmt damit nichts, die echte Box würde aber abgewiesen. Deshalb Boxen
+bei der Einrichtung einmal online starten. Später lässt sich das mit einer Werks-Freischaltung schließen
+(Kennungen vorab im Admin anlegen, nur diese dürfen sich melden).
+
 ## Wie es zusammenhängt
 
 ```
@@ -81,7 +112,7 @@ Fällt das Internet aus, spielt die Box den letzten Stand weiter, auch nach eine
  Slideshows bearbeiten           ── 1 s ────► shows (Entwurf, Stand, Versionen)
  Bilder, Videos, Logo            ───────────► Speicher „medien/<betrieb>/<datei>“  ◄─── lädt Dateien
  Veröffentlichen                 ───────────► pakete (gleiches Format wie USB)     ◄─┐
- Bildschirm koppeln (Code)       ───────────► bildschirm_koppeln()                   │  box_anmelden(): anonym, Code
+ Bildschirm koppeln (Code)       ───────────► bildschirm_koppeln()                   │  box_anmelden(): anonym + Kennung, Code
  Neustart, Finden, Foto          ───────────► befehle                              ◄─┤
  Sofort-Hinweis, An/Aus          ───────────► betriebe.hinweis, bildschirme.strom ◄─┤
  Zustand der Boxen               ◄── 5 s ──── bildschirme (zuletzt, zustand)        └── box_stand() alle 10 s:
