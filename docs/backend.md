@@ -19,8 +19,11 @@ normales Postgres, man kann es auch selbst betreiben.
 
 Grenzen des Free-Plans, die für die Piloten reichen: 500 MB Datenbank, 1 GB Dateien, 5 GB
 Datenverkehr im Monat, Dateien bis 50 MB. Ein Free-Projekt schläft nach einer Woche ohne Zugriffe
-ein. Eine laufende Box meldet sich alle 10 Sekunden und sollte das verhindern. Schläft es doch ein,
-weckt man es im Dashboard mit einem Klick, die Boxen spielen solange den letzten Stand weiter.
+ein. Eine laufende Box meldet sich alle 10 Sekunden und sollte das verhindern. Solange noch keine Box
+dauerhaft läuft, liest der Workflow `Supabase wachhalten` (`.github/workflows/keepalive.yml`) alle zwei
+Tage die Tabelle `keepalive`. GitHub schaltet geplante Workflows nach 60 Tagen ohne Commits im Repo ab,
+dann im Reiter Actions wieder einschalten. Schläft das Projekt doch ein, weckt man es im Dashboard mit
+einem Klick, die Boxen spielen solange den letzten Stand weiter.
 
 Wechsel auf **Pro (25 $ im Monat)**, sobald zahlende Kunden dranhängen: tägliche Backups,
 kein Einschlafen, 100 GB Dateien, größere Videos.

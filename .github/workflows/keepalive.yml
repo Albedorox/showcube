@@ -1,0 +1,28 @@
+# Hält das Supabase-Projekt im Free-Plan wach.
+# Supabase legt ein Free-Projekt nach etwa einer Woche ohne Zugriffe schlafen. Dieser Job liest alle
+# zwei Tage die Tabelle public.keepalive über die REST-API (mit dem öffentlichen Schlüssel aus
+# shared/backend.json). Schlägt er fehl, schickt GitHub eine Mail: dann im Supabase-Dashboard
+# nachsehen, ob das Projekt pausiert ist.
+name: Supabase wachhalten
+
+on:
+  schedule:
+    - cron: '17 6 */2 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { sparse-checkout: shared/backend.json, sparse-checkout-cone-mode: false }
+      - name: Datenbank anfragen
+        run: |
+          url=$(jq -r .url shared/backend.json)
+          key=$(jq -r .key shared/backend.json)
+          for versuch in 1 2 3; do
+            antwort=$(curl -sS --fail-with-body -H "apikey: $key" "$url/rest/v1/keepalive?select=id") && break
+            echo "Versuch $versuch fehlgeschlagen: $antwort"; antwort=''; sleep 20
+          done
+          echo "Antwort: $antwort"
+          test "$antwort" = '[{"id":1}]'
