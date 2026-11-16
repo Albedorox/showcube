@@ -1179,14 +1179,15 @@ async function openBetriebe() {
   fill($('loginForm'),
     h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, 'Betrieb öffnen'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
     h('p', { class: 'small' }, 'Admin-Ansicht: alle Kunden. Du siehst und änderst, was der Kunde sieht, und kannst Boxen für ihn koppeln.'), list,
-    h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', { class: 'small' }, 'Angemeldet als ' + konto.email), h('button', { class: 'btn ghost sm', type: 'button', onclick: abmelden }, 'Abmelden')));
+    h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', { class: 'small', style: 'min-width:0;flex:1 1 180px;overflow-wrap:anywhere' }, 'Angemeldet als ' + konto.email), h('button', { class: 'btn ghost sm', type: 'button', onclick: abmelden }, 'Abmelden')));
   $('loginForm').onsubmit = null;
   if (!$('dlgLogin').open) $('dlgLogin').showModal();
   const r = await sb.rpc('admin_betriebe');
   if (r.error) { fill(list, h('span', { class: 'small' }, fehlerText(r.error))); return; }
-  fill(list, (r.data as any[]).map(x => h('button', { type: 'button', class: 'btn', style: 'justify-content:space-between;gap:12px;width:100%;text-align:left' + (x.id === konto.betrieb ? ';border-color:var(--accent)' : ''), onclick: () => wechsleBetrieb(x.id) },
-    h('span', null, h('b', null, x.name || 'Ohne Namen'), h('br'), h('span', { class: 'small' }, (x.email || '–') + ' · seit ' + new Date(x.erstellt).toLocaleDateString('de-DE'))),
-    h('span', { class: 'small' }, x.online + ' / ' + plural(+x.bildschirme, 'Bildschirm', 'Bildschirme') + ' online'))));
+  fill(list, (r.data as any[]).map(x => h('button', { type: 'button', class: 'betrieb', 'aria-current': x.id === konto.betrieb ? 'true' : null, onclick: () => wechsleBetrieb(x.id) },
+    h('b', null, x.name || 'Ohne Namen'),
+    h('span', { class: 'small' }, x.online + ' / ' + plural(+x.bildschirme, 'Bildschirm', 'Bildschirme') + ' online'),
+    h('span', { class: 'small mail' }, (x.email || '–') + ' · seit ' + new Date(x.erstellt).toLocaleDateString('de-DE')))));
 }
 async function wechsleBetrieb(id: string) {
   await sync();
