@@ -1,7 +1,20 @@
 // Folien-Vorlagen und Zeichenhelfer, gemeinsam genutzt von Player und Konfigurator.
 // ---------- Zeichenhelfer für die Folien ----------
-export const DISP = '"Bricolage Grotesque", "Segoe UI", sans-serif';
-export const BODY = '"Figtree", "Segoe UI", sans-serif';
+const DEF_DISP = '"Bricolage Grotesque", "Segoe UI", sans-serif', DEF_BODY = '"Figtree", "Segoe UI", sans-serif';
+// Schriften der Folien. Die Marke (shared/marke.ts) setzt sie mit setFonts(), alle Vorlagen und Bausteine lesen sie hier.
+export let DISP = DEF_DISP;
+export let BODY = DEF_BODY;
+export function setFonts(titel?: string, text?: string) {
+  DISP = titel ? `"${titel}", ${DEF_DISP}` : DEF_DISP;
+  BODY = text ? `"${text}", ${DEF_BODY}` : DEF_BODY;
+}
+// Farben einer Folie. Ohne Marke sehen die Vorlagen genauso aus wie immer, mit Marke kommen alle Farben aus ihr.
+export function pal(d) {
+  const f = d && d.marke && d.marke.farben;
+  return f ? { primaer: d.accent, zweit: f.zweit, dunkel: f.dunkel, hell: f.hell, papier: f.hell, tinte: f.dunkel, marke: true }
+           : { primaer: d.accent, zweit: '#e9b866', dunkel: '#16120f', hell: '#fff6ea', papier: '#f5f3ef', tinte: '#1c1a17', marke: false };
+}
+export function alpha(hex: string, a: number) { const v = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); return `rgba(${v.join(',')},${a})`; }
 export function font(ctx, w, size, fam) { ctx.font = `${w} ${size}px ${fam}`; }
 export function fit(ctx, text, maxW, size, w, fam) { let s = size; font(ctx, w, s, fam); while (ctx.measureText(text).width > maxW && s > 8) { s -= 1; font(ctx, w, s, fam); } return s; }
 export function wrap(ctx, text, maxW) {
@@ -40,36 +53,43 @@ export function fakeQR(ctx, x, y, size, seed, dark, light) {
 // ---------- Branchenvorlagen ----------
 export function menuSlide(title, sub) {
   return (ctx, w, h, d) => {
-    const u = Math.min(w, h) / 100, port = h > w;
-    ctx.fillStyle = '#16120f'; ctx.fillRect(0, 0, w, h);
+    const u = Math.min(w, h) / 100, port = h > w, P = pal(d);
+    ctx.fillStyle = P.dunkel; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = d.accent; ctx.fillRect(0, 0, w, u * 1.6);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     font(ctx, 600, u * 4, BODY); ctx.fillStyle = d.accent; ctx.fillText(d.name.toUpperCase(), u * 6, u * 11);
-    fit(ctx, title, w - u * 30, u * (port ? 13 : 12), 800, DISP); ctx.fillStyle = '#fff6ea'; ctx.fillText(title, u * 6, u * (port ? 26 : 24));
+    fit(ctx, title, w - u * 30, u * (port ? 13 : 12), 800, DISP); ctx.fillStyle = P.hell; ctx.fillText(title, u * 6, u * (port ? 26 : 24));
     drawLogo(ctx, d, w - u * 6, u * 5, u * 22, u * 12);
     const rows = d.items.slice(0, port ? 7 : 5), top = u * (port ? 38 : 34), avail = h - top - u * 16, step = Math.min(u * (port ? 14 : 11), avail / Math.max(rows.length, 1));
     rows.forEach((r, i) => {
       const y = top + step * i + step * .6, name = r[0] || '', price = r[1] || '';
-      const s = fit(ctx, name, w * (port ? .6 : .62), u * (port ? 6.4 : 5.6), 600, BODY); ctx.fillStyle = '#fff6ea'; ctx.textAlign = 'left'; ctx.fillText(name, u * 6, y);
+      const s = fit(ctx, name, w * (port ? .6 : .62), u * (port ? 6.4 : 5.6), 600, BODY); ctx.fillStyle = P.hell; ctx.textAlign = 'left'; ctx.fillText(name, u * 6, y);
       const nw = ctx.measureText(name).width;
       font(ctx, 700, s, DISP); ctx.textAlign = 'right'; ctx.fillStyle = d.accent; ctx.fillText(price, w - u * 6, y);
-      const pw = ctx.measureText(price).width; ctx.fillStyle = 'rgba(255,246,234,.28)';
+      const pw = ctx.measureText(price).width; ctx.fillStyle = alpha(P.hell, .28);
       for (let x = u * 6 + nw + u * 2; x < w - u * 6 - pw - u * 2; x += u * 1.6) ctx.fillRect(x, y - u * .6, u * .5, u * .5);
     });
-    font(ctx, 500, u * 3.6, BODY); ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,246,234,.7)'; ctx.fillText(sub, u * 6, h - u * 5);
+    font(ctx, 500, u * 3.6, BODY); ctx.textAlign = 'left'; ctx.fillStyle = alpha(P.hell, .7); ctx.fillText(sub, u * 6, h - u * 5);
   };
 }
 export function promoSlide(kicker, line, big) {
   return (ctx, w, h, d, t) => {
-    const u = Math.min(w, h) / 100, port = h > w;
+    const u = Math.min(w, h) / 100, port = h > w, P = pal(d);
     ctx.fillStyle = d.accent; ctx.fillRect(0, 0, w, h);
     const px = port ? w / 2 : w * .74, py = port ? h * .7 : h * .52, pr = port ? w * .36 : h * .36;
     ctx.save(); ctx.translate(px, py); ctx.rotate(t * .25);
+    if (P.marke) {
+      // Mit Marke keine Pizza, sondern ein ruhiges Muster aus den Markenfarben.
+      [[1, P.zweit], [.78, P.hell], [.56, P.zweit], [.34, d.accent]].forEach(([k, c]: any) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, pr * k, 0, 7); ctx.fill(); });
+      ctx.fillStyle = P.dunkel; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.beginPath(); ctx.arc(Math.cos(a) * pr * .67, Math.sin(a) * pr * .67, pr * .05, 0, 7); ctx.fill(); }
+      ctx.restore();
+    } else {
     ctx.fillStyle = '#e9b866'; ctx.beginPath(); ctx.arc(0, 0, pr, 0, 7); ctx.fill();
     ctx.fillStyle = '#c8402a'; ctx.beginPath(); ctx.arc(0, 0, pr * .86, 0, 7); ctx.fill();
     ctx.fillStyle = '#f3e3b5'; for (let i = 0; i < 9; i++) { const a = i * 2.4, rr2 = pr * (.25 + (i % 3) * .2); ctx.beginPath(); ctx.arc(Math.cos(a) * rr2, Math.sin(a) * rr2, pr * .12, 0, 7); ctx.fill(); }
     ctx.fillStyle = '#7a1f14'; for (let i = 0; i < 7; i++) { const a = i * 1.7 + 1, rr2 = pr * (.35 + (i % 2) * .25); ctx.beginPath(); ctx.arc(Math.cos(a) * rr2, Math.sin(a) * rr2, pr * .07, 0, 7); ctx.fill(); }
     ctx.restore();
+    }
     ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
     const tw = port ? w - u * 12 : w * .5;
     font(ctx, 700, u * 4.4, BODY); ctx.fillText(kicker.toUpperCase(), u * 6, u * 14);
@@ -94,22 +114,22 @@ export const CLASSES = ['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 export const CLASS_COL = ['#1a9850', '#4cb14b', '#91cf60', '#c6e46a', '#fee08b', '#fdbf6f', '#fc8d59', '#e65a3c', '#c0262d'];
 export function objectSlide(idx) {
   return (ctx, w, h, d) => {
-    const u = Math.min(w, h) / 100, port = h > w, r = d.items[idx] || [];
-    ctx.fillStyle = '#f5f3ef'; ctx.fillRect(0, 0, w, h);
+    const u = Math.min(w, h) / 100, port = h > w, r = d.items[idx] || [], P = pal(d);
+    ctx.fillStyle = P.papier; ctx.fillRect(0, 0, w, h);
     if (port) houseArt(ctx, 0, 0, w, h * .44, (r[0] || '') + idx); else houseArt(ctx, 0, 0, w * .46, h, (r[0] || '') + idx);
     const x0 = port ? u * 6 : w * .46 + u * 6, tw = port ? w - u * 12 : w * .54 - u * 12; let y = port ? h * .44 + u * 12 : u * 14;
     ctx.textAlign = 'left'; ctx.fillStyle = d.accent; font(ctx, 700, u * 3.6, BODY); ctx.fillText('NEU IM ANGEBOT', x0, y);
-    font(ctx, 800, u * (port ? 8 : 7.2), DISP); ctx.fillStyle = '#1c1a17';
+    font(ctx, 800, u * (port ? 8 : 7.2), DISP); ctx.fillStyle = P.tinte;
     wrap(ctx, r[0] || 'Objekt', tw).slice(0, 2).forEach((l, i) => ctx.fillText(l, x0, y + u * (port ? 10 : 9) * (i + 1)));
     y += u * (port ? 30 : 27);
-    font(ctx, 600, u * 4.6, BODY); ctx.fillStyle = '#4a463f'; ctx.fillText(r[1] || '', x0, y);
+    font(ctx, 600, u * 4.6, BODY); ctx.fillStyle = alpha(P.tinte, .75); ctx.fillText(r[1] || '', x0, y);
     fit(ctx, r[2] || '', tw, u * (port ? 11 : 9.5), 800, DISP); ctx.fillStyle = d.accent; ctx.fillText(r[2] || '', x0, y + u * (port ? 13 : 11.5));
     const cls = Math.max(0, CLASSES.indexOf((r[3] || '').trim().toUpperCase())), cy = y + u * (port ? 22 : 19), cw = Math.min(tw, u * 60) / 9;
-    font(ctx, 500, u * 2.8, BODY); ctx.fillStyle = '#4a463f'; ctx.fillText('Energieeffizienzklasse', x0, cy - u * 1.6);
-    CLASSES.forEach((c, i) => { ctx.fillStyle = CLASS_COL[i]; ctx.fillRect(x0 + i * cw, cy, cw - u * .4, u * 4.4); ctx.fillStyle = '#1c1a17'; font(ctx, i === cls ? 800 : 500, u * 2.6, BODY); ctx.textAlign = 'center'; ctx.fillText(c, x0 + i * cw + cw / 2 - u * .2, cy + u * 3.2); });
-    ctx.strokeStyle = '#1c1a17'; ctx.lineWidth = u * .6; ctx.strokeRect(x0 + cls * cw - u * .3, cy - u * .3, cw + u * .2, u * 5);
+    font(ctx, 500, u * 2.8, BODY); ctx.fillStyle = alpha(P.tinte, .75); ctx.fillText('Energieeffizienzklasse', x0, cy - u * 1.6);
+    CLASSES.forEach((c, i) => { ctx.fillStyle = CLASS_COL[i]; ctx.fillRect(x0 + i * cw, cy, cw - u * .4, u * 4.4); ctx.fillStyle = P.tinte; font(ctx, i === cls ? 800 : 500, u * 2.6, BODY); ctx.textAlign = 'center'; ctx.fillText(c, x0 + i * cw + cw / 2 - u * .2, cy + u * 3.2); });
+    ctx.strokeStyle = P.tinte; ctx.lineWidth = u * .6; ctx.strokeRect(x0 + cls * cw - u * .3, cy - u * .3, cw + u * .2, u * 5);
     ctx.textAlign = 'left';
-    if (!drawLogo(ctx, d, w - u * 5, h - u * 13, u * 20, u * 9)) { font(ctx, 700, u * 3.6, BODY); ctx.fillStyle = '#1c1a17'; ctx.textAlign = 'right'; ctx.fillText(d.name, w - u * 5, h - u * 5); ctx.textAlign = 'left'; }
+    if (!drawLogo(ctx, d, w - u * 5, h - u * 13, u * 20, u * 9)) { font(ctx, 700, u * 3.6, BODY); ctx.fillStyle = P.tinte; ctx.textAlign = 'right'; ctx.fillText(d.name, w - u * 5, h - u * 5); ctx.textAlign = 'left'; }
   };
 }
 export function textSlide(kicker, line, sub, qr) {
@@ -128,8 +148,8 @@ export function textSlide(kicker, line, sub, qr) {
 }
 export function saleSlide(idx, dark) {
   return (ctx, w, h, d) => {
-    const u = Math.min(w, h) / 100, port = h > w, r = d.items[idx] || [];
-    ctx.fillStyle = dark ? '#141414' : d.accent; ctx.fillRect(0, 0, w, h);
+    const u = Math.min(w, h) / 100, port = h > w, r = d.items[idx] || [], P = pal(d);
+    ctx.fillStyle = dark ? (P.marke ? P.dunkel : '#141414') : d.accent; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = dark ? d.accent : 'rgba(255,255,255,.12)';
     ctx.beginPath(); ctx.arc(port ? w * .9 : w * .92, port ? h * .18 : h * .2, port ? w * .55 : h * .6, 0, 7); ctx.fill();
     ctx.textAlign = 'left'; ctx.fillStyle = '#fff';

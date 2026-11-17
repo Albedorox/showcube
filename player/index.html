@@ -30,8 +30,16 @@ body { background: var(--screen); color: var(--ink); font: 14px/1.45 var(--font-
 body.idle, body.idle * { cursor: none !important; }
 .screen { position: fixed; inset: 0 0 var(--lh, 0px) 0; background: #000; }
 .leiste { position: fixed; left: 0; right: 0; bottom: 0; height: var(--lh, 0px); width: 100%; display: block; z-index: 2; }
-.layer { position: absolute; inset: 0; opacity: 0; transition: opacity .8s ease; display: grid; place-items: center; }
+.layer { position: absolute; inset: 0; opacity: 0; transition: opacity var(--tempo, .8s) ease, transform var(--tempo, .8s) cubic-bezier(.2,.7,.2,1); display: grid; place-items: center; }
 .layer.on { opacity: 1; }
+/* Übergänge aus der Marke */
+body[data-ueb="schieben"] .layer { transform: translateX(8%); }
+body[data-ueb="schieben"] .layer.on { transform: none; }
+body[data-ueb="zoom"] .layer { transform: scale(1.06); }
+body[data-ueb="zoom"] .layer.on { transform: none; }
+body[data-ueb="schieben"] .layer.out { transform: translateX(-8%); }
+body[data-ueb="zoom"] .layer.out { transform: scale(.97); }
+body[data-ueb="hart"] .layer { transition: none; }
 .layer canvas, .layer img, .layer video { width: 100%; height: 100%; display: block; }
 .layer img, .layer video { object-fit: var(--fit, cover); background: #000; }
 .empty { position: fixed; inset: 0; display: grid; place-items: center; color: #cfd8d6; text-align: center; padding: 24px; font: 500 18px var(--font-body); }

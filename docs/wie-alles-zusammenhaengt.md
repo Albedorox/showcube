@@ -28,6 +28,7 @@ Kurz: Es gibt **einen Player** auf der Box. Light und Cloud unterscheiden sich n
 | `player/` | Läuft im Vollbild auf der Box. Spielt das zuletzt erhaltene Paket, auch ohne Internet. | ja | ja |
 | `panel/` | Das Web-Panel: Inhalte bearbeiten, veröffentlichen, Bildschirme aus der Ferne warten. | nein (nur Export aufs USB-Paket, z.B. durch dich beim Einrichten) | ja |
 | `konfigurator/` | Vertrieb: zeigt dem Kunden seinen Laden mit Bildschirm. | Verkaufshilfe | Verkaufshilfe und Vorschau im Panel |
+| `designer/` | Vorlagen-Designer: Marke (Logo, Farben, Schriften, Übergang) und eigene Vorlagen mit Animationen, für Kunden und Agenturen. Ergebnis ist ein Markenpaket, das im Panel landet und im Paket zur Box reist. Siehe [vorlagen-designer.md](vorlagen-designer.md). | Marke auch per Datei möglich | ja |
 | `shared/paket.ts` | Das Format, das Panel und Player verbindet. Ein Format für beide Stufen. | | |
 
 ## Ist der Konfigurator „im Panel“?

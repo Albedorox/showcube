@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
-const apps = ['player', 'konfigurator', 'panel'];
+const apps = ['player', 'konfigurator', 'panel', 'designer'];
 
 await mkdir(resolve(root, 'release'), { recursive: true });
 for (const app of apps) {
