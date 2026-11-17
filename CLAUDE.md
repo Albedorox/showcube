@@ -1,14 +1,14 @@
 # Hinweise für Claude in diesem Repo
 
-## Neue Funktionen: immer Doku und Startseite mitziehen
+## Neue Funktionen: Doku immer, Startseite nur wenn nötig
 
-Jede neue oder geänderte Funktion, die ein Kunde sehen kann, ist erst fertig, wenn im selben PR auch
-diese Stellen stimmen:
+Jede neue oder geänderte Funktion, die ein Kunde sehen kann, ist erst fertig, wenn im selben PR die Doku stimmt:
+`README.md` (Tabelle „Stand“) und die passende Datei unter `docs/`. Dazu `npm run build` und `release/` mit einchecken.
 
-- `README.md` (Tabelle „Stand“) und die passende Datei unter `docs/` (z. B. `docs/wie-alles-zusammenhaengt.md`).
-- Die Startseite `index.html`: Funktionen-Raster, bei Bedarf eine häufige Frage (dann auch im FAQPage-JSON-LD oben)
-  und Links im Footer unter „Apps“.
-- `npm run build` und `release/` mit einchecken.
+Die Startseite `index.html` nur anpassen, wenn wirklich eine **relevante neue Funktion** dazukommt, also etwas,
+das ein Interessent kennen sollte (Beispiel: Vorlagen-Designer, ja; ein Farbwähler oder eine kleine Verbesserung, nein).
+Dann: Funktionen-Raster, bei Bedarf eine häufige Frage (auch im FAQPage-JSON-LD oben) und Links im Footer unter „Apps“.
+Im Zweifel die Startseite nicht anfassen und im PR erwähnen, dass sie unverändert bleibt.
 
 ## Startseite: Text, der bleibt
 
