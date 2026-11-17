@@ -143,7 +143,16 @@ header.top { position: sticky; top: 0; z-index: 20; display: flex; align-items: 
 .zeit .zr[aria-current="true"] { background: var(--surface-2); font-weight: 700; }
 .zeit .zr span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zeit .bahn { position: relative; height: 12px; background: var(--surface-2); border-radius: 6px; }
-.zeit .bahn b { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 6px; opacity: .85; }
+.zeit .bahn { height: 14px; }
+.zeit .bahn b { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 6px; opacity: .85; cursor: grab; touch-action: none; box-shadow: inset 4px 0 0 rgba(0,0,0,.18), inset -4px 0 0 rgba(0,0,0,.18); }
+.zeit .bahn b.endlos { box-shadow: inset 4px 0 0 rgba(0,0,0,.18); background: repeating-linear-gradient(90deg, var(--accent) 0 10px, color-mix(in srgb, var(--accent) 70%, transparent) 10px 20px); }
+.zeit .bahn b:hover, .zeit .zr[aria-current="true"] .bahn b { opacity: 1; }
+.zeit .bahn b:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+.zeit .bahn b.zieht { cursor: grabbing; opacity: 1; z-index: 2; }
+.zeit .bahn b.zieht::after { content: attr(data-zeit); position: absolute; left: 50%; bottom: calc(100% + 5px); transform: translateX(-50%); background: var(--ink); color: var(--surface); font: 700 11px var(--font-body); padding: 2px 7px; border-radius: 6px; white-space: nowrap; pointer-events: none; }
+.zeit .lineal { cursor: default; }
+.zeit .skala { position: relative; height: 14px; border-bottom: 1px solid var(--line); }
+.zeit .skala i { position: absolute; bottom: 0; font: 600 10.5px var(--font-body); font-style: normal; color: var(--faint); padding-left: 3px; border-left: 1px solid var(--line); height: 10px; line-height: 10px; white-space: nowrap; }
 .zeit .kopf { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #ff3d8b; }
 .eig { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 74px; max-height: calc(100dvh - 90px); overflow: auto; padding-bottom: 20px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

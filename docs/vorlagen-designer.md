@@ -23,6 +23,12 @@ Freie Gestaltung mit Text, Fläche, Kreis, Bild, Logo und QR-Code. Pro Element:
 - Schrift als Rolle (Titel, Text). Zu langer Text wird kleiner, nie abgeschnitten.
 - Animation mit Start und Dauer: Einblenden, von unten/links/rechts, Heranzoomen, Aufploppen,
   Schreibmaschine, Pulsieren, langsamer Zoom fürs Foto. Zeitleiste und „Abspielen“ im Designer.
+- Zeitleiste zum Arrangieren: Jedes animierte Element hat einen Balken mit Sekunden-Skala. Balken ziehen
+  verschiebt den Start, an der linken oder rechten Kante ziehen ändert Start oder Dauer (Raster 0,1 s).
+  Beim Ziehen steht die Zeit über dem Balken, die Felder „Start nach“ und „Dauer“ rechts laufen mit, danach
+  spielt die Vorschau die Folie einmal ab. Umgekehrt folgen die Balken sofort, wenn du die Felder änderst.
+  Mit der Tastatur: Balken anwählen, Pfeil links/rechts verschiebt, mit Umschalt ändert er die Dauer.
+  Pulsieren und langsamer Zoom laufen bis zum Folienende, dort lässt sich nur der Start ziehen.
 - **„Kunde darf das im Panel ausfüllen“**: macht das Element zu einem Feld (z. B. „Preis“, „Foto“).
   Alles andere bleibt gesperrt. So bleibt das CI sauber und der Kunde ändert trotzdem selbst den Preis.
 
