@@ -5,7 +5,8 @@ und kann er Design und Animation selbst einstellen?“ Antwort: ja, in zwei Stuf
 
 ## 1. Marke (für alle)
 
-Logo hochladen, Haupt- und Zweitfarbe kommen automatisch aus dem Logo, dazu Dunkel und Hell,
+Logo hochladen, Haupt- und Zweitfarbe kommen automatisch aus dem Logo, dazu Dunkel und Hell.
+Alternativ ein vordefiniertes Farbset wählen. Jede Farbe bleibt frei wählbar (Farbwähler oder Hex-Wert). Dazu kommen
 zwei Schriften (fünf mitgelieferte oder eine eigene Datei) und der Übergang zwischen den Folien
 (Überblenden, Schieben, Zoomen, harter Schnitt, mit Dauer). Der Designer zeigt den Kontrast, damit
 die Speisekarte lesbar bleibt.

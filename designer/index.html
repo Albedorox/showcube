@@ -95,10 +95,15 @@ header.top { position: sticky; top: 0; z-index: 20; display: flex; align-items: 
 .farben { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .farbe { display: flex; gap: 8px; align-items: center; }
 .farbe > div { min-width: 0; }
+.farbe input[type=color] { cursor: pointer; }
 .farbe input[type=text] { font-family: ui-monospace, monospace; font-size: 12.5px; height: 30px; }
 .kontrast { font-size: 12px; display: flex; gap: 6px; align-items: center; }
 .kontrast i { font-style: normal; font-weight: 700; padding: 1px 7px; border-radius: 6px; }
 .kontrast .gut { background: var(--accent-soft); color: var(--accent-text); } .kontrast .mau { background: var(--warn-soft); color: var(--warn); }
+.paletten { display: flex; gap: 6px; flex-wrap: wrap; }
+.paletten button { display: flex; padding: 3px; gap: 0; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); }
+.paletten button:hover { border-color: var(--accent); }
+.paletten i { width: 13px; height: 22px; display: block; } .paletten i:first-child { border-radius: 5px 0 0 5px; } .paletten i:last-child { border-radius: 0 5px 5px 0; }
 .fontsel { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
 .vorschau-h { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }

@@ -197,6 +197,15 @@ function showreel(m: Marke) {
     draw(i, tin); x.restore();
   }, fs.length * step);
 }
+// Vordefinierte Farbsets. Jede Farbe lässt sich danach mit dem Farbwähler oder als Hex-Wert frei ändern.
+const PALETTEN: [string, Marke['farben']][] = [
+  ['Trattoria', { primaer: '#d9482b', zweit: '#e9b866', dunkel: '#16120f', hell: '#fff6ea' }],
+  ['Petrol', { primaer: '#0b7a67', zweit: '#f2b441', dunkel: '#14181a', hell: '#fbf8f1' }],
+  ['Immobilie', { primaer: '#1f4e79', zweit: '#d4a24c', dunkel: '#101c2a', hell: '#f4f6f9' }],
+  ['Boutique', { primaer: '#b8326b', zweit: '#f4c7d6', dunkel: '#1d1418', hell: '#fff5f8' }],
+  ['Natur', { primaer: '#2f7d32', zweit: '#c5d86d', dunkel: '#13200f', hell: '#f6f8ef' }],
+  ['Praxis', { primaer: '#2a7fb8', zweit: '#7cc6c0', dunkel: '#0f1d26', hell: '#f3f8fb' }],
+];
 function farbFeld(k: keyof Marke['farben'], label: string) {
   const m = M(), set = (v: string) => { if (!/^#[0-9a-f]{6}$/i.test(v)) return; m.farben[k] = v.toLowerCase(); save(); renderMarke(); };
   return h('div', { class: 'farbe' }, h('input', { type: 'color', value: m.farben[k], 'aria-label': label, onchange: (e: any) => set(e.target.value) }),
@@ -237,6 +246,7 @@ function renderMarke() {
             m.logo ? h('button', { class: 'btn sm ghost', onclick: () => { merke(); m.logo = undefined; save(); renderMarke(); } }, 'Entfernen') : null))),
       h('div', { class: 'box' }, h('div', { class: 'row' }, h('h3', null, 'Farben'), h('span', { class: 'grow' }), m.logo ? h('button', { class: 'btn sm ghost', onclick: fromLogo, title: 'Haupt- und Zweitfarbe aus dem Logo lesen' }, icon('wand'), 'Aus dem Logo') : null),
         h('div', { class: 'farben' }, farbFeld('primaer', 'Hauptfarbe'), farbFeld('zweit', 'Zweitfarbe'), farbFeld('dunkel', 'Dunkel (Hintergrund)'), farbFeld('hell', 'Hell (Schrift)')),
+        h('div', null, h('span', { class: 'label' }, 'Vorschläge (ein Klick setzt alle vier Farben)'), h('div', { class: 'paletten' }, PALETTEN.map(([n, f]) => h('button', { title: n, 'aria-label': 'Farbset ' + n, onclick: () => { merke(); m.farben = { ...f }; save(); renderMarke(); } }, [f.primaer, f.zweit, f.dunkel, f.hell].map(c => h('i', { style: 'background:' + c })))))),
         kontrastZeile(m.farben.hell, m.farben.dunkel, 'Hell auf Dunkel'), kontrastZeile('#ffffff', m.farben.primaer, 'Weiß auf Hauptfarbe'),
         h('span', { class: 'small' }, 'Die Vorlagen nehmen diese Farben als Rollen. Speisekarten bleiben dunkel mit heller Schrift, Angebote in der Hauptfarbe.')),
       h('div', { class: 'box' }, h('h3', null, 'Schriften'), schriftWahl('titel', 'Überschriften'), schriftWahl('text', 'Fließtext und Preise'),
