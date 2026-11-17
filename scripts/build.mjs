@@ -20,6 +20,12 @@ for (const app of apps) {
   });
   await copyFile(resolve(outDir, 'index.html'), resolve(root, 'release', `${app}.html`));
 }
+// Beispiel-Fernseher der Startseite: echte Player-Folien als ein kleines Skript neben den Apps.
+await build({
+  root, logLevel: 'warn', configFile: false,
+  build: { outDir: resolve(root, 'dist', 'startseite'), emptyOutDir: true, lib: { entry: resolve(root, 'startseite/demo.ts'), formats: ['iife'], name: 'ShowCubeDemo', fileName: () => 'startseite-demo.js' } },
+});
+await copyFile(resolve(root, 'dist/startseite/startseite-demo.js'), resolve(root, 'release', 'startseite-demo.js'));
 await rm(resolve(root, 'dist'), { recursive: true, force: true });
 
 // Panel als App (PWA): Manifest, Icons und Service Worker neben panel.html legen.
@@ -46,4 +52,4 @@ const sw = (await readFile(resolve(root, 'pwa/sw.js'), 'utf8')).replace('__VERSI
 await writeFile(resolve(rel, 'sw.js'), sw);
 // Einrichtungs-Skript für den Pi daneben legen, damit es sich auf der Box direkt herunterladen lässt.
 await copyFile(resolve(root, 'scripts/box-einrichten.sh'), resolve(rel, 'box-einrichten.sh'));
-console.log('Fertig: ' + apps.map(a => 'release/' + a + '.html').join(', ') + ', dazu release/sw.js, release/box-einrichten.sh und das App-Manifest');
+console.log('Fertig: ' + apps.map(a => 'release/' + a + '.html').join(', ') + ', dazu release/startseite-demo.js, release/sw.js, release/box-einrichten.sh und das App-Manifest');
