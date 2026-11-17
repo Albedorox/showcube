@@ -200,7 +200,15 @@ const tplSel = $('tpl');
 Object.entries(TEMPLATES).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v.label; tplSel.appendChild(o); });
 const sw = $('swatches');
 SWATCHES.forEach(c => { const b = document.createElement('button'); b.style.background = c; b.setAttribute('aria-label', 'Farbe ' + c); b.onclick = () => { C.accent = c; syncSw(); save(); }; sw.appendChild(b); });
-function syncSw() { [...sw.children].forEach((b, i) => b.setAttribute('aria-pressed', SWATCHES[i] === C.accent)); }
+// Eigene Farbe: Farbwähler neben den vorgegebenen Farben.
+const picker = document.createElement('label'); picker.className = 'picker'; picker.title = 'Eigene Farbe wählen';
+const pickIn = document.createElement('input'); pickIn.type = 'color'; pickIn.setAttribute('aria-label', 'Eigene Farbe wählen'); picker.appendChild(pickIn); sw.appendChild(picker);
+pickIn.oninput = () => { C.accent = pickIn.value; syncSw(); save(); };
+function syncSw() {
+  [...sw.querySelectorAll('button')].forEach((b, i) => b.setAttribute('aria-pressed', String(SWATCHES[i] === C.accent)));
+  const eigen = !!C.accent && !SWATCHES.includes(C.accent); picker.classList.toggle('on', eigen); picker.style.setProperty('--c', C.accent || '');
+  if (/^#[0-9a-f]{6}$/i.test(C.accent || '')) pickIn.value = C.accent;
+}
 function applyTpl(k, keepText) {
   const T = TEMPLATES[k]; C.tpl = k;
   if (!keepText) { C.name = T.name; C.items = T.items; C.accent = T.accent; }
