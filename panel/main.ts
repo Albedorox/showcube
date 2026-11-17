@@ -1,6 +1,9 @@
 import '../shared/fonts.css';
+import '../shared/fonts-marke.css';
 import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates';
 import { activeOn, expired, zeitraumText, bausteinActive, bausteinSlide, bausteinTitle, BAUSTEINE, LEISTE, leisteH, drawLeiste, fetchWetter, findPlace, WETTER_DEMO, type Baustein, type BausteinKind, type Leiste, type Wetter, type Zeitraum } from '../shared/bausteine';
+import { useMarke, logoBild, markeAusDatei, markeAlsDatei, MARKE_FORMAT, type Marke } from '../shared/marke';
+import { drawDesign, freieFelder, type DesignVorlage } from '../shared/design';
 import { hatServer, verbinden, SPEICHER, BUCKET } from '../shared/cloud';
 import { CHANNEL, PAKET_FORMAT, PAKET_VERSION, paketToFile, type Msg, type Notice, type Paket, type ShowConfig, type When } from '../shared/paket';
 
@@ -55,6 +58,7 @@ const ICONS: Record<string, string> = {
   star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>', timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5"/>',
   ticker: '<rect x="2" y="15" width="20" height="6" rx="1.5"/><path d="M6 18h8M3 5h18M3 10h12"/>', chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  brush: '<path d="M14.5 4.5l5 5L10 19l-5 1 1-5z"/><path d="M13 6l5 5"/>', palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.6 1.7-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="7.5" r="1.2"/>',
   shop: '<path d="M3 9l1.5-5h15L21 9M4 9v11h16V9M9 20v-6h6v6"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 const icon = (n: string) => { const t = document.createElement('template'); t.innerHTML = `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`; return t.content.firstChild as SVGElement; };
@@ -75,16 +79,21 @@ const kb = (n: number) => n > 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + ' M
 const REL = /\.html$/.test(location.pathname);
 const PLAYER_URL = REL ? 'player.html' : '../player/';
 const KONFIG_URL = REL ? 'konfigurator.html' : '../konfigurator/';
+const DESIGNER_URL = REL ? 'designer.html' : '../designer/';
 
 // ---------- Datenmodell ----------
 type Row = { c: string[]; off?: boolean };
 type MediaUse = { id: string; when: When } & Zeitraum;
-interface Cfg { tpl: string | null; name: string; rows: Row[]; accent: string; logo: string | null; dur: number; fit: 'cover' | 'contain'; dayStart: string; eveStart: string; offOn: boolean; offFrom: string; offTo: string; offDays: number[]; media: MediaUse[]; extras: Baustein[]; leiste: Leiste; }
+interface Cfg { tpl: string | null; name: string; rows: Row[]; accent: string; logo: string | null; dur: number; fit: 'cover' | 'contain'; dayStart: string; eveStart: string; offOn: boolean; offFrom: string; offTo: string; offDays: number[]; media: MediaUse[]; extras: Baustein[]; leiste: Leiste; marke?: boolean; }
 interface Version { revision: number; at: number; cfg: Cfg; }
 interface Show { id: string; name: string; revision: number; published: number | null; cfg: Cfg; pub: Cfg | null; history: Version[]; }
 interface Screen { id: string; name: string; place: string; orient: 'land' | 'port'; show: string; power: boolean; sim: 'online' | 'offline'; lastSeen: number; revision: number; version: string; kennung?: string; temp: number; disk: number; net: string; booted: number; log: { t: number; msg: string }[]; }
 interface Asset { id: string; type: 'image' | 'video'; name: string; size: number; added: number; }
-interface State { shows: Show[]; screens: Screen[]; assets: Asset[]; notice: (Notice & { screens: string[] }) | null; alert?: { on: boolean; after: number; to: string }; }
+interface State { shows: Show[]; screens: Screen[]; assets: Asset[]; notice: (Notice & { screens: string[] }) | null; alert?: { on: boolean; after: number; to: string };
+  marke?: Marke | null;          // Marken-Kit des Betriebs, gilt für alle Slideshows (außer sie schalten es ab)
+  partner?: Partner[];           // Eingeladene Agenturen (Prototyp: Einladung wird noch nicht verschickt)
+}
+interface Partner { email: string; name: string; am: number; }
 
 const rowsOf = (items: string): Row[] => items.split('\n').filter(l => l.trim()).map(l => ({ c: l.split('|').map(s => s.trim()) }));
 const baseCfg = (tpl: string | null): Cfg => {
@@ -172,16 +181,18 @@ const inRange = (n: number, a: number, b: number) => a <= b ? n >= a && n < b : 
 function periodAt(c: Cfg, n: number) { if (c.offOn && inRange(n, mins(c.offFrom), mins(c.offTo))) return 'off'; return inRange(n, mins(c.dayStart), mins(c.eveStart)) ? 'day' : 'eve'; }
 function periodOf(c: Cfg, now = new Date()) { if ((c.offDays || []).includes(now.getDay())) return 'rest'; return periodAt(c, now.getHours() * 60 + now.getMinutes()); }
 const PERIOD = { day: 'Tag', eve: 'Abend', off: 'Nachts aus', rest: 'Ruhetag' };
+// Die Marke gilt für jede Slideshow, außer dort ist sie abgeschaltet (cfg.marke === false).
+const markeOf = (c: Cfg): Marke | null => (c && c.marke !== false && S.marke) || null;
 function dataOf(c: Cfg) {
-  const li = c.logo && imgOf(c.logo);
-  return { name: c.name || ' ', accent: c.accent, logo: li && li.complete && li.naturalWidth ? li : null, hours: 'Montag bis Samstag, 9 bis 19 Uhr',
+  const li = c.logo && imgOf(c.logo), m = markeOf(c);
+  return { name: c.name || (m && m.name) || ' ', accent: m ? m.farben.primaer : c.accent, logo: li && li.complete && li.naturalWidth ? li : logoBild(m), marke: m, hours: 'Montag bis Samstag, 9 bis 19 Uhr',
     items: c.rows.filter(r => !r.off && (r.c[0] || '').trim()).map(r => r.c) };
 }
 // Vorschau-Datum: im Editor lässt sich ein anderer Tag simulieren, um Zeiträume zu prüfen.
 let day = new Date();
 // Folien-Funktionen je Baustein merken, solange sich der Baustein nicht ändert (sonst würde jedes Bild neu gebaut).
 const fnCache = new Map<string, { key: string; fn: any }>();
-function slideFn(b: Baustein) { const key = JSON.stringify(b), hit = fnCache.get(b.id); if (hit && hit.key === key) return hit.fn; const fn = bausteinSlide(b); fnCache.set(b.id, { key, fn }); return fn; }
+function slideFn(b: Baustein) { if (b.kind === 'design') return bausteinSlide(b); const key = JSON.stringify(b), hit = fnCache.get(b.id); if (hit && hit.key === key) return hit.fn; const fn = bausteinSlide(b); fnCache.set(b.id, { key, fn }); return fn; }
 function slidesOf(c: Cfg, p: string) {
   if (p === 'off' || p === 'rest') return [];
   const list: any[] = [];
@@ -193,7 +204,7 @@ function slidesOf(c: Cfg, p: string) {
 }
 function drawItem(ctx: CanvasRenderingContext2D, w: number, h2: number, it: any, c: Cfg, t: number) {
   if (!it) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h2); return; }
-  if (it.kind === 'tpl') { ctx.save(); it.fn(ctx, w, h2, dataOf(c), t); ctx.restore(); return; }
+  if (it.kind === 'tpl') { useMarke(markeOf(c)); ctx.save(); it.fn(ctx, w, h2, dataOf(c), t); ctx.restore(); return; }
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h2);
   const src: any = it.kind === 'image' ? imgOf(it.id) : vidOf(it.id); if (!src) return;
   if (it.kind === 'video' && src.paused) src.play().catch(() => {});
@@ -221,11 +232,11 @@ function paintScreen(ctx: CanvasRenderingContext2D, w: number, hh: number, c: Cf
 function stillOf(c: Cfg, w: number, h2: number, period = 'day', i = 0, notice = '') {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h2; const x = cv.getContext('2d'), list = slidesOf(c, period);
   if (!list.length) { x.fillStyle = '#000'; x.fillRect(0, 0, w, h2); return cv; }
-  paintScreen(x, w, h2, c, hh => drawItem(x, w, hh, list[i], c, 0), notice, 0); return cv;
+  paintScreen(x, w, h2, c, hh => drawItem(x, w, hh, list[i], c, 99), notice, 0); return cv;
 }
 
 // Ein Abspieler pro Vorschau-Leinwand. Ein gemeinsamer Takt (30 Bilder/s) zeichnet nur die sichtbaren.
-interface Pv { canvas: HTMLCanvasElement; cfg: () => Cfg | null; period: () => string; black?: () => boolean; notice?: () => string; onSlide?: (i: number, n: number, p: string) => void; idx: number; next: number; prev: any; fadeAt: number; key: string; }
+interface Pv { shownIdx?: number; shownAt?: number; canvas: HTMLCanvasElement; cfg: () => Cfg | null; period: () => string; black?: () => boolean; notice?: () => string; onSlide?: (i: number, n: number, p: string) => void; idx: number; next: number; prev: any; fadeAt: number; key: string; }
 const pvs = new Set<Pv>();
 function preview(canvas: HTMLCanvasElement, o: Partial<Pv>) { const p = { canvas, idx: 0, next: 0, prev: null, fadeAt: 0, key: '', ...o } as Pv; pvs.add(p); return p; }
 function tv(orient: 'land' | 'port', o: Partial<Pv>) { const cv = h('canvas'), frame = h('div', { class: 'tvf ' + orient }, cv); return { frame, pv: preview(cv, o) }; }
@@ -244,11 +255,14 @@ function frame(now: number) {
     else {
       if (p.idx >= list.length) p.idx = 0;
       if (!p.next) p.next = now + Math.max(3, c.dur) * 1000;
-      if (now > p.next) { p.prev = list[p.idx]; p.fadeAt = now; p.idx = (p.idx + 1) % list.length; p.next = now + Math.max(3, c.dur) * 1000; }
+      if (now > p.next) { p.prev = list[p.idx]; p.fadeAt = now; p.shownAt = null; p.idx = (p.idx + 1) % list.length; p.next = now + Math.max(3, c.dur) * 1000; }
       const a = p.prev ? Math.min(1, (now - p.fadeAt) / 450) : 1;
+      // Animationen eigener Vorlagen laufen ab Beginn der Folie.
+      if (p.shownIdx !== p.idx || p.shownAt == null) { p.shownIdx = p.idx; p.shownAt = now; }
+      const ts = (now - p.shownAt) / 1000;
       paintScreen(ctx, w, hh, c, h2 => {
-        if (a < 1) { drawItem(ctx, w, h2, p.prev, c, now / 1000); ctx.globalAlpha = a; }
-        drawItem(ctx, w, h2, list[p.idx], c, now / 1000); ctx.globalAlpha = 1;
+        if (a < 1) { drawItem(ctx, w, h2, p.prev, c, 99); ctx.globalAlpha = a; }
+        drawItem(ctx, w, h2, list[p.idx], c, ts); ctx.globalAlpha = 1;
       }, (p.notice && p.notice()) || '', now / 1000);
     }
     const key = p.idx + '/' + list.length + '/' + per;
@@ -266,7 +280,7 @@ const isOn = (sc: Screen) => isLive(sc.id) || sc.sim === 'online';
 function noticeFor(id: string): Notice | null { const n = S.notice; return n && n.screens.includes(id) && (!n.until || Date.now() < n.until) ? { text: n.text, until: n.until } : null; }
 function toConfig(c: Cfg, sc?: Screen): ShowConfig {
   const media = c.media.map(m => { const a = assetById(m.id); return a && (blobs.has(a.id) || (konto && hochgeladen.has(a.id))) ? { id: a.id, type: a.type, name: a.name, when: m.when, from: m.from, to: m.to, days: m.days } : null; }).filter(Boolean);
-  return { tpl: c.tpl, name: c.name, items: itemsOf(c), accent: c.accent, dur: c.dur, fit: c.fit, dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays, notice: sc ? noticeFor(sc.id) : null, media, extras: clone(c.extras || []), leiste: c.leiste && c.leiste.on ? { ...c.leiste } : null };
+  return { tpl: c.tpl, name: c.name, items: itemsOf(c), accent: c.accent, dur: c.dur, fit: c.fit, dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays, notice: sc ? noticeFor(sc.id) : null, media, extras: clone(c.extras || []), leiste: c.leiste && c.leiste.on ? { ...c.leiste } : null, marke: markeOf(c) };
 }
 function paketFor(sh: Show, c: Cfg, sc?: Screen): Paket {
   const config = toConfig(c, sc), files: Record<string, Blob> = {};
@@ -603,7 +617,7 @@ function changesOf(sh: Show): string[] {
     if (ch2) out.push(ch2 + ' ' + u(ch2) + ' geändert'); if (off) out.push(off + ' ' + u(off) + ' ein- oder ausgeblendet');
     if (d > 0) out.push(d + ' ' + u(d) + ' neu'); if (d < 0) out.push(-d + ' ' + u(-d) + ' entfernt');
   }
-  if (a.name !== b.name || a.accent !== b.accent || a.logo !== b.logo) out.push('Name, Farbe oder Logo');
+  if (a.name !== b.name || a.accent !== b.accent || a.logo !== b.logo || a.marke !== b.marke) out.push('Name, Farbe oder Logo');
   if (j(a.media) !== j(b.media)) out.push('Medien');
   if (j(a.extras) !== j(b.extras)) out.push('Bausteine');
   if (j(a.leiste) !== j(b.leiste)) out.push('Infoleiste');
@@ -708,7 +722,9 @@ function renderPane() {
     const logoUrl = c.logo && urlOf(c.logo);
     const design = [h('div', { class: 'brandrow' },
       h('div', null, h('label', { for: 'sBrand' }, 'Name des Betriebs'), h('input', { type: 'text', id: 'sBrand', value: c.name, oninput: (e: any) => { c.name = e.target.value; changed(); } })),
-      h('div', null, h('span', { class: 'label' }, 'Farbe'), h('div', { class: 'swatches' }, SWATCHES.map(col => h('button', { style: 'background:' + col, 'aria-label': 'Farbe ' + col, 'aria-pressed': String(col === c.accent), onclick: () => { c.accent = col; repaint(); } }))))),
+      markeOf(c) ? h('div', null, h('span', { class: 'label' }, 'Farben'), h('button', { class: 'mchip', title: 'Marke ansehen', onclick: () => go('templates') }, [markeOf(c).farben.primaer, markeOf(c).farben.zweit, markeOf(c).farben.dunkel, markeOf(c).farben.hell].map(col => h('i', { style: 'background:' + col })), 'aus der Marke'))
+        : h('div', null, h('span', { class: 'label' }, 'Farbe'), h('div', { class: 'swatches' }, SWATCHES.map(col => h('button', { style: 'background:' + col, 'aria-label': 'Farbe ' + col, 'aria-pressed': String(col === c.accent), onclick: () => { c.accent = col; repaint(); } }))))),
+    S.marke ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: c.marke !== false, onchange: (e: any) => { c.marke = e.target.checked ? undefined : false; repaint(); } }), 'Marke „' + S.marke.name + '“ verwenden: Farben, Schriften, Logo und Übergänge') : null,
     h('div', { class: 'logo' },
       logoUrl ? h('img', { src: logoUrl, alt: 'Logo' }) : null,
       h('span', { class: 'btn sm file' }, icon('upload'), logoUrl ? 'Logo ersetzen' : 'Logo hochladen', h('input', { type: 'file', accept: 'image/*', 'aria-label': 'Logo hochladen', onchange: (e: any) => { const f = e.target.files[0]; if (!f) return; const id = uid('logo'); putBlob(id, f); c.logo = id; const im = imgOf(id); im.onload = () => renderFilm(); repaint(); } })),
@@ -786,7 +802,7 @@ function renderPane() {
 
 // ---------- Bausteine und Infoleiste (Reiter im Editor) ----------
 let extrasTick: () => void = null; const runExtrasTick = () => extrasTick && extrasTick();
-const KIND_ICON: Record<BausteinKind, string> = { qr: 'qr', reviews: 'star', countdown: 'timer' };
+const KIND_ICON: Record<BausteinKind, string> = { qr: 'qr', reviews: 'star', countdown: 'timer', design: 'brush' };
 const isoDay = (d: Date) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 function bauState(b: Baustein): [string, string] {
   if (!b.on) return ['', 'aus'];
@@ -802,8 +818,23 @@ function zeitraumFields(z: Zeitraum & { when?: When }, idp: string, repaint: (f?
     h('div', null, h('label', { for: idp + 't' }, 'Bis (leer = immer)'), h('input', { type: 'date', id: idp + 't', value: z.to || '', onchange: (e: any) => { z.to = e.target.value || undefined; repaint('#' + idp + 't'); } })),
     h('div', { class: 'days', role: 'group', 'aria-label': 'Nur an diesen Tagen' }, [1, 2, 3, 4, 5, 6, 0].map(d => h('button', { 'aria-pressed': String(days.includes(d)), title: 'Nur an diesen Tagen zeigen. Keiner gewählt = jeden Tag.', onclick: () => { z.days = days.includes(d) ? days.filter(x => x !== d) : [...days, d]; if (!z.days.length) delete z.days; repaint(); } }, DAYS[d]))));
 }
+// Bild aus einer Datei verkleinern (höchstens 1600 Pixel), damit Vorlagen und Pakete klein bleiben.
+function bildKlein(f: File, max = 1600): Promise<string> {
+  return new Promise((res, rej) => {
+    const i = new Image(); i.onerror = rej;
+    i.onload = () => { const s = Math.min(1, max / Math.max(i.naturalWidth, i.naturalHeight)), cv = h('canvas'); cv.width = Math.round(i.naturalWidth * s); cv.height = Math.round(i.naturalHeight * s); cv.getContext('2d').drawImage(i, 0, 0, cv.width, cv.height); URL.revokeObjectURL(i.src); res(cv.toDataURL(f.type === 'image/png' ? 'image/png' : 'image/jpeg', .86)); };
+    i.src = URL.createObjectURL(f);
+  });
+}
+const vorlageVon = (b: Baustein) => S.marke && S.marke.vorlagen.find(v => v.id === b.f.vorlage);
+// Eigene Vorlage: der Kunde füllt nur die Felder aus, die beim Gestalten freigegeben wurden.
+function designFelder(b: Baustein) {
+  const v = vorlageVon(b); if (!v) return [];
+  return freieFelder(v).map(el => ({ k: el.id, label: el.frei, ph: el.typ === 'bild' ? '' : el.text || '', type: el.typ === 'bild' ? 'bild' : el.typ === 'qr' ? 'url' : 'text', wide: el.typ !== 'text' || (el.text || '').length > 24 }));
+}
 function renderExtras(p: HTMLElement, c: Cfg, repaint: (f?: string) => void) {
-  const list = c.extras, L = c.leiste;
+  const list = c.extras, L = c.leiste, M = markeOf(c);
+  const addDesign = (v: DesignVorlage) => { list.push(bau('design', { vorlage: v.id, titel: v.name })); repaint(); toast('„' + v.name + '“ hinzugefügt. Nur die freigegebenen Felder sind änderbar, der Rest bleibt im Design der Marke.'); };
   const add = (k: BausteinKind) => { const b = bau(k); if (k === 'countdown') { b.f.until = dayPlus(3) + 'T20:00'; b.to = dayPlus(3); } list.push(b); repaint(); toast(BAUSTEINE[k].label + ' hinzugefügt. Die Folie läuft nach den Vorlagen-Folien.'); };
   const cards = list.map((b, i) => {
     const B = BAUSTEINE[b.kind], [cls, st] = bauState(b), idp = 'b' + i, title = bausteinTitle(b);
@@ -812,8 +843,12 @@ function renderExtras(p: HTMLElement, c: Cfg, repaint: (f?: string) => void) {
         h('button', { class: 'ib', title: 'Nach oben', 'aria-label': 'Nach oben: ' + B.label, disabled: i === 0, onclick: () => { list.splice(i - 1, 0, list.splice(i, 1)[0]); repaint(); } }, icon('up')),
         h('button', { class: 'ib', title: b.on ? 'Ausschalten, ohne zu löschen' : 'Wieder einschalten', 'aria-label': (b.on ? 'Ausschalten: ' : 'Einschalten: ') + B.label, 'aria-pressed': String(!b.on), onclick: () => { b.on = !b.on; repaint(); } }, icon(b.on ? 'eye' : 'eyeoff')),
         h('button', { class: 'ib', title: 'Löschen', 'aria-label': 'Löschen: ' + B.label, onclick: () => undoable(B.label + ' gelöscht.', () => { list.splice(i, 1); }) }, icon('trash'))),
-      h('div', { class: 'bst-f' }, B.fields.map(fd => {
+      b.kind === 'design' && !vorlageVon(b) ? h('span', { class: 'small' }, 'Diese Vorlage gibt es in der Marke nicht mehr. Die Folie wird übersprungen.') : null,
+      h('div', { class: 'bst-f' }, (b.kind === 'design' ? designFelder(b) : B.fields).map((fd: any) => {
         const id = idp + fd.k, isQ = /^q\d/.test(fd.k);
+        if (fd.type === 'bild') return h('div', { class: 'wide' }, h('span', { class: 'label' }, fd.label), h('div', { class: 'logo' }, b.f[fd.k] ? h('img', { src: b.f[fd.k], alt: '' }) : null,
+          h('span', { class: 'btn sm file' }, icon('upload'), b.f[fd.k] ? 'Bild ersetzen' : 'Eigenes Bild', h('input', { type: 'file', accept: 'image/*', 'aria-label': fd.label, onchange: async (e: any) => { const f = e.target.files[0]; if (!f) return; b.f[fd.k] = await bildKlein(f); repaint(); } })),
+          b.f[fd.k] ? h('button', { class: 'btn ghost sm', onclick: () => { delete b.f[fd.k]; repaint(); } }, 'Bild der Vorlage') : h('span', { class: 'small' }, 'Ohne eigenes Bild bleibt das Bild aus der Vorlage.')));
         const inp = isQ ? h('textarea', { id, rows: 2, placeholder: fd.ph || '', oninput: (e: any) => { b.f[fd.k] = e.target.value; changed(); } }, b.f[fd.k] || '')
           : h('input', { id, type: fd.type || 'text', value: b.f[fd.k] || '', placeholder: fd.ph || '', oninput: (e: any) => { b.f[fd.k] = e.target.value; if (fd.k === 'until') { b.to = (e.target.value || '').slice(0, 10) || undefined; } changed(); } });
         return h('div', { class: fd.wide ? 'wide' : null }, h('label', { for: id }, fd.label), inp);
@@ -834,7 +869,9 @@ function renderExtras(p: HTMLElement, c: Cfg, repaint: (f?: string) => void) {
   fill(p,
     h('div', { class: 'fld' }, h('h3', null, 'Zusatzfolien'), h('span', { class: 'small', style: 'margin-top:-4px' }, 'Fertige Folien, die zu jedem Betrieb passen. Mit Zeitraum laufen sie von selbst an und ab.'),
       cards.length ? cards : null,
-      h('div', { class: 'bst-add' }, (Object.keys(BAUSTEINE) as BausteinKind[]).map(k => h('button', { onclick: () => add(k) }, h('b', null, icon(KIND_ICON[k]), BAUSTEINE[k].label), h('span', null, BAUSTEINE[k].desc))))),
+      h('div', { class: 'bst-add' }, (Object.keys(BAUSTEINE) as BausteinKind[]).filter(k => k !== 'design').map(k => h('button', { onclick: () => add(k) }, h('b', null, icon(KIND_ICON[k]), BAUSTEINE[k].label), h('span', null, BAUSTEINE[k].desc))),
+        M ? M.vorlagen.map(v => h('button', { class: 'own', onclick: () => addDesign(v) }, h('b', null, icon('brush'), v.name), h('span', null, 'Eigene Vorlage im Design von „' + M.name + '“' + (M.agentur ? ', gestaltet von ' + M.agentur : '') + '.')))
+          : h('button', { class: 'own', onclick: () => go('templates') }, h('b', null, icon('palette'), 'Eigene Vorlagen'), h('span', null, 'Folien in deinem CI: Marke einrichten oder von deiner Agentur gestalten lassen.')))),
     h('div', { class: 'fld' }, h('h3', null, 'Infoleiste'),
       h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: L.on, onchange: (e: any) => { L.on = e.target.checked; repaint(); } }), 'Leiste unten einblenden: Laufband, Uhr und Wetter'),
       L.on ? [
@@ -883,9 +920,91 @@ const TPL_TEXT = {
   makler: 'Bis zu vier Objekte mit Fläche, Preis und Energieklasse. Abends ein QR-Code zum Exposé.',
   laden: 'Große Angebote und Aktionen. Nach Ladenschluss ein Hinweis auf die Öffnungszeiten.',
 };
+// ---------- Marke und eigene Vorlagen ----------
+// Die Marke kommt aus dem Vorlagen-Designer (designer.html): vom Kunden selbst oder von seiner Agentur.
+// Übergabe zwischen Designer und Panel im selben Browser über localStorage, sonst als Datei (showcube-marke.json).
+const UEBERGABE = 'showcube-marke-uebergabe', BEARBEITEN = 'showcube-marke-bearbeiten';
+function setMarke(m: Marke | null, text: string) {
+  undoable(text, () => { S.marke = m; });
+  // Was schon läuft, bekommt die neue Marke gleich mit (Demo: Player-Tabs; Konto: beim nächsten Veröffentlichen).
+  S.screens.forEach(sc => { if (isLive(sc.id)) deliver(sc); });
+  if (konto && m) setTimeout(() => toast('Marke gespeichert. Veröffentliche deine Slideshows, damit die Bildschirme sie zeigen.'), 7200);
+}
+function openDesigner() {
+  try { if (S.marke) localStorage.setItem(BEARBEITEN, JSON.stringify(S.marke)); else localStorage.removeItem(BEARBEITEN); } catch (e) {}
+  window.open(DESIGNER_URL + '?von=panel', '_blank', 'noopener');
+}
+async function markeLaden(f: File) {
+  try { const m = markeAusDatei(await f.text()); setMarke(m, 'Marke „' + m.name + '“ übernommen' + (m.agentur ? ', gestaltet von ' + m.agentur : '') + '.'); }
+  catch (e) { toast('Konnte das Markenpaket nicht lesen: ' + (e as Error).message); }
+}
+function markeSpeichern() {
+  const a = h('a', { href: URL.createObjectURL(markeAlsDatei(S.marke)), download: 'showcube-marke.json' });
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+// Aus dem Designer: panel.html?marke übernimmt das dort gespeicherte Markenpaket.
+function markeUebergabe() {
+  if (!new URLSearchParams(location.search).has('marke')) return;
+  history.replaceState(null, '', location.pathname + location.hash);
+  let m: Marke | null = null; try { m = markeAusDatei(localStorage.getItem(UEBERGABE) || ''); localStorage.removeItem(UEBERGABE); } catch (e) {}
+  if (!m) return;
+  if (!konto && !demo) demoStart();
+  go('templates'); setMarke(m, 'Marke „' + m.name + '“ aus dem Designer übernommen.');
+}
+function openPartner() {
+  const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' });
+  fill($('partnerForm'),
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dpaTitle' }, 'Agentur einladen'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
+    h('p', { class: 'small' }, 'Deine Werbeagentur oder dein Grafiker gestaltet Marke und Vorlagen für dich. Sie sieht keine Bildschirme, keine Preise und veröffentlicht nichts. Du entscheidest, was auf die Bildschirme kommt.'),
+    h('div', { class: 'grid2' },
+      h('div', null, h('label', { for: 'paName' }, 'Agentur'), h('input', { type: 'text', id: 'paName', placeholder: 'z. B. Werbeagentur Nord' })),
+      h('div', null, h('label', { for: 'paMail' }, 'E-Mail'), h('input', { type: 'email', id: 'paMail', placeholder: 'kontakt@agentur.de' }))),
+    h('ul', { class: 'rights' }, h('li', null, icon('check'), 'Darf: Logo, Farben, Schriften, Übergänge und eigene Vorlagen gestalten'), h('li', null, icon('check'), 'Darf: festlegen, welche Felder du selbst ausfüllst'), h('li', { class: 'no' }, icon('x'), 'Darf nicht: Bildschirme steuern, veröffentlichen, Abo ändern')),
+    h('p', { class: 'small' }, 'Vorschau: Die Einladung wird noch nicht verschickt. Bis dahin schickt die Agentur ihr Markenpaket als Datei, du lädst es hier unter „Markenpaket laden“.'),
+    err, h('button', { class: 'btn primary lg', value: 'ok' }, 'Einladen'));
+  $('partnerForm').onsubmit = (e: SubmitEvent) => {
+    if ((e.submitter as any)?.value !== 'ok') return;
+    const name = $('paName').value.trim(), email = $('paMail').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { e.preventDefault(); err.textContent = 'Bitte eine gültige E-Mail eintragen.'; return; }
+    undoable((name || email) + ' vorgemerkt. Die Einladung geht raus, sobald Partner-Zugänge freigeschaltet sind.', () => { S.partner = [...(S.partner || []).filter(x => x.email !== email), { name: name || email.split('@')[1], email, am: Date.now() }]; });
+  };
+  $('dlgPartner').showModal(); $('paName').focus();
+}
+function markeKarte(): HTMLElement {
+  const m = S.marke, datei = h('span', { class: 'btn sm file' }, icon('upload'), 'Markenpaket laden', h('input', { type: 'file', accept: '.json,application/json', 'aria-label': 'Markenpaket laden', onchange: (e: any) => { const f = e.target.files[0]; if (f) markeLaden(f); } }));
+  const partner = S.partner || [];
+  const agentur = h('div', { class: 'partner' },
+    h('div', { class: 'row' }, h('h3', null, 'Agentur'), h('span', { style: 'flex:1' }), h('button', { class: 'btn sm', onclick: openPartner }, icon('user'), 'Agentur einladen')),
+    partner.length ? partner.map(pa => h('div', { class: 'row' }, h('b', null, pa.name), h('span', { class: 'small' }, pa.email), h('span', { class: 'badge warn' }, 'vorgemerkt'), h('span', { style: 'flex:1' }),
+      h('button', { class: 'ib', 'aria-label': 'Entfernen: ' + pa.name, title: 'Entfernen', onclick: () => undoable(pa.name + ' entfernt.', () => { S.partner = partner.filter(x => x !== pa); }) }, icon('trash'))))
+      : h('span', { class: 'small' }, 'Lass deine Werbeagentur Marke und Vorlagen gestalten. Du füllst danach nur noch Texte, Preise und Bilder aus.'));
+  if (!m) return h('section', { class: 'card marke leer' },
+    h('div', { class: 'mk-h' }, h('div', { class: 'mk-ic' }, icon('palette')), h('div', null, h('h2', null, 'Alles im Design deiner Marke'), h('p', { class: 'small' }, 'Logo hochladen, Farben kommen automatisch aus dem Logo, Schrift aussuchen. Danach erscheinen alle Vorlagen, Bausteine und Übergänge in deinem CI. Eigene Vorlagen mit Animationen gestaltest du im Vorlagen-Designer, selbst oder mit deiner Agentur.'))),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: openDesigner }, icon('brush'), 'Marke einrichten'), datei),
+    agentur);
+  const tvs = m.vorlagen.map(v => {
+    const cfg = { ...baseCfg(null), dur: 6, extras: [bau('design', { vorlage: v.id, titel: v.name })] }, t = tv('land', { cfg: () => cfg, period: () => 'day' });
+    return h('div', { class: 'mk-v' }, h('div', { class: 'stage', style: 'border-radius:10px' }, t.frame), h('span', null, v.name));
+  });
+  return h('section', { class: 'card marke' },
+    h('div', { class: 'mk-h' },
+      m.logo ? h('img', { class: 'mk-logo', src: m.logo, alt: 'Logo' }) : h('div', { class: 'mk-ic' }, icon('palette')),
+      h('div', null, h('h2', null, m.name), h('p', { class: 'small' }, 'Deine Marke' + (m.agentur ? ', gestaltet von ' + m.agentur : '') + '. Gilt für alle Slideshows, einzeln abschaltbar.')),
+      h('span', { style: 'flex:1' }),
+      h('div', { class: 'mchip' }, [m.farben.primaer, m.farben.zweit, m.farben.dunkel, m.farben.hell].map(col => h('i', { style: 'background:' + col, title: col })))),
+    h('div', { class: 'mk-facts small' }, h('span', null, h('b', null, 'Titel: '), m.schrift.titel.data ? 'eigene Schrift' : m.schrift.titel.name), h('span', null, h('b', null, 'Text: '), m.schrift.text.data ? 'eigene Schrift' : m.schrift.text.name),
+      h('span', null, h('b', null, 'Übergang: '), ({ blende: 'Überblenden', schieben: 'Schieben', zoom: 'Zoomen', hart: 'Harter Schnitt' } as any)[m.bewegung.uebergang])),
+    tvs.length ? [h('h3', null, 'Eigene Vorlagen'), h('div', { class: 'mk-vs' }, tvs), h('p', { class: 'small' }, 'Einfügen im Editor unter „Bausteine“. Dort füllst du nur die freigegebenen Felder aus.')]
+      : h('p', { class: 'small' }, 'Noch keine eigenen Vorlagen. Im Designer gibt es Startpunkte wie „Angebot groß“ oder „Termin und QR“.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: openDesigner }, icon('brush'), 'Im Designer bearbeiten'), datei,
+      h('button', { class: 'btn ghost sm', onclick: markeSpeichern }, icon('download'), 'Als Datei'),
+      h('button', { class: 'btn ghost sm danger', onclick: () => setMarke(null, 'Marke entfernt. Die Vorlagen zeigen wieder die ShowCube-Farben.') }, 'Entfernen')),
+    agentur);
+}
 function renderTemplates(v: HTMLElement) {
   const use = (k: string | null, name: string) => { const sh = newShow(k, name); S.shows.push(sh); save(); tab = k ? 'content' : 'media'; go('shows', sh.id); toast('Neue Slideshow angelegt. Texte anpassen, dann veröffentlichen.'); setTimeout(() => { const n = $('sName'); if (n) { n.focus(); n.select(); } }, 60); };
   v.append(h('div', { class: 'head' }, h('div', null, h('h1', null, 'Vorlagen'), h('p', null, 'Such dir einen Start aus. Du trägst nur Texte und Preise ein, Gestaltung und Lesbarkeit übernimmt die Vorlage.'))),
+    markeKarte(),
     h('div', { class: 'tpls' },
       Object.entries(TEMPLATES).map(([k, T]: any) => {
         const cfg = baseCfg(k), t = tv('land', { cfg: () => cfg, period: () => 'day' }), short = T.label.split(':')[1]?.trim() || T.label;
@@ -903,7 +1022,7 @@ function openCmd() {
   const all = [
     ...VIEWS.map(([k, l, ic]) => ({ label: l, hint: 'Bereich', ic, run: () => go(k) })),
     { label: 'Sofort-Hinweis senden', hint: 'Befehl', ic: 'bolt', run: openNotice }, { label: 'Bildschirm koppeln', hint: 'Befehl', ic: 'plus', run: openPair },
-    { label: 'Neue Slideshow', hint: 'Befehl', ic: 'plus', run: () => go('templates') }, { label: 'Hell oder dunkel umschalten', hint: 'Befehl', ic: 'moon', run: toggleTheme },
+    { label: 'Neue Slideshow', hint: 'Befehl', ic: 'plus', run: () => go('templates') }, { label: 'Vorlagen-Designer öffnen', hint: 'Marke und eigene Vorlagen', ic: 'brush', run: openDesigner }, { label: 'Hell oder dunkel umschalten', hint: 'Befehl', ic: 'moon', run: toggleTheme },
     ...(konto && konto.admin ? [{ label: 'Betrieb öffnen', hint: 'Admin', ic: 'shop', run: openBetriebe }] : []),
     ...(sb ? [konto ? { label: 'Abmelden', hint: 'Konto · ' + konto.email, ic: 'user', run: abmelden } : { label: 'Anmelden', hint: 'Konto', ic: 'user', run: () => openLogin() }] : []),
     ...S.screens.map(sc => ({ label: sc.name, hint: 'Bildschirm · ' + sc.place, ic: 'screens', run: () => { go('screens'); openScreen(sc.id); } })),
@@ -951,7 +1070,7 @@ const hochgeladen = new Set<string>(), offenePakete = new Set<string>();
 let synced = { shows: new Map<string, string>(), screens: new Map<string, string>(), betrieb: '' };
 let syncT: any, syncLaeuft = false, syncNochmal = false, syncFehler = '', ladeN = 0;
 const scFields = (sc: Screen) => JSON.stringify({ name: sc.name, standort: sc.place, ausrichtung: sc.orient, show_id: sc.show || null, strom: sc.power });
-const btFields = () => JSON.stringify({ hinweis: S.notice || null, einstellungen: { alert: S.alert } });
+const btFields = () => JSON.stringify({ hinweis: S.notice || null, einstellungen: { alert: S.alert, marke: S.marke || null, partner: S.partner || [] } });
 function merkeSync() { synced = { shows: new Map(S.shows.map(sh => [sh.id, JSON.stringify(sh)])), screens: new Map(S.screens.map(sc => [sc.id, scFields(sc)])), betrieb: btFields() }; }
 function cacheCloud() {
   try { localStorage.setItem(CKEY, JSON.stringify({ betrieb: konto.betrieb, S, offen: [...offenePakete], synced: { shows: [...synced.shows], screens: [...synced.screens], betrieb: synced.betrieb } })); } catch (e) { saveOK = false; }
@@ -1011,7 +1130,7 @@ async function cloudLaden() {
   const err = [bt, shows, dat, scr].find(r => r.error); if (err) throw err.error;
   const oldScreens = new Map(S.screens.map(sc => [sc.id, sc]));
   S = { shows: shows.data.map((r: any) => r.daten), screens: scr.data.map((r: any) => vomServer(r, oldScreens.get(r.id))), assets: dat.data.filter((d: any) => d.typ !== 'logo').map((d: any) => ({ id: d.id, type: d.typ, name: d.name, size: d.groesse, added: Date.parse(d.erstellt) })),
-    notice: bt.data.hinweis, alert: (bt.data.einstellungen || {}).alert };
+    notice: bt.data.hinweis, alert: (bt.data.einstellungen || {}).alert, marke: (bt.data.einstellungen || {}).marke || null, partner: (bt.data.einstellungen || {}).partner || [] };
   normalize(S); dat.data.forEach((d: any) => hochgeladen.add(d.id)); merkeSync(); konto.name = bt.data.name;
   // Ein neues Konto startet leer. Die Einrichtungshilfe unter „Bildschirme“ führt durch die ersten Schritte.
   cacheCloud();
@@ -1280,5 +1399,5 @@ function demoLink() {
   demoStart();
 }
 
-const start = async () => { await openDB(); await loadAll(); if (sb) await cloudBeimStart(); sweepBlobs(); paintModus(); route(); requestAnimationFrame(frame); demoLink(); shortcut(); paintKonto(); };
+const start = async () => { await openDB(); await loadAll(); if (sb) await cloudBeimStart(); sweepBlobs(); paintModus(); route(); requestAnimationFrame(frame); demoLink(); markeUebergabe(); shortcut(); paintKonto(); };
 fontsReady().then(start, start);

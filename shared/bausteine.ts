@@ -5,8 +5,9 @@
 //   Danach verschwindet die Folie von selbst. Niemand muss am Montag das Wochenangebot löschen.
 // - Die Infoleiste ist eine Zone am unteren Rand: Laufband, Uhr und Wetter. Die Folien werden dafür kleiner, nicht verdeckt.
 import qrcode from 'qrcode-generator';
-import { font, fit, wrap, rr, mix, drawLogo, DISP, BODY } from './templates';
+import { font, fit, wrap, rr, mix, drawLogo, DISP, BODY, pal, alpha } from './templates';
 import type { When } from './paket';
+import { drawDesign } from './design';
 
 // ---------- Zeitraum ----------
 export interface Zeitraum { from?: string; to?: string; days?: number[]; }   // from/to: JJJJ-MM-TT, beide inklusive
@@ -54,7 +55,7 @@ export function drawQR(ctx: CanvasRenderingContext2D, text: string, x: number, y
 const short = (url: string) => (url || '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
 
 // ---------- Folienarten ----------
-export type BausteinKind = 'qr' | 'reviews' | 'countdown';
+export type BausteinKind = 'qr' | 'reviews' | 'countdown' | 'design';
 export interface Baustein extends Zeitraum { id: string; kind: BausteinKind; on: boolean; when: When; f: Record<string, string>; }
 interface Field { k: string; label: string; ph?: string; type?: string; wide?: boolean; }
 export const BAUSTEINE: Record<BausteinKind, { label: string; desc: string; fields: Field[]; f: Record<string, string> }> = {
@@ -73,8 +74,14 @@ export const BAUSTEINE: Record<BausteinKind, { label: string; desc: string; fiel
     fields: [{ k: 'kicker', label: 'Kleine Zeile', ph: 'Nur diese Woche' }, { k: 'title', label: 'Angebot', ph: 'Schnitzel-Tage' }, { k: 'big', label: 'Großer Text', ph: '−20 %' }, { k: 'until', label: 'Endet am', type: 'datetime-local' }],
     f: { kicker: 'Nur diese Woche', title: 'Familien-Pizza', big: '−20 %', until: '' },
   },
+  // Eigene Vorlage aus dem Vorlagen-Designer. f.vorlage = id der Vorlage in der Marke, f.titel = Name,
+  // alle weiteren Schlüssel sind die freien Felder der Vorlage (Element-id → Text, Link oder Bild als data:-URL).
+  design: {
+    label: 'Eigene Vorlage', desc: 'Im Design deiner Marke, gestaltet im Vorlagen-Designer.',
+    fields: [], f: {},
+  },
 };
-export const bausteinTitle = (b: Baustein) => (b.kind === 'reviews' ? (b.f.score ? b.f.score + ' Sterne' : '') : b.f.title || '').trim() || BAUSTEINE[b.kind].label;
+export const bausteinTitle = (b: Baustein) => b.kind === 'design' ? b.f.titel || 'Eigene Vorlage' : (b.kind === 'reviews' ? (b.f.score ? b.f.score + ' Sterne' : '') : b.f.title || '').trim() || BAUSTEINE[b.kind].label;
 // Ein Countdown nach seinem Ende ist auch abgelaufen.
 export const bausteinActive = (b: Baustein, d = new Date()) => b.on && activeOn(b, d) && !(b.kind === 'countdown' && b.f.until && Date.parse(b.f.until) <= d.getTime());
 
@@ -90,9 +97,16 @@ function brand(ctx, d, w, u, color) {
 
 export function bausteinSlide(b: Baustein) {
   const f = b.f;
+  if (b.kind === 'design') return (ctx: CanvasRenderingContext2D, w: number, h: number, d: any, t = 0) => {
+    const v = d.marke && (d.marke.vorlagen || []).find((x: any) => x.id === f.vorlage);
+    if (v) { drawDesign(ctx, w, h, d, t, v, f); return; }
+    const u = Math.min(w, h) / 100; ctx.fillStyle = '#222'; ctx.fillRect(0, 0, w, h);
+    font(ctx, 600, u * 4, BODY); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Vorlage „' + (f.titel || '') + '“ fehlt in der Marke', w / 2, h / 2);
+  };
   if (b.kind === 'qr') return (ctx: CanvasRenderingContext2D, w: number, h: number, d: any) => {
-    const u = Math.min(w, h) / 100, port = h > w;
-    ctx.fillStyle = '#f4f1ea'; ctx.fillRect(0, 0, w, h);
+    const u = Math.min(w, h) / 100, port = h > w, P = pal(d);
+    ctx.fillStyle = P.marke ? P.papier : '#f4f1ea'; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = d.accent; ctx.fillRect(0, 0, port ? w : w * .42, port ? h * .5 : h);
     const s = port ? w * .58 : Math.min(h * .62, w * .32), qx = port ? (w - s) / 2 : w * .42 - s * .5, qy = port ? h * .5 - s * .5 : (h - s) / 2;
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = u * 4; ctx.shadowOffsetY = u; ctx.fillStyle = '#fff'; rr(ctx, qx, qy, s, s, s * .06); ctx.fill(); ctx.restore();
@@ -100,16 +114,16 @@ export function bausteinSlide(b: Baustein) {
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     const x0 = port ? u * 7 : w * .62, tw = port ? w - u * 14 : w * .38 - u * 7; let y = port ? h * .5 + s * .5 + u * 13 : h * .3;
     font(ctx, 700, u * 3.6, BODY); ctx.fillStyle = d.accent; ctx.fillText('SCANNEN', x0, y);
-    font(ctx, 800, u * (port ? 8 : 7), DISP); ctx.fillStyle = '#18140f';
+    font(ctx, 800, u * (port ? 8 : 7), DISP); ctx.fillStyle = P.marke ? P.tinte : '#18140f';
     const lines = wrap(ctx, f.title || '', tw).slice(0, 3); lines.forEach((l, i) => ctx.fillText(l, x0, y + u * 9 * (i + 1))); y += u * 9 * lines.length + u * 7;
-    font(ctx, 500, u * 3.8, BODY); ctx.fillStyle = '#4a4339'; wrap(ctx, f.text || '', tw).slice(0, 3).forEach((l, i) => ctx.fillText(l, x0, y + u * 5.2 * i));
-    font(ctx, 700, u * 3.2, BODY); ctx.fillStyle = '#18140f'; fit(ctx, short(f.url), tw, u * 3.2, 700, BODY); ctx.fillText(short(f.url), x0, h - u * 6);
+    font(ctx, 500, u * 3.8, BODY); ctx.fillStyle = P.marke ? alpha(P.tinte, .75) : '#4a4339'; wrap(ctx, f.text || '', tw).slice(0, 3).forEach((l, i) => ctx.fillText(l, x0, y + u * 5.2 * i));
+    font(ctx, 700, u * 3.2, BODY); ctx.fillStyle = P.marke ? P.tinte : '#18140f'; fit(ctx, short(f.url), tw, u * 3.2, 700, BODY); ctx.fillText(short(f.url), x0, h - u * 6);
     if (!port) { font(ctx, 700, u * 3.4, BODY); ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fillText(d.name, u * 6, u * 10); }
     else brand(ctx, d, w, u, '#fff');
   };
   if (b.kind === 'reviews') return (ctx: CanvasRenderingContext2D, w: number, h: number, d: any, t = 0) => {
-    const u = Math.min(w, h) / 100, port = h > w, score = parseFloat((f.score || '0').replace(',', '.')) || 0;
-    ctx.fillStyle = '#121212'; ctx.fillRect(0, 0, w, h);
+    const u = Math.min(w, h) / 100, port = h > w, score = parseFloat((f.score || '0').replace(',', '.')) || 0, P = pal(d);
+    ctx.fillStyle = P.marke ? P.dunkel : '#121212'; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = mix(d.accent, .55); ctx.beginPath(); ctx.arc(port ? w * .5 : w * .2, port ? h * .2 : h * .5, port ? w * .55 : h * .62, 0, 7); ctx.fill();
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     const cx = port ? w / 2 : w * .2, cy = port ? h * .2 : h * .5;

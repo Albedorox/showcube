@@ -284,6 +284,27 @@ button.stage:hover .tvf { transform: translateY(-2px); }
 .asset .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
 .asset .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .asset .foot { margin-top: auto; padding-top: 8px; display: flex; justify-content: space-between; align-items: center; }
+/* ---------- Marke und eigene Vorlagen ---------- */
+.card.marke { padding: 20px; display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; }
+.card.marke.leer { background: linear-gradient(135deg, var(--accent-soft), var(--surface) 60%); }
+.mk-h { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.mk-h > div:nth-child(2) { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mk-ic { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); flex: none; }
+.mk-ic svg.i { width: 24px; height: 24px; }
+.mk-logo { height: 48px; max-width: 120px; object-fit: contain; flex: none; }
+.mchip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 10px 5px 6px; font: 600 13px var(--font-body); color: var(--muted); }
+button.mchip { cursor: pointer; } button.mchip:hover { border-color: var(--line-strong); }
+.mchip i { width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }
+.mk-facts { display: flex; gap: 18px; flex-wrap: wrap; }
+.mk-vs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.mk-v { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+.card.marke > .row { flex-wrap: wrap; gap: 8px; }
+.partner { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.partner .row { gap: 10px; flex-wrap: wrap; }
+.rights { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.rights li { display: flex; gap: 8px; align-items: center; } .rights li svg { color: var(--ok); } .rights li.no svg { color: var(--bad); }
+.bst-add button.own { border-style: solid; border-color: var(--accent-soft); background: var(--accent-soft); }
+.bst-add button.own b { color: var(--accent-text); }
 .tpls { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
 .tpl { overflow: hidden; display: flex; flex-direction: column; transition: box-shadow .2s, transform .2s; }
 .tpl:not(.soon):hover { box-shadow: var(--shadow-2); transform: translateY(-2px); }
@@ -470,6 +491,7 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
 <dialog class="sheet" id="dlgScreen" aria-labelledby="dsTitle"><div class="dlg" id="dsBody"></div></dialog>
 <dialog class="modal" id="dlgPair" aria-labelledby="dpTitle"><form class="dlg" method="dialog" id="pairForm"></form></dialog>
 <dialog class="modal" id="dlgLogin" aria-labelledby="dlTitle"><form class="dlg" method="dialog" id="loginForm"></form></dialog>
+<dialog class="modal" id="dlgPartner" aria-labelledby="dpaTitle"><form class="dlg" method="dialog" id="partnerForm"></form></dialog>
 <dialog class="modal" id="dlgNotice" aria-labelledby="dnTitle"><form class="dlg" method="dialog" id="noticeForm"></form></dialog>
 <dialog class="cmd" id="dlgCmd" aria-label="Suchen oder Befehl ausführen">
   <div class="cmd-in"><input type="text" id="cmdIn" placeholder="Bildschirm, Slideshow oder Befehl suchen" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="cmdList" aria-label="Suchen"></div>

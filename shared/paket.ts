@@ -13,6 +13,7 @@ export const PAKET_VERSION = 1;
 export const CHANNEL = 'showcube-cloud';
 
 import type { Baustein, Leiste, Zeitraum } from './bausteine';
+import type { Marke } from './marke';
 
 export type When = 'always' | 'day' | 'eve';
 // Zeitraum (von, bis, Wochentage) ist freiwillig. Ohne Zeitraum läuft das Medium immer.
@@ -33,6 +34,7 @@ export interface ShowConfig {
   media: MediaRef[];
   extras?: Baustein[];     // Zusatzfolien: QR-Code, Bewertungen, Countdown. Laufen nach den Vorlagen-Folien.
   leiste?: Leiste | null;  // Infoleiste unten: Laufband, Uhr, Wetter
+  marke?: Marke | null;    // Marken-Kit: Farben, Schriften, Logo, Übergang und eigene Vorlagen (Bausteine der Art 'design'). Alles steckt als data:-URL drin.
 }
 
 // Sofort-Hinweis: Band über allen Folien, bis zum Zeitpunkt `until` (ms seit 1970, 0 = bis er entfernt wird).

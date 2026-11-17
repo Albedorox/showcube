@@ -1,0 +1,22 @@
+/* Weitere Schriften für das Marken-Kit (Vorlagen-Designer). Ebenfalls SIL Open Font License 1.1. */
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url("@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2") format("woff2-variations");
+}
+@font-face {
+  font-family: "Oswald";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 700;
+  src: url("@fontsource-variable/oswald/files/oswald-latin-wght-normal.woff2") format("woff2-variations");
+}
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 1000;
+  src: url("@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2") format("woff2-variations");
+}

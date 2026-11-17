@@ -1,7 +1,9 @@
 import '../shared/fonts.css';
+import '../shared/fonts-marke.css';
 import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates';
 import { CHANNEL, paketFromFile, type Msg, type Paket } from '../shared/paket';
 import { hatServer, verbinden, SPEICHER, BUCKET, type SupabaseClient } from '../shared/cloud';
+import { useMarke, logoBild } from '../shared/marke';
 import { activeOn, bausteinActive, bausteinSlide, bausteinTitle, BAUSTEINE, drawLeiste, leisteH, fetchWetter, type Wetter } from '../shared/bausteine';
 
 // ?live=<id>: dieser Player ist ein Bildschirm im Cloud-Panel (Prototyp: anderer Tab im selben Browser).
@@ -11,7 +13,7 @@ const SUFFIX = LIVE ? '-live-' + LIVE : '';
 
 // ---------- Speicher: Einstellungen in localStorage, Dateien in IndexedDB ----------
 const KEY = 'svizzbox-player-v0' + SUFFIX;
-const DEF = { revision: 0, tpl: 'makler', tplOn: true, name: '', items: '', accent: '', dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', offDays: [], notice: null, dur: 8, fit: 'cover', media: [], extras: [], leiste: null };
+const DEF = { revision: 0, tpl: 'makler', tplOn: true, name: '', items: '', accent: '', dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', offDays: [], notice: null, dur: 8, fit: 'cover', media: [], extras: [], leiste: null, marke: null };
 let C = Object.assign({}, DEF);
 let storeOK = true;
 try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) C = Object.assign({}, DEF, s); } catch (e) { storeOK = false; }
@@ -62,8 +64,17 @@ function nextChange(now) {
 }
 
 // ---------- Abspielliste ----------
+// Mit Marke kommt die Hauptfarbe aus der Marke, sonst aus der Slideshow.
+const acc = () => (C.marke && C.marke.farben.primaer) || C.accent || '#0b7a67';
+// Übergang zwischen den Folien aus der Marke: Überblenden, Schieben, Zoomen oder harter Schnitt.
+function bewegung() {
+  const b = C.marke && C.marke.bewegung;
+  document.body.dataset.ueb = b ? b.uebergang : 'blende';
+  document.body.style.setProperty('--tempo', (b ? Math.max(0, +b.tempo || .8) : .8) + 's');
+}
+const fadeMs = () => { const b = C.marke && C.marke.bewegung; return b && b.uebergang === 'hart' ? 0 : Math.round((b ? +b.tempo || .8 : .8) * 1000) + 100; };
 function data() {
-  return { name: C.name || ' ', accent: C.accent, logo: logoImg, hours: 'Montag bis Samstag, 9 bis 19 Uhr',
+  return { name: C.name || (C.marke && C.marke.name) || ' ', accent: acc(), logo: logoImg || logoBild(C.marke), marke: C.marke, hours: 'Montag bis Samstag, 9 bis 19 Uhr',
     items: C.items.split('\n').map(l => l.split('|').map(s => s.trim())).filter(r => r[0]) };
 }
 function playlist(p) {
@@ -106,7 +117,7 @@ function paintLeiste(t: number) {
   if (leiste.hidden) return;
   const f = Math.min(devicePixelRatio || 1, 2), w = Math.round(leiste.clientWidth * f), h = Math.round(leiste.clientHeight * f);
   if (!w || !h) return; if (leiste.width !== w || leiste.height !== h) { leiste.width = w; leiste.height = h; }
-  drawLeiste(leiste.getContext('2d'), 0, w, h, C.leiste, { name: C.name || ' ', accent: C.accent || '#0b7a67' }, t, wxNow());
+  drawLeiste(leiste.getContext('2d'), 0, w, h, C.leiste, { name: C.name || ' ', accent: acc() }, t, wxNow());
 }
 
 // ---------- Wiedergabe mit Überblendung ----------
@@ -140,10 +151,11 @@ function advance() {
   empty.hidden = true; offhint.hidden = true;
   idx = (idx + 1) % list.length; countPlay(list[idx].label);
   const L = makeLayer(list[idx]); screen.appendChild(L.el);
-  if (L.canvas) { sizeCanvas(L); L.fn = list[idx].fn; L.fn(L.ctx, L.canvas.width, L.canvas.height, data(), performance.now() / 1000); }
+  L.t0 = performance.now();
+  if (L.canvas) { sizeCanvas(L); L.fn = list[idx].fn; L.fn(L.ctx, L.canvas.width, L.canvas.height, data(), 0); }
   requestAnimationFrame(() => L.el.classList.add('on'));
   const old = cur; cur = L;
-  if (old) { old.el.classList.remove('on'); setTimeout(() => { if (old.video) old.video.pause(); old.el.remove(); }, 900); }
+  if (old) { old.el.classList.remove('on'); old.el.classList.add('out'); setTimeout(() => { if (old.video) old.video.pause(); old.el.remove(); }, fadeMs()); }
   if (L.video) {
     let done = false; const next = () => { if (!done) { done = true; advance(); } };
     L.video.onended = next; L.video.onerror = next;
@@ -152,7 +164,7 @@ function advance() {
   } else timer = setTimeout(advance, Math.max(3, +C.dur || 8) * 1000);
 }
 function tick() {
-  if (cur && cur.canvas && cur.fn) { sizeCanvas(cur); cur.fn(cur.ctx, cur.canvas.width, cur.canvas.height, data(), performance.now() / 1000); }
+  if (cur && cur.canvas && cur.fn) { sizeCanvas(cur); cur.fn(cur.ctx, cur.canvas.width, cur.canvas.height, data(), (performance.now() - cur.t0) / 1000); }
   paintLeiste(performance.now() / 1000);
   requestAnimationFrame(tick);
 }
@@ -248,7 +260,8 @@ function applyPaket(p: Paket) {
   C.media.forEach(m => dbDel(m.id)); dbDel('logo'); logoImg = null;
   Object.entries(p.files || {}).forEach(([id, b]) => { if (b instanceof Blob) dbPut(id, b); });
   Object.assign(C, { revision: p.show.revision, tplOn: !!c.tpl, tpl: c.tpl || C.tpl, name: c.name, items: c.items, accent: c.accent, dur: c.dur, fit: c.fit,
-    dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays || [], notice: c.notice || null, media: c.media.map(m => ({ ...m })), extras: (c.extras || []).map(b => ({ ...b, f: { ...b.f } })), leiste: c.leiste ? { ...c.leiste } : null });
+    dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays || [], notice: c.notice || null, media: c.media.map(m => ({ ...m })), extras: (c.extras || []).map(b => ({ ...b, f: { ...b.f } })), leiste: c.leiste ? { ...c.leiste } : null, marke: c.marke || null });
+  useMarke(C.marke).then(() => { if (cur && cur.canvas) cur.t0 = performance.now(); }); bewegung();
   layoutLeiste(); loadWetter(); loadLogo(); applyTpl(C.tpl, true); syncForm(); renderMedia(); restart(); showNotice();
   toast('Neue Inhalte: „' + p.show.name + '“ (Stand ' + p.show.revision + ')');
 }
@@ -261,7 +274,7 @@ $('paketIn').onchange = async (e: any) => {
 
 // ---------- Sofort-Hinweis: Band über allen Folien ----------
 const noticeNow = () => C.notice && C.notice.text && (!C.notice.until || Date.now() < C.notice.until) ? C.notice.text : '';
-function showNotice() { const t = noticeNow(), el = $('notice'); el.hidden = !t || period(new Date()) === 'off'; el.textContent = t; el.style.setProperty('--nc', C.accent || '#111'); }
+function showNotice() { const t = noticeNow(), el = $('notice'); el.hidden = !t || period(new Date()) === 'off'; el.textContent = t; el.style.setProperty('--nc', acc()); }
 setInterval(showNotice, 5000);
 
 // ---------- Verbindung zum Cloud-Panel (nur mit ?live=...) ----------
@@ -273,8 +286,8 @@ function snapshot(): string {
   if (src && period(new Date()) !== 'off') {
     const sw = src.videoWidth || src.naturalWidth || src.width, sh = src.videoHeight || src.naturalHeight || src.height;
     if (sw && sh) { const s = cur.canvas || C.fit === 'cover' ? Math.max(w / sw, h / sh) : Math.min(w / sw, h / sh); try { x.drawImage(src, (w - sw * s) / 2, (h - sh * s) / 2, sw * s, sh * s); } catch (e) {} }
-    if (noticeNow()) drawNotice(x, w, h, noticeNow(), C.accent);
-    if (lh) drawLeiste(x, h, w, full - h, C.leiste, { name: C.name || ' ', accent: C.accent || '#0b7a67' }, performance.now() / 1000, wxNow());
+    if (noticeNow()) drawNotice(x, w, h, noticeNow(), acc());
+    if (lh) drawLeiste(x, h, w, full - h, C.leiste, { name: C.name || ' ', accent: acc() }, performance.now() / 1000, wxNow());
   }
   return c.toDataURL('image/jpeg', .8);
 }
@@ -434,4 +447,5 @@ const start = async () => {
   cloudNote(); if (cloudOn) cloudLoop();
   if (LIVE) { $('liveNote').hidden = false; $('liveNote').textContent = 'Mit dem Cloud-Panel verbunden als Bildschirm „' + LIVE + '“. Änderungen im Panel kommen automatisch an.'; window['__live'](); }
 };
-fontsReady().then(start, start);
+bewegung();
+Promise.all([fontsReady(), useMarke(C.marke)]).then(start, start);
