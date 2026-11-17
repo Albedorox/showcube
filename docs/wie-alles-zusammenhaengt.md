@@ -29,6 +29,7 @@ Kurz: Es gibt **einen Player** auf der Box. Light und Cloud unterscheiden sich n
 | `panel/` | Das Web-Panel: Inhalte bearbeiten, veröffentlichen, Bildschirme aus der Ferne warten. | nein (nur Export aufs USB-Paket, z.B. durch dich beim Einrichten) | ja |
 | `konfigurator/` | Vertrieb: zeigt dem Kunden seinen Laden mit Bildschirm. | Verkaufshilfe | Verkaufshilfe und Vorschau im Panel |
 | `designer/` | Vorlagen-Designer: Marke (Logo, Farben, Schriften, Übergang) und eigene Vorlagen mit Animationen, für Kunden und Agenturen. Ergebnis ist ein Markenpaket, das im Panel landet und im Paket zur Box reist. Siehe [vorlagen-designer.md](vorlagen-designer.md). | Marke auch per Datei möglich | ja |
+| `startseite/` | Der Beispiel-Fernseher auf der Startseite (`index.html`). Zeichnet die echten Player-Folien der Pizzeria mit Infoleiste und Übergängen, daneben ein Handy, auf dem ein Preis geändert wird. Der Build legt ihn als `release/startseite-demo.js` ab. Ändert sich eine Vorlage, ändert sich die Startseite nach dem nächsten Build mit. Mit „Bewegung reduzieren“ im Betriebssystem wechseln die Folien nur ruhig überblendet. | Website | Website |
 | `shared/paket.ts` | Das Format, das Panel und Player verbindet. Ein Format für beide Stufen. | | |
 
 ## Ist der Konfigurator „im Panel“?
