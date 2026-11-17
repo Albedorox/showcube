@@ -274,7 +274,7 @@ function setze(key: keyof El, val: any) {
   const v = V(); if (!v || !sel) return; merke();
   if (GEO.includes(key as string)) { hochAnlegen(); const e = elById(sel); if (e) (e as any)[key] = val; }
   else beideListen(v).forEach(l => { const e = l.find(x => x.id === sel); if (e) { if (val === undefined) delete (e as any)[key]; else (e as any)[key] = val; } });
-  save(); renderEig(); renderListe();
+  save(); renderEig(); renderListe(); renderZeit();
 }
 function neuesEl(typ: ElTyp, extra: Partial<El> = {}) {
   const v = V(); if (!v) return; merke();
@@ -291,7 +291,7 @@ function malBuehne(now: number) {
   if (!buehne || !buehne.isConnected || !V()) return;
   const r = buehne.getBoundingClientRect(), f = Math.min(devicePixelRatio || 1, 2), w = Math.round(r.width * f), hh = Math.round(r.height * f);
   if (!w || !hh) return; if (buehne.width !== w || buehne.height !== hh) { buehne.width = w; buehne.height = hh; }
-  const v = V(), ende = animEnde(v) + 1.2, t = playAt ? Math.max(0, now - playAt) / 1000 : 99;
+  const v = V(), ende = skala(v), t = playAt ? Math.max(0, now - playAt) / 1000 : 99;
   if (playAt && t > ende) { playAt = 0; renderWerkzeuge(); }
   const x = buehne.getContext('2d'); x.save(); useMarke(M());
   const vv = orient === 'hoch' && !v.hoch ? { ...v, hoch: null } : v;
@@ -386,7 +386,7 @@ function renderEig() {
       h('div', null, h('label', null, 'Deckkraft'), h('input', { type: 'range', min: .05, max: 1, step: .05, value: e.deck ?? 1, onchange: (ev: any) => setze('deck', +ev.target.value === 1 ? undefined : +ev.target.value) }))),
     h('div', { class: 'box' }, h('h3', null, 'Animation'),
       h('select', { 'aria-label': 'Animation', onchange: (ev: any) => { setze('anim', ev.target.value); playAt = performance.now(); renderWerkzeuge(); } }, ANIMS.filter(([a]) => a !== 'kenburns' || e.typ === 'bild').map(([a, l]) => h('option', { value: a, selected: (e.anim || 'keine') === a }, l))),
-      (e.anim || 'keine') !== 'keine' ? h('div', { class: 'grid2' }, num('start', 'Start nach (s)', .1), e.anim !== 'puls' && e.anim !== 'kenburns' ? num('dauer', 'Dauer (s)', .1) : null) : null),
+      (e.anim || 'keine') !== 'keine' ? h('div', { class: 'grid2 zeitfelder' }, num('start', 'Start nach (s)', .1), e.anim !== 'puls' && e.anim !== 'kenburns' ? num('dauer', 'Dauer (s)', .1) : null) : null),
     e.typ !== 'form' ? h('div', { class: 'frei-box' },
       h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!e.frei, onchange: (ev: any) => setze('frei', ev.target.checked ? (e.typ === 'bild' ? 'Bild' : e.typ === 'qr' ? 'Link' : 'Text') : undefined) }), 'Kunde darf das im Panel ausfüllen'),
       e.frei ? h('div', null, h('label', { for: 'eFrei' }, 'Name des Feldes im Panel'), h('input', { type: 'text', id: 'eFrei', value: e.frei, oninput: (ev: any) => { beideListen().forEach(l => { const x = l.find(y => y.id === e.id); if (x) x.frei = ev.target.value || 'Feld'; }); save(); renderSel(); } }))
@@ -401,15 +401,68 @@ function renderListe() {
     h('div', { class: 'starter' }, STARTER.map(s => h('button', { onclick: () => { merke(); m.vorlagen.push(s.make()); vi = m.vorlagen.length - 1; sel = null; playAt = performance.now(); save(); renderVorlagen(); } }, h('b', null, s.name), h('span', null, s.desc))),
       h('button', { onclick: () => { merke(); m.vorlagen.push(leereVorlage()); vi = m.vorlagen.length - 1; sel = null; save(); renderVorlagen(); } }, h('b', null, 'Leere Vorlage'), h('span', null, 'Nur eine Überschrift, alles andere baust du selbst.'))));
 }
+// Länge der Zeitleiste in Sekunden: etwas Luft hinter der letzten Animation, damit man Balken weiter nach rechts ziehen kann.
+const skala = (v: DesignVorlage) => Math.max(4, Math.ceil(animEnde(v) + 1.5));
+const sek = (n: number) => n.toFixed(1).replace('.', ',') + ' s';
+const endlos = (e: El) => e.anim === 'puls' || e.anim === 'kenburns';
+const balkenStil = (e: El, ende: number) => { const l = (e.start || 0) / ende * 100; return `left:${l}%;width:${endlos(e) ? 100 - l : Math.max(1.5, (e.dauer || .8) / ende * 100)}%`; };
+const balkenTitel = (e: El) => endlos(e) ? 'Ab ' + sek(e.start || 0) + ', läuft bis zum Folienende' : sek(e.start || 0) + ' bis ' + sek((e.start || 0) + (e.dauer || .8));
+// Start und Dauer gelten in Quer- und Hochkant-Fassung gleich, wie im Feld rechts.
+function setzeZeit(id: string, start: number, dauer?: number) {
+  beideListen().forEach(l => { const x = l.find(y => y.id === id); if (x) { x.start = start; if (dauer !== undefined) x.dauer = dauer; } });
+}
+// Balken ziehen: Mitte verschiebt den Start, die Kanten ändern Start oder Dauer. Rastet auf 0,1 s ein.
+function balkenZiehen(ev: PointerEvent, e: El, b: HTMLElement, ende: number) {
+  if (ev.button) return; ev.preventDefault(); ev.stopPropagation();
+  const bahn = b.parentElement, br = bahn.getBoundingClientRect(), r = b.getBoundingClientRect(), pps = br.width / ende;
+  const modus = endlos(e) ? 'mitte' : ev.clientX - r.left < 8 ? 'links' : r.right - ev.clientX < 8 ? 'rechts' : 'mitte';
+  if (sel !== e.id) { sel = e.id; renderSel(); renderEig(); zeitEl.querySelectorAll('.zr').forEach(z => z.setAttribute('aria-current', String(z === b.closest('.zr')))); }
+  merke(); const s0 = e.start || 0, d0 = e.dauer || .8, x0 = ev.clientX; let moved = false;
+  const r1 = (n: number) => Math.round(n * 10) / 10;
+  b.classList.add('zieht'); b.setPointerCapture?.(ev.pointerId);
+  const mv = (m: PointerEvent) => {
+    const dt = (m.clientX - x0) / pps; if (!moved && Math.abs(m.clientX - x0) < 3) return; moved = true;
+    let s = s0, d = d0;
+    if (modus === 'mitte') s = Math.min(Math.max(0, r1(s0 + dt)), r1(ende - (endlos(e) ? .1 : d0)));
+    else if (modus === 'rechts') d = Math.min(Math.max(.1, r1(d0 + dt)), r1(ende - s0));
+    else { s = Math.min(Math.max(0, r1(s0 + dt)), r1(s0 + d0 - .1)); d = r1(s0 + d0 - s); }
+    setzeZeit(e.id, s, endlos(e) ? undefined : d);
+    b.style.cssText = balkenStil(e, ende); b.dataset.zeit = balkenTitel(e);
+    const felder = eigEl.querySelectorAll<HTMLInputElement>('.zeitfelder input'); if (felder[0]) felder[0].value = String(e.start); if (felder[1]) felder[1].value = String(e.dauer);
+  };
+  const up = () => {
+    b.removeEventListener('pointermove', mv); b.removeEventListener('pointerup', up); b.removeEventListener('pointercancel', up); b.classList.remove('zieht');
+    if (!moved) { undo.pop(); return; }
+    save(); renderEig(); renderZeit(); playAt = performance.now(); renderWerkzeuge();
+  };
+  b.addEventListener('pointermove', mv); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+}
+// Tastatur: Pfeile verschieben, mit Umschalt ändern sie die Dauer.
+function balkenTaste(ev: KeyboardEvent, e: El) {
+  const d = ev.key === 'ArrowRight' ? .1 : ev.key === 'ArrowLeft' ? -.1 : 0; if (!d) return; ev.preventDefault(); ev.stopPropagation();
+  merke(); sel = e.id;
+  if (ev.shiftKey && !endlos(e)) setzeZeit(e.id, e.start || 0, Math.max(.1, Math.round(((e.dauer || .8) + d) * 10) / 10));
+  else setzeZeit(e.id, Math.max(0, Math.round(((e.start || 0) + d) * 10) / 10));
+  save(); renderSel(); renderEig(); renderZeit();
+  (zeitEl.querySelector(`[data-id="${e.id}"]`) as HTMLElement)?.focus();
+}
 function renderZeit() {
   if (!zeitEl) return; const v = V(); if (!v) return;
-  const an = els().filter(e => e.anim && e.anim !== 'keine'), ende = animEnde(v) + 1.2;
+  const an = els().filter(e => e.anim && e.anim !== 'keine'), ende = skala(v), schritt = ende > 12 ? 2 : 1;
   kopfEl = h('div', { class: 'kopf', hidden: true });
-  fill(zeitEl, h('div', { class: 'row' }, h('h3', null, 'Zeitleiste'), h('span', { class: 'small' }, an.length ? 'Wann jedes Element erscheint. Anklicken wählt es aus.' : 'Noch keine Animation. Element wählen, rechts unter „Animation“ einstellen.')),
+  fill(zeitEl, h('div', { class: 'row' }, h('h3', null, 'Zeitleiste'), h('span', { class: 'small' }, an.length ? 'Balken ziehen verschiebt den Start, an den Kanten ziehen ändert die Dauer. Anklicken wählt das Element aus.' : 'Noch keine Animation. Element wählen, rechts unter „Animation“ einstellen.')),
+    an.length ? h('div', { class: 'zr lineal', 'aria-hidden': 'true' }, h('span'), h('div', { class: 'skala' }, Array.from({ length: Math.ceil(ende / schritt) }, (_, i) => h('i', { style: `left:${i * schritt / ende * 100}%` }, i * schritt + ' s')))) : null,
     an.map(e => h('div', { class: 'zr', 'aria-current': String(e.id === sel), onclick: () => { sel = e.id; renderSel(); renderEig(); renderZeit(); } },
       h('span', null, ({ text: 'Text', form: 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR' } as any)[e.typ] + (e.typ === 'text' || e.typ === 'qr' ? ': ' + (e.text || '').slice(0, 18) : '') + ' · ' + ANIMS.find(a => a[0] === e.anim)[1]),
-      h('div', { class: 'bahn' }, h('b', { style: `left:${(e.start || 0) / ende * 100}%;width:${e.anim === 'puls' || e.anim === 'kenburns' ? 100 - (e.start || 0) / ende * 100 : Math.max(1.5, (e.dauer || .8) / ende * 100)}%` })))),
-    an.length ? h('div', { class: 'bahn', style: 'margin-left:140px;background:transparent;height:6px' }, kopfEl) : null);
+      h('div', { class: 'bahn' }, (() => {
+        const b: HTMLElement = h('b', { class: endlos(e) ? 'endlos' : null, style: balkenStil(e, ende), tabindex: 0, role: 'slider', 'data-id': e.id, 'data-zeit': balkenTitel(e), title: balkenTitel(e),
+          'aria-label': 'Start der Animation', 'aria-valuemin': 0, 'aria-valuemax': ende, 'aria-valuenow': e.start || 0, 'aria-valuetext': balkenTitel(e),
+          onclick: (ev: Event) => ev.stopPropagation(), onkeydown: (ev: KeyboardEvent) => balkenTaste(ev, e) });
+        b.onpointerdown = (ev: PointerEvent) => balkenZiehen(ev, e, b, ende);
+        b.onpointermove = (ev: PointerEvent) => { if (ev.buttons || endlos(e)) return; const r = b.getBoundingClientRect(); b.style.cursor = ev.clientX - r.left < 8 || r.right - ev.clientX < 8 ? 'ew-resize' : 'grab'; };
+        return b;
+      })()))),
+    an.length ? h('div', { class: 'bahn', style: 'margin:0 4px 0 144px;background:transparent;height:6px' }, kopfEl) : null);
 }
 function renderWerkzeuge() {
   if (!werkEl) return;
