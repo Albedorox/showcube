@@ -20,7 +20,7 @@ Internet läuft.
 | Backend | ShowCube Cloud auf Supabase (Frankfurt): Konto und Login im Panel, Slideshows und Dateien auf dem Server, Box koppeln per Code vom Fernseher (`player.html?cloud`), die Box holt sich ihr Paket und meldet sich alle 10 Sekunden. Fernwartung (An/Aus, Neustart, Finden, Foto) und Sofort-Hinweis gehen übers Internet. Code in `supabase/`, `shared/cloud.ts`. Einrichten: [docs/backend.md](docs/backend.md). | Läuft auf Supabase (Projekt imrrbyeywegpmqxuinji, Frankfurt) |
 | `konfigurator/` | Schaufenster-Konfigurator für den Vertrieb: Foto vom Schaufenster, Bildschirm perspektivisch hineinmontieren, Vorher/Nachher, Postkarte A6. | Prototyp |
 | `shared/` | Gemeinsame Folien-Vorlagen, Schriften und das Paket-Format zwischen Panel und Player (Bricolage Grotesque, Figtree; beide OFL 1.1). | |
-| `index.html` | Startseite für GitHub Pages (https://albedorox.github.io/showcube/), führt zu den drei Apps. | |
+| `index.html` | Startseite für GitHub Pages (https://albedorox.github.io/showcube/): Verkaufsseite für Interessenten mit Branchen, Funktionen, Preisen und häufigen Fragen. Die Links zu Panel, Player und Konfigurator stehen im Footer. `panel.html?demo` öffnet gleich die Demo. Schriften und Vorschaubild liegen in `assets/`, `sitemap.xml` ist für die Google Search Console. | Preise, Kontaktadresse und Impressum sind noch vorläufig |
 | `release/` | Fertig gebaute Einzeldateien `player.html`, `panel.html` und `konfigurator.html`. | wird bei jedem Build erneuert |
 | `docs/` | Anleitungen, z.B. Testbox einrichten. | |
 

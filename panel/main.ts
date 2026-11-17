@@ -1273,5 +1273,12 @@ function shortcut() {
   if (d === 'notice') openNotice();
 }
 
-const start = async () => { await openDB(); await loadAll(); if (sb) await cloudBeimStart(); sweepBlobs(); paintModus(); route(); requestAnimationFrame(frame); shortcut(); paintKonto(); };
+// Von der Startseite: panel.html?demo öffnet gleich die Demo, ohne Umweg über die Anmeldung.
+function demoLink() {
+  if (!new URLSearchParams(location.search).has('demo') || konto || demo) return;
+  history.replaceState(null, '', location.pathname + location.hash);
+  demoStart();
+}
+
+const start = async () => { await openDB(); await loadAll(); if (sb) await cloudBeimStart(); sweepBlobs(); paintModus(); route(); requestAnimationFrame(frame); demoLink(); shortcut(); paintKonto(); };
 fontsReady().then(start, start);
