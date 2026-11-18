@@ -1,0 +1,5 @@
+# GitHub Pages baut die Seite mit Jekyll direkt aus diesem Branch.
+# Was unter exclude steht, landet nicht auf albedorox.github.io/showcube/.
+# hardware/: CAD-Dateien des Gehäuses (STEP, STL, 3MF, Solidcraft) gehören nicht auf die Website.
+exclude:
+  - hardware/

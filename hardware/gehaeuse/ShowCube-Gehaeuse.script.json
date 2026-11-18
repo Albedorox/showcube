@@ -1,0 +1,1053 @@
+{
+  "about": {
+    "design": "ShowCube Gehaeuse",
+    "format": "solidcraft/58",
+    "replay": "solidcraft-cli eval script.json (timeline.add steps need a build that reads this design format)",
+    "version": "0.44.1"
+  },
+  "commands": [
+    {
+      "command": "parameters.add",
+      "params": {
+        "comment": "Breite und Höhe der Front",
+        "expression": "96 mm",
+        "name": "S",
+        "unit": "mm"
+      }
+    },
+    {
+      "command": "parameters.add",
+      "params": {
+        "comment": "Tiefe",
+        "expression": "40 mm",
+        "name": "D",
+        "unit": "mm"
+      }
+    },
+    {
+      "command": "parameters.add",
+      "params": {
+        "comment": "Wandstärke",
+        "expression": "2.5 mm",
+        "name": "wall",
+        "unit": "mm"
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "body_names": [
+            "Gehaeuse"
+          ],
+          "centred": true,
+          "corner": [
+            0.0,
+            0.0,
+            "S/2"
+          ],
+          "height": "S",
+          "id": 1,
+          "length": "S",
+          "name": "Grundkoerper",
+          "operation": "new_body",
+          "param_names": [
+            "d1",
+            "d2",
+            "d3"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "D"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "edge_names": [
+            "F1:+x|F1:-z",
+            "F1:-x|F1:-z",
+            "F1:+x|F1:+z",
+            "F1:+z|F1:-x"
+          ],
+          "edge_refs": [
+            {
+              "dir": [
+                0.0,
+                1.0,
+                0.0
+              ],
+              "max": [
+                48.0,
+                20.0,
+                96.0
+              ],
+              "min": [
+                -48.0,
+                -20.0,
+                0.0
+              ]
+            },
+            {
+              "dir": [
+                0.0,
+                -1.0,
+                0.0
+              ],
+              "max": [
+                48.0,
+                20.0,
+                96.0
+              ],
+              "min": [
+                -48.0,
+                -20.0,
+                0.0
+              ]
+            },
+            {
+              "dir": [
+                0.0,
+                1.0,
+                0.0
+              ],
+              "max": [
+                48.0,
+                20.0,
+                96.0
+              ],
+              "min": [
+                -48.0,
+                -20.0,
+                0.0
+              ]
+            },
+            {
+              "dir": [
+                0.0,
+                -1.0,
+                0.0
+              ],
+              "max": [
+                48.0,
+                20.0,
+                96.0
+              ],
+              "min": [
+                -48.0,
+                -20.0,
+                0.0
+              ]
+            }
+          ],
+          "edges": [
+            [
+              48.0,
+              0.0,
+              0.0
+            ],
+            [
+              -48.0,
+              0.0,
+              0.0
+            ],
+            [
+              48.0,
+              0.0,
+              96.0
+            ],
+            [
+              -48.0,
+              0.0,
+              96.0
+            ]
+          ],
+          "id": 2,
+          "name": "Ecken Front",
+          "param_names": [
+            "d4"
+          ],
+          "radius": "8",
+          "suppressed": false,
+          "type": "fillet"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "edge_names": [
+            "F1:+z|F1:-y"
+          ],
+          "edge_refs": [
+            {
+              "dir": [
+                1.0,
+                0.0,
+                0.0
+              ],
+              "max": [
+                48.0,
+                20.0,
+                96.0
+              ],
+              "min": [
+                -48.0,
+                -20.0,
+                0.0
+              ]
+            }
+          ],
+          "edges": [
+            [
+              0.0,
+              -20.0,
+              96.0
+            ]
+          ],
+          "id": 3,
+          "name": "Kante Front",
+          "param_names": [
+            "d5"
+          ],
+          "radius": "2",
+          "suppressed": false,
+          "type": "fillet"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "face_names": [
+            "F1:+y"
+          ],
+          "faces": [
+            [
+              0.0,
+              20.0,
+              48.0
+            ]
+          ],
+          "id": 4,
+          "name": "Aushoehlen",
+          "param_names": [
+            "d6"
+          ],
+          "suppressed": false,
+          "thickness": "wall",
+          "type": "shell"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "centred": true,
+          "corner": [
+            46.75,
+            2.75,
+            58.0
+          ],
+          "height": "54",
+          "id": 5,
+          "length": "6",
+          "name": "Ausschnitt USB+LAN",
+          "operation": "cut",
+          "param_names": [
+            "d7",
+            "d8",
+            "d9"
+          ],
+          "participants": [
+            "Gehaeuse"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "19.5"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "centred": true,
+          "corner": [
+            -46.75,
+            13.5,
+            58.0
+          ],
+          "height": "16",
+          "id": 6,
+          "length": "6",
+          "name": "Ausschnitt SD",
+          "operation": "cut",
+          "param_names": [
+            "d10",
+            "d11",
+            "d12"
+          ],
+          "participants": [
+            "Gehaeuse"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "5"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "centred": true,
+          "corner": [
+            -21.0,
+            -2.0,
+            94.75
+          ],
+          "height": "6",
+          "id": 7,
+          "length": "3.5",
+          "name": "Luefter oben",
+          "operation": "cut",
+          "param_names": [
+            "d13",
+            "d14",
+            "d15"
+          ],
+          "participants": [
+            "Gehaeuse"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "20"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "features": [
+            7
+          ],
+          "id": 8,
+          "name": "Luefter oben Muster",
+          "param_names": [
+            "d16",
+            "d17"
+          ],
+          "pattern": {
+            "count1": "7",
+            "dir1": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "spacing1": "7",
+            "type": "rectangular"
+          },
+          "suppressed": false,
+          "type": "pattern"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "base": [
+            35.0,
+            12.0,
+            90.0
+          ],
+          "height": "10",
+          "id": 9,
+          "name": "M3 Durchgang oben rechts",
+          "operation": "cut",
+          "param_names": [
+            "d18",
+            "d19"
+          ],
+          "participants": [
+            "Gehaeuse"
+          ],
+          "radius": "(3.4 mm) / 2",
+          "suppressed": false,
+          "type": "cylinder"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "base": [
+            -35.0,
+            12.0,
+            90.0
+          ],
+          "height": "10",
+          "id": 10,
+          "name": "M3 Durchgang oben links",
+          "operation": "cut",
+          "param_names": [
+            "d20",
+            "d21"
+          ],
+          "participants": [
+            "Gehaeuse"
+          ],
+          "radius": "(3.4 mm) / 2",
+          "suppressed": false,
+          "type": "cylinder"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "axis": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "base": [
+            -50.0,
+            14.75,
+            44.0
+          ],
+          "height": "10",
+          "id": 11,
+          "name": "M3 Durchgang seitlich",
+          "operation": "cut",
+          "param_names": [
+            "d22",
+            "d23"
+          ],
+          "participants": [
+            "Gehaeuse"
+          ],
+          "radius": "(3.4 mm) / 2",
+          "suppressed": false,
+          "type": "cylinder"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "body_names": [
+            "Rueckwand"
+          ],
+          "centred": true,
+          "corner": [
+            0.0,
+            18.5,
+            60.65
+          ],
+          "height": "65.3",
+          "id": 12,
+          "length": "90.6",
+          "name": "Rueckwand Platte",
+          "operation": "new_body",
+          "param_names": [
+            "d24",
+            "d25",
+            "d26"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "3"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "body": "Rueckwand",
+          "edge_names": [
+            "F12:+x|F12:+z",
+            "F12:+z|F12:-x"
+          ],
+          "edge_refs": [
+            {
+              "dir": [
+                0.0,
+                1.0,
+                0.0
+              ],
+              "max": [
+                45.3,
+                20.0,
+                93.3
+              ],
+              "min": [
+                -45.3,
+                17.0,
+                28.0
+              ]
+            },
+            {
+              "dir": [
+                0.0,
+                -1.0,
+                0.0
+              ],
+              "max": [
+                45.3,
+                20.0,
+                93.3
+              ],
+              "min": [
+                -45.3,
+                17.0,
+                28.0
+              ]
+            }
+          ],
+          "edges": [
+            [
+              45.3,
+              18.5,
+              93.3
+            ],
+            [
+              -45.3,
+              18.5,
+              93.3
+            ]
+          ],
+          "id": 13,
+          "name": "Rueckwand Ecken",
+          "param_names": [
+            "d27"
+          ],
+          "radius": "5.3",
+          "suppressed": false,
+          "type": "fillet"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "centred": true,
+          "corner": [
+            -10.0,
+            18.5,
+            40.0
+          ],
+          "height": "3.5",
+          "id": 14,
+          "length": "50",
+          "name": "Luefter hinten",
+          "operation": "cut",
+          "param_names": [
+            "d28",
+            "d29",
+            "d30"
+          ],
+          "participants": [
+            "Rueckwand"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "6"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "features": [
+            14
+          ],
+          "id": 15,
+          "name": "Luefter hinten Muster",
+          "param_names": [
+            "d31",
+            "d32"
+          ],
+          "pattern": {
+            "count1": "6",
+            "dir1": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "spacing1": "7",
+            "type": "rectangular"
+          },
+          "suppressed": false,
+          "type": "pattern"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "id": 16,
+          "name": "Abstandshalter Skizze",
+          "param_names": [
+            "d33"
+          ],
+          "plane": {
+            "base": {
+              "name": "XZ",
+              "type": "origin"
+            },
+            "distance": "17",
+            "type": "offset"
+          },
+          "sketch": {
+            "constraints": [
+              {
+                "id": "k1",
+                "p": 1,
+                "q": 2,
+                "type": "coincident"
+              }
+            ],
+            "counters": {
+              "c": 2,
+              "k": 1
+            },
+            "curves": [
+              {
+                "c": 1,
+                "construction": false,
+                "id": "c1",
+                "r": 3.0,
+                "type": "circle"
+              },
+              {
+                "c": 2,
+                "construction": false,
+                "id": "c2",
+                "r": 1.35,
+                "type": "circle"
+              }
+            ],
+            "points": [
+              {
+                "fixed": true,
+                "id": "origin",
+                "pos": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "fixed": false,
+                "id": "c1.center",
+                "pos": [
+                  -39.0,
+                  -33.5
+                ]
+              },
+              {
+                "fixed": false,
+                "id": "c2.center",
+                "pos": [
+                  -39.0,
+                  -33.5
+                ]
+              }
+            ]
+          },
+          "suppressed": false,
+          "type": "sketch"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "extent": {
+            "convention": "total_distance",
+            "direction": "negative",
+            "distance": "5"
+          },
+          "id": 17,
+          "name": "Abstandshalter",
+          "operation": "join",
+          "param_names": [
+            "d34"
+          ],
+          "profiles": {
+            "loops": [
+              [
+                "c1"
+              ]
+            ],
+            "type": "curves"
+          },
+          "sketch": 16,
+          "suppressed": false,
+          "type": "extrude"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "axis": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "base": [
+            -39.0,
+            11.0,
+            33.5
+          ],
+          "height": "10",
+          "id": 18,
+          "name": "Schraubloch Pi",
+          "operation": "cut",
+          "param_names": [
+            "d35",
+            "d36"
+          ],
+          "participants": [
+            "Rueckwand"
+          ],
+          "radius": "(2.7 mm) / 2",
+          "suppressed": false,
+          "type": "cylinder"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "features": [
+            17,
+            18
+          ],
+          "id": 19,
+          "name": "Pi-Befestigung",
+          "param_names": [
+            "d37",
+            "d38",
+            "d39",
+            "d40"
+          ],
+          "pattern": {
+            "count1": "2",
+            "count2": "2",
+            "dir1": [
+              1.0,
+              0.0,
+              0.0
+            ],
+            "dir2": [
+              0.0,
+              0.0,
+              1.0
+            ],
+            "spacing1": "58",
+            "spacing2": "49",
+            "type": "rectangular"
+          },
+          "suppressed": false,
+          "type": "pattern"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "centred": true,
+          "corner": [
+            35.0,
+            12.0,
+            91.3
+          ],
+          "height": "4",
+          "id": 20,
+          "length": "10",
+          "name": "Lasche oben rechts",
+          "operation": "join",
+          "param_names": [
+            "d41",
+            "d42",
+            "d43"
+          ],
+          "participants": [
+            "Rueckwand"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "10"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "centred": true,
+          "corner": [
+            -35.0,
+            12.0,
+            91.3
+          ],
+          "height": "4",
+          "id": 21,
+          "length": "10",
+          "name": "Lasche oben links",
+          "operation": "join",
+          "param_names": [
+            "d44",
+            "d45",
+            "d46"
+          ],
+          "participants": [
+            "Rueckwand"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "10"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "centred": true,
+          "corner": [
+            -43.3,
+            14.75,
+            44.0
+          ],
+          "height": "8",
+          "id": 22,
+          "length": "4",
+          "name": "Lasche seitlich",
+          "operation": "join",
+          "param_names": [
+            "d47",
+            "d48",
+            "d49"
+          ],
+          "participants": [
+            "Rueckwand"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "4.5"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "base": [
+            35.0,
+            12.0,
+            88.0
+          ],
+          "height": "6",
+          "id": 23,
+          "name": "M3 Kern oben rechts",
+          "operation": "cut",
+          "param_names": [
+            "d50",
+            "d51"
+          ],
+          "participants": [
+            "Rueckwand"
+          ],
+          "radius": "(2.5 mm) / 2",
+          "suppressed": false,
+          "type": "cylinder"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "base": [
+            -35.0,
+            12.0,
+            88.0
+          ],
+          "height": "6",
+          "id": 24,
+          "name": "M3 Kern oben links",
+          "operation": "cut",
+          "param_names": [
+            "d52",
+            "d53"
+          ],
+          "participants": [
+            "Rueckwand"
+          ],
+          "radius": "(2.5 mm) / 2",
+          "suppressed": false,
+          "type": "cylinder"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "axis": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "base": [
+            -46.0,
+            14.75,
+            44.0
+          ],
+          "height": "6",
+          "id": 25,
+          "name": "M3 Kern seitlich",
+          "operation": "cut",
+          "param_names": [
+            "d54",
+            "d55"
+          ],
+          "participants": [
+            "Rueckwand"
+          ],
+          "radius": "(2.5 mm) / 2",
+          "suppressed": false,
+          "type": "cylinder"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "body_names": [
+            "Pi5 Platine"
+          ],
+          "centred": true,
+          "corner": [
+            0.0,
+            11.2,
+            58.0
+          ],
+          "height": "56",
+          "id": 26,
+          "length": "85",
+          "name": "Pi5 Platine",
+          "operation": "new_body",
+          "param_names": [
+            "d56",
+            "d57",
+            "d58"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "1.6"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "body_names": [
+            "Pi5 USB LAN"
+          ],
+          "centred": true,
+          "corner": [
+            32.5,
+            2.4,
+            58.0
+          ],
+          "height": "52",
+          "id": 27,
+          "length": "24",
+          "name": "Pi5 USB LAN",
+          "operation": "new_body",
+          "param_names": [
+            "d59",
+            "d60",
+            "d61"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "16"
+        }
+      }
+    },
+    {
+      "command": "timeline.add",
+      "params": {
+        "feature": {
+          "body_names": [
+            "Pi5 Kuehler"
+          ],
+          "centred": true,
+          "corner": [
+            -12.0,
+            6.2,
+            63.0
+          ],
+          "height": "35",
+          "id": 28,
+          "length": "40",
+          "name": "Pi5 Kuehler",
+          "operation": "new_body",
+          "param_names": [
+            "d62",
+            "d63",
+            "d64"
+          ],
+          "suppressed": false,
+          "type": "box",
+          "width": "8.4"
+        }
+      }
+    }
+  ]
+}
