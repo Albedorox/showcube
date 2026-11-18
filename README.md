@@ -22,6 +22,7 @@ Internet läuft.
 | `konfigurator/` | Schaufenster-Konfigurator für den Vertrieb: Foto vom Schaufenster, Bildschirm perspektivisch hineinmontieren, Vorher/Nachher, Postkarte A6. | Prototyp |
 | `shared/` | Gemeinsame Folien-Vorlagen, Schriften und das Paket-Format zwischen Panel und Player (Bricolage Grotesque, Figtree; beide OFL 1.1). | |
 | `index.html` | Startseite für GitHub Pages (https://albedorox.github.io/showcube/): Verkaufsseite für Interessenten mit Branchen, Funktionen, Preisen und häufigen Fragen. Die Links zu Panel, Player und Konfigurator stehen im Footer. `panel.html?demo` öffnet gleich die Demo. Der Fernseher oben zeigt die echten Player-Folien (Code in `startseite/demo.ts`, gebaut nach `release/startseite-demo.js`). Schriften und Vorschaubild liegen in `assets/`, `sitemap.xml` ist für die Google Search Console. | Preise, Kontaktadresse und Impressum sind noch vorläufig |
+| `hardware/` | Gehäuse v1 für den Raspberry Pi 5: von vorne ein Würfel (96 × 96 mm), 40 mm tief, Kabel gehen unsichtbar hinten unten raus. Solidcraft-Datei, STEP, STL und 3MF zum Drucken, Bilder und Druckhinweise in [hardware/gehaeuse/LIESMICH.md](hardware/gehaeuse/LIESMICH.md). Wird nicht auf GitHub Pages veröffentlicht (`_config.yml`). | Prototyp, Maße aus dem Datenblatt, noch nicht gedruckt |
 | `release/` | Fertig gebaute Einzeldateien `player.html`, `panel.html`, `konfigurator.html` und `designer.html`. | wird bei jedem Build erneuert |
 | `docs/` | Anleitungen, z.B. Testbox einrichten. | |
 
