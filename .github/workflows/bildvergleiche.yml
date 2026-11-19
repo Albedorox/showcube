@@ -1,0 +1,33 @@
+# Bildvergleiche erneuern: nur von Hand starten (Actions → „Bildvergleiche erneuern“ → Branch wählen → Run).
+# Nötig, wenn sich das Aussehen absichtlich geändert hat. Erzeugt die Bilder in tests/bilder/ neu,
+# genau auf der Maschine, auf der auch die Tests laufen, und legt sie als Commit auf den gewählten Branch.
+# Danach den Pull Request ansehen: die geänderten Bilder zeigen, was sich optisch verändert hat.
+name: Bildvergleiche erneuern
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  erneuern:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Bilder neu aufnehmen
+        run: npx playwright test --grep Bildvergleich --update-snapshots=changed
+      - name: Einchecken
+        run: |
+          git add tests/bilder
+          if git diff --cached --quiet; then echo "Keine Änderung an den Bildern."; exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898341+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Bildvergleiche erneuert'
+          git push

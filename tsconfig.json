@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["shared", "player", "konfigurator", "panel", "designer", "startseite"]
+  "include": ["shared", "player", "konfigurator", "panel", "designer", "startseite", "bericht", "tests", "playwright.config.ts"]
 }
