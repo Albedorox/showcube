@@ -395,7 +395,7 @@ dialog.cmd { border-radius: 16px; width: min(560px, calc(100vw - 28px)); margin-
   #konto { padding: 0 8px; }
   .pubbar { box-sizing: border-box; max-width: 100vw; }
   .view { padding: 6px 16px calc(40px + var(--tabbar)); }
-  .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+  .tabbar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
   .tabbar button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border-radius: 10px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
   .tabbar button[aria-current=page] { color: var(--accent-text); }
   .tabbar svg { width: 22px; height: 22px; }
@@ -455,6 +455,34 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
 .pop li i::before { content: ""; display: block; height: 100%; width: var(--w); background: var(--accent); border-radius: 3px; }
 .alertset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13px; color: var(--muted); margin: -6px 0 18px; }
 .alertset select { width: auto; height: 32px; font-size: 13px; }
+/* ---------- Partner-Slots ---------- */
+.wstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.wstats .card { padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.wstats b { font: 800 24px/1.15 var(--font-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.wlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; margin-bottom: 18px; }
+.wcard, .wfrei { overflow: hidden; display: flex; flex-direction: column; }
+.wcard.is-off .stage { opacity: .5; }
+.wcard .stage, .wfrei .stage { padding: 14px; background: linear-gradient(160deg, var(--stage-a), var(--stage-b)); }
+.wcard .body, .wfrei .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 9px; flex: 1; }
+.wcard .row h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wcard .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: auto; padding-top: 4px; }
+.wnum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; font-size: 14px; color: var(--muted); }
+.wnum b { color: var(--ink); font: 800 19px var(--font-display); font-variant-numeric: tabular-nums; }
+.wnum .small { flex-basis: 100%; }
+.note { display: flex; gap: 6px; align-items: flex-start; } .note .i { width: 15px; height: 15px; margin-top: 2px; }
+.wfrei { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); margin-bottom: 18px; }
+.wfrei .stage { display: flex; align-items: center; }
+.wfrei .stage .tvf { width: 100%; }
+.whow { padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.whow ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
+.whow b { color: var(--ink); }
+.seg.wrap { flex-wrap: wrap; }
+label.opt { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; font-weight: 500; }
+label.opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+label.opt input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: none; }
+label.opt > span { display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 860px) { .wfrei { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .wstats { grid-template-columns: 1fr 1fr 1fr; gap: 8px; } .wstats .card { padding: 10px 12px; } .wstats b { font-size: 18px; } .wlist { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .bst-f, .zr { grid-template-columns: 1fr; } .zr .days { grid-column: auto; } .mlist input[type=date] { width: 128px; } }
 </style>
 </head>
@@ -478,6 +506,7 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
       <button class="btn" id="openNotice"><span class="lbl">Sofort-Hinweis</span></button>
       <button class="btn ghost" id="install" hidden title="ShowCube als App auf diesem Gerät installieren"><span class="lbl">App installieren</span></button>
       <button class="btn ghost" id="konto" hidden></button>
+      <button class="btn icon ghost" id="settings" aria-label="Einstellungen" title="Einstellungen"></button>
       <button class="btn icon ghost" id="theme" aria-label="Hell oder dunkel"></button>
     </header>
     <main class="view" id="view" tabindex="-1"></main>
@@ -498,6 +527,8 @@ textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; res
 <dialog class="modal" id="dlgPair" aria-labelledby="dpTitle"><form class="dlg" method="dialog" id="pairForm"></form></dialog>
 <dialog class="modal" id="dlgLogin" aria-labelledby="dlTitle"><form class="dlg" method="dialog" id="loginForm"></form></dialog>
 <dialog class="modal" id="dlgPartner" aria-labelledby="dpaTitle"><form class="dlg" method="dialog" id="partnerForm"></form></dialog>
+<dialog class="sheet" id="dlgWerbung" aria-labelledby="dwTitle"><div class="dlg" id="dwBody"></div></dialog>
+<dialog class="modal" id="dlgSettings" aria-labelledby="dsetTitle"><form class="dlg" method="dialog" id="settingsForm"></form></dialog>
 <dialog class="modal" id="dlgNotice" aria-labelledby="dnTitle"><form class="dlg" method="dialog" id="noticeForm"></form></dialog>
 <dialog class="cmd" id="dlgCmd" aria-label="Suchen oder Befehl ausführen">
   <div class="cmd-in"><input type="text" id="cmdIn" placeholder="Bildschirm, Slideshow oder Befehl suchen" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="cmdList" aria-label="Suchen"></div>

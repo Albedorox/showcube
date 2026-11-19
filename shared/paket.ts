@@ -14,6 +14,7 @@ export const CHANNEL = 'showcube-cloud';
 
 import type { Baustein, Leiste, Zeitraum } from './bausteine';
 import type { Marke } from './marke';
+import type { WerbungCfg } from './werbung';
 
 export type When = 'always' | 'day' | 'eve';
 // Zeitraum (von, bis, Wochentage) ist freiwillig. Ohne Zeitraum läuft das Medium immer.
@@ -35,6 +36,7 @@ export interface ShowConfig {
   extras?: Baustein[];     // Zusatzfolien: QR-Code, Bewertungen, Countdown. Laufen nach den Vorlagen-Folien.
   leiste?: Leiste | null;  // Infoleiste unten: Laufband, Uhr, Wetter
   marke?: Marke | null;    // Marken-Kit: Farben, Schriften, Logo, Übergang und eigene Vorlagen (Bausteine der Art 'design'). Alles steckt als data:-URL drin.
+  werbung?: WerbungCfg | null; // Partner-Slots: Werbung von Partnern, in die Schleife gemischt (shared/werbung.ts). Nur wenn im Panel eingeschaltet.
 }
 
 // Sofort-Hinweis: Band über allen Folien, bis zum Zeitpunkt `until` (ms seit 1970, 0 = bis er entfernt wird).
@@ -53,7 +55,7 @@ export interface Paket {
 // Nachrichten im Kanal. Player -> Panel: hello, beat, shot. Panel -> Player: paket, notice, cmd.
 export type Msg =
   | { t: 'hello'; screen: string }
-  | { t: 'beat'; screen: string; period: string; slide: number; of: number; revision: number; power: boolean; w: number; h: number; uptime: number; plays?: Record<string, number>; wx?: boolean }
+  | { t: 'beat'; screen: string; period: string; slide: number; of: number; revision: number; power: boolean; w: number; h: number; uptime: number; plays?: Record<string, number>; wx?: boolean; werbung?: Record<string, Record<string, number>> }
   | { t: 'shot'; screen: string; url: string }
   | { t: 'paket'; screen: string; paket: Paket }
   | { t: 'notice'; screen: string; notice: Notice | null }

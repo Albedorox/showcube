@@ -5,6 +5,7 @@ import { activeOn, expired, zeitraumText, bausteinActive, bausteinSlide, baustei
 import { useMarke, logoBild, markeAusDatei, markeAlsDatei, MARKE_FORMAT, type Marke } from '../shared/marke';
 import { drawDesign, freieFelder, type DesignVorlage } from '../shared/design';
 import { hatServer, verbinden, SPEICHER, BUCKET } from '../shared/cloud';
+import { werbeSlots, mischen, proTag, rund, berichtKodieren, TAKTE, FREI_ID, type WerbeSlot, type WerbungCfg, type Bericht } from '../shared/werbung';
 import { CHANNEL, PAKET_FORMAT, PAKET_VERSION, paketToFile, type Msg, type Notice, type Paket, type ShowConfig, type When } from '../shared/paket';
 
 // Cloud-Panel. Drei Zustände:
@@ -59,6 +60,9 @@ const ICONS: Record<string, string> = {
   ticker: '<rect x="2" y="15" width="20" height="6" rx="1.5"/><path d="M6 18h8M3 5h18M3 10h12"/>', chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   brush: '<path d="M14.5 4.5l5 5L10 19l-5 1 1-5z"/><path d="M13 6l5 5"/>', palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.6 1.7-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="7.5" r="1.2"/>',
+  coins: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v4c0 1.7 2.7 3 6 3s6-1.3 6-3V7M3 11v4c0 1.7 2.7 3 6 3 1 0 2-.1 2.8-.4"/><circle cx="17" cy="16" r="4.5"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   shop: '<path d="M3 9l1.5-5h15L21 9M4 9v11h16V9M9 20v-6h6v6"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 const icon = (n: string) => { const t = document.createElement('template'); t.innerHTML = `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`; return t.content.firstChild as SVGElement; };
@@ -80,6 +84,7 @@ const REL = /\.html$/.test(location.pathname);
 const PLAYER_URL = REL ? 'player.html' : '../player/';
 const KONFIG_URL = REL ? 'konfigurator.html' : '../konfigurator/';
 const DESIGNER_URL = REL ? 'designer.html' : '../designer/';
+const BERICHT_URL = REL ? 'bericht.html' : '../bericht/';
 
 // ---------- Datenmodell ----------
 type Row = { c: string[]; off?: boolean };
@@ -92,8 +97,13 @@ interface Asset { id: string; type: 'image' | 'video'; name: string; size: numbe
 interface State { shows: Show[]; screens: Screen[]; assets: Asset[]; notice: (Notice & { screens: string[] }) | null; alert?: { on: boolean; after: number; to: string };
   marke?: Marke | null;          // Marken-Kit des Betriebs, gilt für alle Slideshows (außer sie schalten es ab)
   partner?: Partner[];           // Eingeladene Agenturen (Prototyp: Einladung wird noch nicht verschickt)
+  werbung?: Werbung;             // Partner-Slots (Werbepartner), siehe shared/werbung.ts
 }
 interface Partner { email: string; name: string; am: number; }
+// Partner-Slots: Sendezeit an Geschäfte aus der Nachbarschaft vermieten. Standardmäßig aus, dann ist davon nichts zu sehen.
+// Kontakt und Abmachung sind nur Notizen für den Laden. Abgerechnet wird außerhalb von ShowCube.
+interface Werbepartner extends WerbeSlot { on: boolean; shows: string[]; kontakt?: string; abmachung?: string; seit: number; }
+interface Werbung { on: boolean; plaetze: number; frei: Werbepartner; partner: Werbepartner[]; }
 
 const rowsOf = (items: string): Row[] => items.split('\n').filter(l => l.trim()).map(l => ({ c: l.split('|').map(s => s.trim()) }));
 const baseCfg = (tpl: string | null): Cfg => {
@@ -122,8 +132,20 @@ function seed(): State {
       scr('hausmann', 'Fenster links', 'Hausmann Immobilien', 'land', 'makler', 'offline', now - 2 * H - 13 * 60e3, 47, 'LAN'),
       scr('linde', 'Eingang', 'Modehaus Linde', 'land', 'sale', 'online', now, 49, 'LAN'),
     ],
-    assets: [], notice: null,
+    assets: [], notice: null, werbung: werbungStart(true),
   };
+}
+const werbePartner = (name: string, folie: Baustein, o: Partial<Werbepartner> = {}): Werbepartner => ({ id: uid('w'), name, alle: 5, when: 'always', folie, on: true, shows: [], seit: Date.now(), ...o });
+// Neue Konten starten ohne Partner. Die Demo bringt zwei Beispiel-Partner der Pizzeria mit (sichtbar erst, wenn Partner-Slots an sind).
+function werbungStart(beispiele = false): Werbung {
+  const frei = werbePartner('Werbeplatz frei', bau('werbeplatz'), { id: FREI_ID, alle: 6, on: true });
+  if (!beispiele) return { on: false, plaetze: 3, frei, partner: [] };
+  return { on: false, plaetze: 3, frei: { ...frei, folie: bau('werbeplatz', { url: 'mailto:info@da-marco.example?subject=Werbeplatz%20auf%20dem%20Bildschirm' }) }, partner: [
+    werbePartner('Blumen Berger', bau('anzeige', { firma: 'Blumen Berger', title: 'Frische Tulpen für dein Zuhause', text: 'Nur zwei Minuten von hier, Marktstraße 12. Mit diesem Bildschirm 10 % auf jeden Strauß.', url: 'https://blumen-berger.example', farbe: '#c2185b' }),
+      { shows: ['pizza'], from: dayPlus(-12), to: dayPlus(18), kontakt: 'Frau Berger, 0751 445566', abmachung: '35 € im Monat, bar am Monatsanfang', seit: Date.now() - 12 * 864e5 }),
+    werbePartner('Fahrschule Ost', bau('anzeige', { firma: 'Fahrschule Ost', title: 'Führerschein in den Ferien', text: 'Intensivkurs ab 3. August. Theorie abends, Praxis tagsüber.', url: 'https://fahrschule-ost.example', farbe: '#1f6f8b' }),
+      { alle: 8, shows: ['pizza'], from: dayPlus(-5), to: dayPlus(25), kontakt: 'Herr Yilmaz', abmachung: 'Tausch gegen Gutscheine für die Fahrschüler', seit: Date.now() - 5 * 864e5 }),
+  ] };
 }
 const KEY = 'showcube-panel-v1';
 // Die Demo lebt nur in diesem Tab: Neu laden behält sie, Tab schließen verwirft sie.
@@ -145,6 +167,7 @@ function save() { if (konto) { cacheCloud(); planeSync(); return; } if (!demo) r
 function normalize(x: State) {
   x.shows.forEach(sh => [sh.cfg, sh.pub, ...sh.history.map(v => v.cfg)].forEach(c => { if (c) { c.extras = c.extras || []; c.leiste = c.leiste || { ...LEISTE }; } }));
   x.alert = x.alert || { on: true, after: 10, to: 'E-Mail und Push' };
+  x.werbung = x.werbung || werbungStart();
 }
 normalize(S);
 const showById = (id: string) => S.shows.find(s => s.id === id);
@@ -190,17 +213,21 @@ function dataOf(c: Cfg) {
 }
 // Vorschau-Datum: im Editor lässt sich ein anderer Tag simulieren, um Zeiträume zu prüfen.
 let day = new Date();
+const vorschauTagVon = () => day;
 // Folien-Funktionen je Baustein merken, solange sich der Baustein nicht ändert (sonst würde jedes Bild neu gebaut).
 const fnCache = new Map<string, { key: string; fn: any }>();
 function slideFn(b: Baustein) { if (b.kind === 'design') return bausteinSlide(b); const key = JSON.stringify(b), hit = fnCache.get(b.id); if (hit && hit.key === key) return hit.fn; const fn = bausteinSlide(b); fnCache.set(b.id, { key, fn }); return fn; }
-function slidesOf(c: Cfg, p: string) {
+// showId: mit Partner-Slots dieser Slideshow (Bildschirme, Wiedergabe-Nachweis). Ohne: nur die eigenen Folien (Editor).
+function slidesOf(c: Cfg, p: string, showId?: string, at?: Date) {
   if (p === 'off' || p === 'rest') return [];
+  const day = at || vorschauTagVon();
   const list: any[] = [];
   const fits = (x: { when: When }) => x.when === 'always' || x.when === p;
   if (c.tpl && TEMPLATES[c.tpl]) TEMPLATES[c.tpl].slides(p === 'eve', dataOf(c)).forEach((fn, i) => list.push({ kind: 'tpl', fn, label: TEMPLATES[c.tpl].label.split(':')[0] + ', Folie ' + (i + 1) }));
   (c.extras || []).forEach(b => { if (fits(b) && bausteinActive(b, day)) list.push({ kind: 'tpl', fn: slideFn(b), label: BAUSTEINE[b.kind].label + ': ' + bausteinTitle(b), bau: b.id }); });
   c.media.forEach(m => { const a = assetById(m.id); if (a && blobs.has(a.id) && fits(m) && activeOn(m, day)) list.push({ kind: a.type, id: a.id, label: a.name }); });
-  return list;
+  if (!showId) return list;
+  return mischen(list, werbeSlots(werbungFor(showId, c), p, day).map(w => ({ alle: w.alle, item: { kind: 'tpl', fn: slideFn(w.folie), label: 'Partner: ' + w.name, partner: w.id } })));
 }
 function drawItem(ctx: CanvasRenderingContext2D, w: number, h2: number, it: any, c: Cfg, t: number) {
   if (!it) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h2); return; }
@@ -236,7 +263,7 @@ function stillOf(c: Cfg, w: number, h2: number, period = 'day', i = 0, notice = 
 }
 
 // Ein Abspieler pro Vorschau-Leinwand. Ein gemeinsamer Takt (30 Bilder/s) zeichnet nur die sichtbaren.
-interface Pv { shownIdx?: number; shownAt?: number; canvas: HTMLCanvasElement; cfg: () => Cfg | null; period: () => string; black?: () => boolean; notice?: () => string; onSlide?: (i: number, n: number, p: string) => void; idx: number; next: number; prev: any; fadeAt: number; key: string; }
+interface Pv { showId?: () => string; shownIdx?: number; shownAt?: number; canvas: HTMLCanvasElement; cfg: () => Cfg | null; period: () => string; black?: () => boolean; notice?: () => string; onSlide?: (i: number, n: number, p: string) => void; idx: number; next: number; prev: any; fadeAt: number; key: string; }
 const pvs = new Set<Pv>();
 function preview(canvas: HTMLCanvasElement, o: Partial<Pv>) { const p = { canvas, idx: 0, next: 0, prev: null, fadeAt: 0, key: '', ...o } as Pv; pvs.add(p); return p; }
 function tv(orient: 'land' | 'port', o: Partial<Pv>) { const cv = h('canvas'), frame = h('div', { class: 'tvf ' + orient }, cv); return { frame, pv: preview(cv, o) }; }
@@ -250,7 +277,7 @@ function frame(now: number) {
     const r = cv.getBoundingClientRect(); if (!r.width || r.bottom < 0 || r.top > innerHeight) continue;
     const f = Math.min(devicePixelRatio || 1, 2), w = Math.round(r.width * f), hh = Math.round(r.height * f);
     if (cv.width !== w || cv.height !== hh) { cv.width = w; cv.height = hh; }
-    const c = p.cfg(), per = p.period(), list = c ? slidesOf(c, per) : [], ctx = cv.getContext('2d');
+    const c = p.cfg(), per = p.period(), list = c ? slidesOf(c, per, p.showId && p.showId()) : [], ctx = cv.getContext('2d');
     if (!list.length || (p.black && p.black())) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, hh); p.prev = null; }
     else {
       if (p.idx >= list.length) p.idx = 0;
@@ -286,6 +313,7 @@ function paketFor(sh: Show, c: Cfg, sc?: Screen): Paket {
   const config = toConfig(c, sc), files: Record<string, Blob> = {};
   config.media.forEach(m => { files[m.id] = blobs.get(m.id); });
   if (c.logo && blobs.has(c.logo)) files.logo = blobs.get(c.logo);
+  config.werbung = werbungFor(sh.id, c);
   return { format: PAKET_FORMAT, version: PAKET_VERSION, show: { id: sh.id, name: sh.name, revision: sh.revision, published: new Date(sh.published || Date.now()).toISOString() }, screen: sc ? { id: sc.id, name: sc.name } : undefined, config, files };
 }
 function deliver(sc: Screen) {
@@ -317,14 +345,16 @@ function undoable(text: string, change: () => void) {
 }
 
 // ---------- Navigation ----------
-const VIEWS = [['screens', 'Bildschirme', 'screens'], ['shows', 'Inhalte', 'slides'], ['media', 'Medien', 'media'], ['templates', 'Vorlagen', 'templates']];
+const VIEWS_BASIS = [['screens', 'Bildschirme', 'screens'], ['shows', 'Inhalte', 'slides'], ['media', 'Medien', 'media'], ['templates', 'Vorlagen', 'templates']];
+// „Partner“ erscheint nur, wenn Partner-Slots in den Einstellungen eingeschaltet sind.
+const views = () => S.werbung && S.werbung.on ? [...VIEWS_BASIS, ['werbung', 'Partner', 'coins']] : VIEWS_BASIS;
 let view = 'screens', cur: string = null, tab = 'content', placeFilter = '';
 let ticks: (() => void)[] = [];
 const runTicks = () => ticks.forEach(f => f());
 function go(v: string, id?: string) { const hsh = '#' + v + (id ? '/' + id : ''); if (location.hash === hsh) route(); else location.hash = hsh; }
 function route() {
   const [v, id] = location.hash.slice(1).split('/');
-  view = VIEWS.some(x => x[0] === v) ? v : 'screens';
+  view = views().some(x => x[0] === v) ? v : 'screens';
   if (view !== 'shows') day = new Date();
   if (view === 'shows' && id && showById(id)) cur = id;
   render(); scrollTo(0, 0);
@@ -334,8 +364,8 @@ function renderNav() {
   const drafts = S.shows.filter(isDirty).length, off = S.screens.filter(s => !isOn(s)).length;
   const count = { screens: off ? h('span', { class: 'n alert', title: off + ' offline' }, String(off)) : h('span', { class: 'n' }, String(S.screens.length)),
     shows: drafts ? h('span', { class: 'n alert', title: 'Unveröffentlichte Änderungen' }, String(drafts)) : h('span', { class: 'n' }, String(S.shows.length)),
-    media: S.assets.length ? h('span', { class: 'n' }, String(S.assets.length)) : null, templates: null };
-  const mk = (withCount: boolean) => VIEWS.map(([k, label, ic]) => h('button', { 'aria-current': view === k ? 'page' : null, onclick: () => go(k) }, icon(ic), label, withCount ? count[k] : null));
+    media: S.assets.length ? h('span', { class: 'n' }, String(S.assets.length)) : null, templates: null, werbung: null };
+  const mk = (withCount: boolean) => views().map(([k, label, ic]) => h('button', { 'aria-current': view === k ? 'page' : null, onclick: () => go(k) }, icon(ic), label, withCount ? count[k] : null));
   fill($('nav'), ...mk(true)); fill($('tabbar'), ...mk(false));
   $('planName').textContent = 'Cloud · ' + plural(S.screens.length, 'Bildschirm', 'Bildschirme');
   $('planInfo').textContent = S.screens.length * 12 + ' € im Monat · ' + (konto ? konto.email : 'Demo'); paintKonto();
@@ -346,7 +376,7 @@ function render() {
   ticks = []; renderNav();
   const v = $('view'); v.replaceChildren();
   v.style.animation = 'none'; void v.offsetWidth; v.style.animation = '';
-  ({ screens: renderScreens, shows: renderShows, media: renderMedia, templates: renderTemplates })[view](v);
+  ({ screens: renderScreens, shows: renderShows, media: renderMedia, templates: renderTemplates, werbung: renderWerbung })[view](v);
   renderPubbar();
 }
 
@@ -362,7 +392,7 @@ function stateOf(sc: Screen) {
 }
 function screenTv(sc: Screen, extra?: Partial<Pv>) {
   const cfg = () => { const x = showById(sc.show); return x ? x.pub || x.cfg : null; };
-  const t = tv(sc.orient, { cfg, period: () => { const c = cfg(); return c ? periodOf(c) : 'off'; }, black: () => stateOf(sc).black, notice: () => { const n = isOn(sc) && noticeFor(sc.id); return n ? n.text : ''; }, ...extra });
+  const t = tv(sc.orient, { cfg, showId: () => sc.show, period: () => { const c = cfg(); return c ? periodOf(c) : 'off'; }, black: () => stateOf(sc).black, notice: () => { const n = isOn(sc) && noticeFor(sc.id); return n ? n.text : ''; }, ...extra });
   const over = h('div', { class: 'over', hidden: true }); t.frame.append(over);
   const upd = () => { const s = stateOf(sc); over.hidden = !s.over; over.textContent = s.over; };
   upd(); return { ...t, upd };
@@ -453,7 +483,7 @@ function playsOf(sc: Screen): { n: Record<string, number>; real: boolean } {
   const now = new Date(), upto = Math.min(now.getHours() * 60 + now.getMinutes(), !isOn(sc) ? new Date(sc.lastSeen).getHours() * 60 + new Date(sc.lastSeen).getMinutes() : 1440);
   for (let m = 0; m < upto; m++) {
     const per = periodAt(c, m); if (per === 'off') continue;
-    const list = slidesOf(c, per); if (!list.length) continue;
+    const list = slidesOf(c, per, sc.show, new Date()); if (!list.length) continue;
     const each = 60 / (Math.max(3, c.dur) * list.length);
     list.forEach(it => { out[it.label] = (out[it.label] || 0) + each; });
   }
@@ -802,7 +832,7 @@ function renderPane() {
 
 // ---------- Bausteine und Infoleiste (Reiter im Editor) ----------
 let extrasTick: () => void = null; const runExtrasTick = () => extrasTick && extrasTick();
-const KIND_ICON: Record<BausteinKind, string> = { qr: 'qr', reviews: 'star', countdown: 'timer', design: 'brush' };
+const KIND_ICON: Record<BausteinKind, string> = { qr: 'qr', reviews: 'star', countdown: 'timer', design: 'brush', anzeige: 'coins', werbeplatz: 'coins' };
 const isoDay = (d: Date) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 function bauState(b: Baustein): [string, string] {
   if (!b.on) return ['', 'aus'];
@@ -869,7 +899,7 @@ function renderExtras(p: HTMLElement, c: Cfg, repaint: (f?: string) => void) {
   fill(p,
     h('div', { class: 'fld' }, h('h3', null, 'Zusatzfolien'), h('span', { class: 'small', style: 'margin-top:-4px' }, 'Fertige Folien, die zu jedem Betrieb passen. Mit Zeitraum laufen sie von selbst an und ab.'),
       cards.length ? cards : null,
-      h('div', { class: 'bst-add' }, (Object.keys(BAUSTEINE) as BausteinKind[]).filter(k => k !== 'design').map(k => h('button', { onclick: () => add(k) }, h('b', null, icon(KIND_ICON[k]), BAUSTEINE[k].label), h('span', null, BAUSTEINE[k].desc))),
+      h('div', { class: 'bst-add' }, (Object.keys(BAUSTEINE) as BausteinKind[]).filter(k => !['design', 'anzeige', 'werbeplatz'].includes(k)).map(k => h('button', { onclick: () => add(k) }, h('b', null, icon(KIND_ICON[k]), BAUSTEINE[k].label), h('span', null, BAUSTEINE[k].desc))),
         M ? M.vorlagen.map(v => h('button', { class: 'own', onclick: () => addDesign(v) }, h('b', null, icon('brush'), v.name), h('span', null, 'Eigene Vorlage im Design von „' + M.name + '“' + (M.agentur ? ', gestaltet von ' + M.agentur : '') + '.')))
           : h('button', { class: 'own', onclick: () => go('templates') }, h('b', null, icon('palette'), 'Eigene Vorlagen'), h('span', null, 'Folien in deinem CI: Marke einrichten oder von deiner Agentur gestalten lassen.')))),
     h('div', { class: 'fld' }, h('h3', null, 'Infoleiste'),
@@ -1015,12 +1045,242 @@ function renderTemplates(v: HTMLElement) {
         h('article', { class: 'card tpl soon' }, h('div', { class: 'body' }, h('div', { class: 'row' }, h('h2', null, tt), h('span', { class: 'badge' }, 'bald')), h('p', null, pp))))));
 }
 
+// ---------- Partner-Slots: Werbepartner ----------
+// Eingeschaltet unter „Einstellungen“. Dann gibt es den Bereich „Partner“: Partner anlegen, Folie gestalten,
+// Takt und Laufzeit festlegen, Bericht-Link verschicken. Kein Geld über ShowCube, der Laden rechnet selbst ab.
+const W = () => S.werbung;
+// Wie viele Minuten am Tag zeigt diese Slideshow etwas? (ohne Nachtruhe)
+function sendeMinuten(c: Cfg) { let n = 0; for (let m = 0; m < 1440; m++) if (periodAt(c, m) !== 'off') n++; return n; }
+const minCache = new Map<string, number>();
+function sendeMin(c: Cfg) { const k = [c.offOn, c.offFrom, c.offTo].join(); if (!minCache.has(k)) minCache.set(k, sendeMinuten(c)); return minCache.get(k); }
+const reichweite = (c: Cfg, alle = 5) => 'Bei jeder ' + alle + '. Folie läuft deine Anzeige hier rund ' + rund(proTag(sendeMin(c), c.dur, alle)).toLocaleString('de-DE') + '-mal am Tag.';
+const fuerShow = (p: Werbepartner, showId: string) => !p.shows.length || p.shows.includes(showId);
+const alsSlot = (p: Werbepartner): WerbeSlot => ({ id: p.id, name: p.name, alle: p.alle, when: p.when, from: p.from, to: p.to, days: p.days, folie: p.folie });
+// Was von den Partner-Slots im Paket einer Slideshow landet. null = Partner-Slots aus.
+function werbungFor(showId: string, c?: Cfg): WerbungCfg | null {
+  const w = W(); if (!w || !w.on) return null;
+  const partner = w.partner.filter(p => p.on && fuerShow(p, showId)).map(alsSlot);
+  let frei = w.frei.on && fuerShow(w.frei, showId) ? alsSlot(w.frei) : null;
+  if (frei && c) frei = { ...frei, folie: { ...frei.folie, f: { ...frei.folie.f, reichweite: reichweite(c) } } };
+  return partner.length || frei ? { plaetze: w.plaetze, partner, frei } : null;
+}
+// Nach jeder Änderung an Partnern: neuer Stand für alle veröffentlichten Slideshows, damit die Boxen ihn holen.
+function werbungSenden() {
+  S.shows.filter(sh => sh.pub).forEach(sh => {
+    const to = S.screens.filter(s => s.show === sh.id);
+    sh.revision++; sh.published = Date.now(); to.forEach(deliver); if (konto) offenePakete.add(sh.id);
+  });
+  save();
+}
+function werbeAenderung(text: string, change: () => void) {
+  const before = JSON.stringify(S.werbung); change(); werbungSenden(); render();
+  toast(text, () => { S.werbung = JSON.parse(before); werbungSenden(); render(); toast('Rückgängig gemacht.'); });
+}
+function partnerState(p: Werbepartner): [string, string] {
+  if (!p.on) return ['', 'pausiert'];
+  if (expired(p)) return ['bad', 'abgelaufen'];
+  if (p.from && isoDay(new Date()) < p.from) return ['warn', 'ab ' + zeitraumText({ from: p.from }).replace('ab ', '')];
+  if (!activeOn(p, new Date())) return ['warn', 'heute nicht'];
+  return ['ok', 'läuft'];
+}
+const taktText = (n: number) => 'jede ' + n + '. Folie';
+const showsText = (p: Werbepartner) => !p.shows.length ? 'alle Slideshows' : p.shows.map(id => showById(id)).filter(Boolean).map(x => '„' + x.name + '“').join(', ') || 'keine Slideshow';
+// Eine Folie allein, für Vorschauen im Partner-Bereich. Name und Farbe kommen aus der ersten Slideshow des Ladens.
+function folienCfg(b: () => Baustein): () => Cfg {
+  const base = { ...(S.shows[0] ? S.shows[0].cfg : baseCfg(null)), tpl: null as string | null, media: [] as MediaUse[], leiste: { ...LEISTE, on: false }, dur: 6 };
+  return () => ({ ...base, extras: [b()] });
+}
+// Einblendungen eines Partners: von den Boxen gezählt (letzte 62 Tage), sonst aus Zeitplan und Takt hochgerechnet.
+function hochgerechnet(c: Cfg, showId: string, d: Date, id: string, bis = 1440) {
+  if ((c.offDays || []).includes(d.getDay())) return 0;
+  const at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12), mins = { day: 0, eve: 0 };
+  for (let m = 0; m < bis; m++) { const p = periodAt(c, m); if (p !== 'off') mins[p]++; }
+  let n = 0;
+  (['day', 'eve'] as const).forEach(p => { if (!mins[p]) return; const list = slidesOf(c, p, showId, at); if (!list.length) return; const k = list.filter(it => it.partner === id).length; n += mins[p] * 60 / (Math.max(3, c.dur) * list.length) * k; });
+  return Math.round(n);
+}
+function partnerZahlen(p: Werbepartner) {
+  const tage = new Map<string, number>(), bs: { sc: Screen; n: number }[] = []; let echt = !!konto, alleEcht = true;
+  const heute = isoDay(new Date()), start = p.from || isoDay(new Date(p.seit || Date.now()));
+  S.screens.filter(sc => fuerShow(p, sc.show) && showById(sc.show)).forEach(sc => {
+    const sh = showById(sc.show), c = sh.pub || sh.cfg, l = live.get(sc.id), hist = l && l.beat && l.beat.werbung;
+    let n = 0;
+    if (hist) { Object.entries(hist as Record<string, Record<string, number>>).forEach(([d, x]) => { const v = x[p.id] || 0; if (v) { tage.set(d, (tage.get(d) || 0) + v); n += v; } }); }
+    else {
+      alleEcht = false;
+      const d = new Date(start + 'T12:00'), ende = p.to && p.to < heute ? p.to : heute;
+      for (let i = 0; i < 62 && isoDay(d) <= ende; i++, d.setDate(d.getDate() + 1)) {
+        const k = isoDay(d), now = new Date(), bis = k === heute ? now.getHours() * 60 + now.getMinutes() : 1440;
+        const v = isOn(sc) || k !== heute ? hochgerechnet(c, sc.show, d, p.id, bis) : 0;
+        if (v) { tage.set(k, (tage.get(k) || 0) + v); n += v; }
+      }
+    }
+    bs.push({ sc, n });
+  });
+  // Nur mit Konto und nur wenn jede Box selbst gezählt hat, heißt es im Bericht „gezählt“. Die Demo ist immer Beispielwert.
+  echt = echt && alleEcht && bs.length > 0;
+  const summe = [...tage.values()].reduce((a, b) => a + b, 0);
+  return { tage, bs, echt, summe, heute: tage.get(heute) || 0 };
+}
+function berichtFuer(p: Werbepartner): string {
+  const z = partnerZahlen(p), sh = S.shows.find(x => fuerShow(p, x.id)), c = sh ? sh.pub || sh.cfg : baseCfg(null);
+  const cv = stillOf(folienCfg(() => p.folie)(), 320, 180, 'day', 0);
+  const betrieb = (konto && konto.name) || (z.bs[0] && z.bs[0].sc.place) || (S.marke && S.marke.name) || c.name || 'deinem Laden';
+  const b: Bericht = { v: 1, partner: p.name, betrieb, von: p.from, bis: p.to, takt: p.alle, sek: c.dur, stand: new Date().toISOString(), echt: z.echt,
+    tage: [...z.tage.entries()].sort((a, b2) => a[0] < b2[0] ? -1 : 1), bildschirme: z.bs.map(x => [x.sc.name, x.sc.place, x.n]), bild: cv.toDataURL('image/jpeg', .62) };
+  return new URL(BERICHT_URL, location.href).href + '#' + berichtKodieren(b);
+}
+function berichtKopieren(p: Werbepartner) {
+  const url = berichtFuer(p);
+  (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(
+    () => toast('Bericht-Link für ' + p.name + ' kopiert. Schick ihn per Mail oder WhatsApp, ein Konto braucht ' + p.name + ' nicht.'),
+    () => { window.open(url, '_blank', 'noopener'); toast('Kopieren ging nicht. Der Bericht ist im neuen Tab offen, dort die Adresse kopieren.'); });
+}
+
+function renderWerbung(v: HTMLElement) {
+  const w = W(), now = new Date();
+  const zahlen = new Map(w.partner.map(p => [p.id, partnerZahlen(p)]));
+  const belegt = w.partner.filter(p => p.on && !expired(p) && !(p.from && isoDay(now) < p.from)).length;
+  const heute = [...zahlen.values()].reduce((a, z) => a + z.heute, 0);
+  v.append(h('div', { class: 'head' }, h('div', null, h('h1', null, 'Werbepartner'),
+    h('p', null, 'Vermiete Sendezeit auf deinen Bildschirmen an Geschäfte aus der Nachbarschaft. Preis und Laufzeit machst du mit ihnen aus und rechnest selbst ab. ShowCube spielt die Anzeigen ein und zählt mit.')),
+    h('button', { class: 'btn primary', onclick: () => openWerbepartner(null) }, icon('plus'), 'Partner hinzufügen')));
+  v.append(h('div', { class: 'wstats' },
+    h('div', { class: 'card' }, h('span', { class: 'small' }, 'Plätze belegt'), h('b', null, belegt + ' von ' + w.plaetze)),
+    h('div', { class: 'card' }, h('span', { class: 'small' }, 'Heute eingeblendet'), h('b', null, heute.toLocaleString('de-DE') + '×')),
+    h('div', { class: 'card' }, h('span', { class: 'small' }, 'Freie Plätze bewerben'), h('b', null, w.frei.on ? (belegt < w.plaetze ? 'läuft' : 'pausiert, alles belegt') : 'aus'))));
+  const list = h('div', { class: 'wlist' });
+  w.partner.forEach(p => {
+    const z = zahlen.get(p.id), [cls, st] = partnerState(p), t = tv('land', { cfg: folienCfg(() => p.folie), period: () => 'day' });
+    list.append(h('article', { class: 'card wcard' + (p.on ? '' : ' is-off') },
+      h('div', { class: 'stage' }, t.frame),
+      h('div', { class: 'body' },
+        h('div', { class: 'row' }, h('h2', null, p.name), h('span', { class: 'badge ' + cls }, st)),
+        h('span', { class: 'small' }, [taktText(p.alle), ({ always: '', day: 'tagsüber', eve: 'abends' } as any)[p.when], zeitraumText(p) || 'ohne Ende', showsText(p)].filter(Boolean).join(' · ')),
+        h('div', { class: 'wnum' }, h('span', null, h('b', null, z.heute.toLocaleString('de-DE') + '×'), ' heute'), h('span', null, h('b', null, z.summe.toLocaleString('de-DE') + '×'), ' seit Start'),
+          h('span', { class: 'small' }, z.echt ? 'von den Boxen gezählt' : 'hochgerechnet aus dem Zeitplan')),
+        p.abmachung ? h('span', { class: 'small note' }, icon('coins'), h('span', null, 'Abmachung: ' + p.abmachung)) : null,
+        h('div', { class: 'foot' },
+          h('button', { class: 'btn sm', onclick: () => openWerbepartner(p) }, 'Bearbeiten'),
+          h('button', { class: 'btn sm', title: 'Link zum Bericht kopieren, ohne Anmeldung lesbar', onclick: () => berichtKopieren(p) }, icon('link'), 'Bericht-Link'),
+          h('a', { class: 'btn ghost sm', href: '#werbung', onclick: (e: Event) => { e.preventDefault(); window.open(berichtFuer(p), '_blank', 'noopener'); } }, 'Ansehen', icon('ext')),
+          h('span', { style: 'flex:1' }),
+          h('button', { class: 'ib', title: p.on ? 'Pausieren' : 'Wieder einschalten', 'aria-label': (p.on ? 'Pausieren: ' : 'Einschalten: ') + p.name, 'aria-pressed': String(!p.on), onclick: () => werbeAenderung(p.on ? p.name + ' pausiert.' : p.name + ' läuft wieder.', () => { p.on = !p.on; }) }, icon(p.on ? 'eye' : 'eyeoff')),
+          h('button', { class: 'ib', title: 'Löschen', 'aria-label': 'Löschen: ' + p.name, onclick: () => werbeAenderung(p.name + ' entfernt.', () => { w.partner = w.partner.filter(x => x !== p); }) }, icon('trash'))))));
+  });
+  if (!w.partner.length) list.append(h('div', { class: 'empty' }, h('b', null, 'Noch keine Werbepartner.'),
+    h('span', null, 'Die Folie „Werbeplatz frei“ wirbt auf deinen Bildschirmen schon um die ersten. Fragt jemand an, legst du ihn hier an.'),
+    h('button', { class: 'btn primary', onclick: () => openWerbepartner(null) }, icon('plus'), 'Ersten Partner hinzufügen')));
+  v.append(list);
+  // Freier Platz: der Bildschirm wirbt selbst um neue Partner.
+  const f = w.frei, ft = tv('land', { cfg: folienCfg(() => ({ ...f.folie, f: { ...f.folie.f, reichweite: reichweite(S.shows[0] ? S.shows[0].pub || S.shows[0].cfg : baseCfg(null)) } })), period: () => 'day' });
+  const re = () => { save(); werbungSenden(); };
+  v.append(h('section', { class: 'card wfrei' },
+    h('div', { class: 'stage' }, ft.frame),
+    h('div', { class: 'body' },
+      h('div', { class: 'row' }, h('h2', null, 'Werbeplatz frei'), h('span', { class: 'badge ' + (f.on ? 'ok' : '') }, f.on ? 'an' : 'aus')),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: f.on, onchange: (e: any) => werbeAenderung(e.target.checked ? 'Freie Plätze werden beworben.' : 'Folie „Werbeplatz frei“ ausgeschaltet.', () => { f.on = e.target.checked; }) }), 'Freie Plätze auf dem Bildschirm bewerben'),
+      h('span', { class: 'small' }, 'Läuft nur, solange weniger Partner gebucht sind, als du Plätze hast. Die Zahl, wie oft eine Anzeige am Tag läuft, rechnet ShowCube aus deinem Zeitplan.'),
+      h('div', { class: 'grid2' },
+        h('div', null, h('label', { for: 'wfPl' }, 'Plätze insgesamt'), h('select', { id: 'wfPl', onchange: (e: any) => werbeAenderung('Jetzt ' + e.target.value + ' Plätze.', () => { w.plaetze = +e.target.value; }) }, [1, 2, 3, 4, 5, 6].map(n => h('option', { value: String(n), selected: w.plaetze === n }, String(n))))),
+        h('div', null, h('label', { for: 'wfTakt' }, 'Wie oft'), h('select', { id: 'wfTakt', onchange: (e: any) => werbeAenderung('Gespeichert.', () => { f.alle = +e.target.value; }) }, TAKTE.map(n => h('option', { value: String(n), selected: f.alle === n }, taktText(n)))))),
+      h('div', { class: 'bst-f' }, BAUSTEINE.werbeplatz.fields.map(fd => h('div', { class: fd.wide ? 'wide' : null }, h('label', { for: 'wf' + fd.k }, fd.label),
+        h('input', { id: 'wf' + fd.k, type: fd.type || 'text', value: f.folie.f[fd.k] || '', placeholder: fd.ph || '', oninput: (e: any) => { f.folie.f[fd.k] = e.target.value; save(); }, onchange: re })))))));
+  v.append(h('section', { class: 'card whow' }, h('h2', null, 'So verdient dein Bildschirm mit'),
+    h('ol', null,
+      h('li', null, h('b', null, 'Platz anbieten. '), 'Die Folie „Werbeplatz frei“ läuft zwischen deinen Inhalten und zeigt einen QR-Code zu dir.'),
+      h('li', null, h('b', null, 'Partner anlegen. '), 'Fragt der Blumenladen von nebenan, legst du ihn hier an: Anzeige gestalten oder sein Bild hochladen, Takt und Laufzeit wählen.'),
+      h('li', null, h('b', null, 'Bericht schicken. '), 'Mit „Bericht-Link“ bekommt dein Partner seine Zahlen ohne Konto. Das ist dein Argument fürs nächste Mal.'),
+      h('li', null, h('b', null, 'Selbst abrechnen. '), 'Preis machst du direkt mit dem Partner aus. ShowCube nimmt keine Provision und verschickt keine Rechnungen.'))));
+}
+
+// Partner anlegen oder bearbeiten (Seitenblatt mit Vorschau).
+let wEdit: { p: Werbepartner; neu: boolean } | null = null;
+function openWerbepartner(p: Werbepartner | null) {
+  wEdit = p ? { p: clone(p), neu: false } : { p: werbePartner('', bau('anzeige', { firma: '', title: '', text: '', url: '' }), { from: isoDay(new Date()), to: dayPlus(30) }), neu: true };
+  drawWerbeDlg(); const d = $('dlgWerbung'); if (!d.open) d.showModal();
+  if (wEdit.neu) setTimeout(() => { const n = $('wpName'); if (n) n.focus(); }, 30);
+}
+function drawWerbeDlg() {
+  const e = wEdit, p = e.p, b = $('dwBody'), M = S.marke;
+  const redraw = () => drawWerbeDlg(), t = tv('land', { cfg: folienCfg(() => p.folie), period: () => 'day' });
+  const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' }), hint = h('span', { class: 'small' });
+  const hintUpd = () => {
+    const shows = S.shows.filter(sh => fuerShow(p, sh.id) && S.screens.some(sc => sc.show === sh.id));
+    hint.textContent = !shows.length ? 'Die gewählten Slideshows laufen noch auf keinem Bildschirm.' : 'Das sind ' + shows.map(sh => { const c = sh.pub || sh.cfg; return 'auf „' + sh.name + '“ etwa ' + rund(proTag(sendeMin(c), c.dur, p.alle)).toLocaleString('de-DE') + '-mal am Tag'; }).join(', ') + ', je Bildschirm.';
+  };
+  hintUpd();
+  const art = p.folie.kind;
+  const kinds: [string, string, () => void][] = [['anzeige', 'Anzeige', () => { p.folie = bau('anzeige', { firma: p.name, title: '', text: '', url: '' }); }],
+    ...(M ? M.vorlagen.map(vo => ['v:' + vo.id, vo.name, () => { p.folie = bau('design', { vorlage: vo.id, titel: vo.name }); }] as [string, string, () => void]) : [])];
+  const cur = art === 'design' ? 'v:' + p.folie.f.vorlage : 'anzeige';
+  const fields: any[] = art === 'design' ? designFelder(p.folie) : [...BAUSTEINE.anzeige.fields, { k: 'bild', label: 'Bild', type: 'bild', wide: true }];
+  const swatches = ['#c2185b', '#d9482b', '#e09a1a', '#2f7d32', '#1f6f8b', '#3b3f9c', '#5d4037', '#212121'];
+  fill(b,
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dwTitle' }, e.neu ? 'Neuer Werbepartner' : p.name), h('button', { class: 'btn icon ghost', 'aria-label': 'Schließen', onclick: () => $('dlgWerbung').close() }, icon('x'))),
+    h('div', { class: 'stage round' }, t.frame),
+    h('div', { class: 'fld' }, h('h3', null, 'Partner'),
+      h('div', { class: 'grid2' },
+        h('div', null, h('label', { for: 'wpName' }, 'Name'), h('input', { type: 'text', id: 'wpName', value: p.name, placeholder: 'z. B. Blumen Berger', oninput: (ev: any) => { const alt = p.name; p.name = ev.target.value; if (p.folie.kind === 'anzeige' && (p.folie.f.firma || '') === alt) { p.folie.f.firma = p.name; const fi = $('wpffirma'); if (fi) fi.value = p.name; } } })),
+        h('div', null, h('label', { for: 'wpKontakt' }, 'Ansprechpartner'), h('input', { type: 'text', id: 'wpKontakt', value: p.kontakt || '', placeholder: 'Name, Telefon', oninput: (ev: any) => { p.kontakt = ev.target.value; } }))),
+      h('div', null, h('label', { for: 'wpAb' }, 'Abmachung (nur für dich)'), h('input', { type: 'text', id: 'wpAb', value: p.abmachung || '', placeholder: 'z. B. 35 € im Monat, bar', oninput: (ev: any) => { p.abmachung = ev.target.value; } })),
+      h('span', { class: 'small' }, 'Name, Kontakt und Abmachung sieht nur dein Konto. Abgerechnet wird direkt zwischen euch, nicht über ShowCube.')),
+    h('div', { class: 'fld' }, h('h3', null, 'Folie'),
+      kinds.length > 1 ? h('div', { class: 'seg wrap', role: 'group', 'aria-label': 'Art der Folie' }, kinds.map(([k, l, run]) => h('button', { 'aria-pressed': String(k === cur), onclick: () => { if (k !== cur) { run(); redraw(); } } }, k === 'anzeige' ? l : 'Vorlage: ' + l)))
+        : h('span', { class: 'small' }, 'Eigene Vorlagen aus dem Vorlagen-Designer stehen hier zur Wahl, sobald deine Marke eingerichtet ist.'),
+      h('div', { class: 'bst-f' }, fields.map((fd: any) => {
+        const id = 'wpf' + fd.k;
+        if (fd.type === 'bild') return h('div', { class: 'wide' }, h('span', { class: 'label' }, fd.label), h('div', { class: 'logo' }, p.folie.f[fd.k] ? h('img', { src: p.folie.f[fd.k], alt: '' }) : null,
+          h('span', { class: 'btn sm file' }, icon('upload'), p.folie.f[fd.k] ? 'Bild ersetzen' : 'Bild hochladen', h('input', { type: 'file', accept: 'image/*', 'aria-label': fd.label, onchange: async (ev: any) => { const fl = ev.target.files[0]; if (!fl) return; p.folie.f[fd.k] = await bildKlein(fl, 1280); redraw(); } })),
+          p.folie.f[fd.k] ? h('button', { class: 'btn ghost sm', onclick: () => { delete p.folie.f[fd.k]; redraw(); } }, 'Bild entfernen') : null),
+          art === 'anzeige' ? h('span', { class: 'small' }, 'Hat dein Partner eine fertige Anzeige? Bild hochladen und die Überschrift leer lassen, dann zeigt die Folie nur das Bild.') : null);
+        return h('div', { class: fd.wide ? 'wide' : null }, h('label', { for: id }, fd.label), h('input', { id, type: fd.type || 'text', value: p.folie.f[fd.k] || '', placeholder: fd.ph || '', oninput: (ev: any) => { p.folie.f[fd.k] = ev.target.value; } }));
+      })),
+      art === 'anzeige' ? h('div', null, h('span', { class: 'label' }, 'Farbe des Partners'), h('div', { class: 'swatches' }, swatches.map(col => h('button', { style: 'background:' + col, 'aria-label': 'Farbe ' + col, 'aria-pressed': String(p.folie.f.farbe === col), onclick: () => { p.folie.f.farbe = col; redraw(); } })),
+        h('label', { class: 'picker' + (swatches.includes(p.folie.f.farbe) ? '' : ' on'), title: 'Eigene Farbe', style: '--c:' + (p.folie.f.farbe || '') }, h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(p.folie.f.farbe || '') ? p.folie.f.farbe : '#c2185b', 'aria-label': 'Eigene Farbe', oninput: (ev: any) => { p.folie.f.farbe = ev.target.value; } })))) : null),
+    h('div', { class: 'fld' }, h('h3', null, 'Sendezeit'),
+      h('div', null, h('label', { for: 'wpTakt' }, 'Wie oft'), h('select', { id: 'wpTakt', onchange: (ev: any) => { p.alle = +ev.target.value; hintUpd(); } }, TAKTE.map(n => h('option', { value: String(n), selected: p.alle === n }, taktText(n))))),
+      hint,
+      zeitraumFields(p, 'wpz', () => redraw())),
+    h('div', { class: 'fld' }, h('h3', null, 'Auf welchen Slideshows'),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !p.shows.length, onchange: (ev: any) => { p.shows = ev.target.checked ? [] : S.shows.slice(0, 1).map(x => x.id); redraw(); } }), 'Auf allen Slideshows'),
+      p.shows.length ? S.shows.map(sh => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: p.shows.includes(sh.id), onchange: (ev: any) => { p.shows = ev.target.checked ? [...p.shows, sh.id] : p.shows.filter(x => x !== sh.id); if (!p.shows.length) p.shows = []; hintUpd(); } }), sh.name,
+        h('span', { class: 'small' }, ' · ' + (S.screens.filter(sc => sc.show === sh.id).map(sc => sc.name).join(', ') || 'auf keinem Bildschirm')))) : null),
+    err,
+    h('div', { class: 'row' }, h('button', { class: 'btn primary lg', onclick: () => {
+      p.name = p.name.trim(); if (!p.name) { err.textContent = 'Bitte einen Namen für den Partner eintragen.'; $('wpName').focus(); return; }
+      if (p.from && p.to && p.to < p.from) { err.textContent = 'Das Ende liegt vor dem Start.'; return; }
+      $('dlgWerbung').close();
+      werbeAenderung(e.neu ? p.name + ' angelegt. Die Anzeige geht gleich auf die Bildschirme.' : p.name + ' gespeichert.', () => { const w = W(); w.partner = e.neu ? [...w.partner, p] : w.partner.map(x => x.id === p.id ? p : x); });
+    } }, e.neu ? 'Partner anlegen' : 'Speichern'), h('button', { class: 'btn lg ghost', onclick: () => $('dlgWerbung').close() }, 'Abbrechen')));
+}
+$('dlgWerbung').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgWerbung')) $('dlgWerbung').close(); });
+
+// ---------- Einstellungen ----------
+function openSettings() {
+  const w = W();
+  fill($('settingsForm'),
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dsetTitle' }, 'Einstellungen'), h('button', { class: 'btn icon ghost', type: 'button', onclick: () => $('dlgSettings').close(), 'aria-label': 'Schließen' }, icon('x'))),
+    h('h3', null, 'Zusatzfunktionen'),
+    h('label', { class: 'opt' }, h('input', { type: 'checkbox', id: 'setWerbung', checked: w.on, onchange: (e: any) => {
+      w.on = e.target.checked; werbungSenden(); $('dlgSettings').close();
+      if (w.on) { go('werbung'); toast('Partner-Slots sind an. Unter „Partner“ legst du Werbepartner an.'); } else { if (view === 'werbung') go('screens'); else render(); toast('Partner-Slots sind aus. Die Bildschirme zeigen keine Partner-Folien mehr.'); }
+    } }),
+      h('span', null, h('b', null, 'Partner-Slots: Dein Bildschirm verdient mit'),
+        h('span', { class: 'small' }, 'Vermiete Sendezeit an Geschäfte aus der Nachbarschaft. Ihre Anzeigen laufen zwischen deinen Folien, jeder Partner bekommt einen Bericht-Link mit seinen Zahlen. Abrechnen tust du selbst. Ausgeschaltet ist davon nichts zu sehen.'))),
+    h('button', { class: 'btn lg', value: 'ok' }, 'Fertig'));
+  $('dlgSettings').showModal();
+}
+$('settings').prepend(icon('gear')); $('settings').onclick = openSettings;
+$('dlgSettings').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgSettings')) $('dlgSettings').close(); });
+
 // ---------- Befehlsleiste (Strg + K) ----------
 let cmdItems: { label: string; hint: string; ic: string; run: () => void }[] = [], cmdSel = 0;
 function openCmd() {
   if (!konto && !demo) return;
   const all = [
-    ...VIEWS.map(([k, l, ic]) => ({ label: l, hint: 'Bereich', ic, run: () => go(k) })),
+    ...views().map(([k, l, ic]) => ({ label: k === 'werbung' ? 'Werbepartner' : l, hint: 'Bereich', ic, run: () => go(k) })),
+    { label: 'Einstellungen', hint: 'Partner-Slots und mehr', ic: 'gear', run: openSettings },
     { label: 'Sofort-Hinweis senden', hint: 'Befehl', ic: 'bolt', run: openNotice }, { label: 'Bildschirm koppeln', hint: 'Befehl', ic: 'plus', run: openPair },
     { label: 'Neue Slideshow', hint: 'Befehl', ic: 'plus', run: () => go('templates') }, { label: 'Vorlagen-Designer öffnen', hint: 'Marke und eigene Vorlagen', ic: 'brush', run: openDesigner }, { label: 'Hell oder dunkel umschalten', hint: 'Befehl', ic: 'moon', run: toggleTheme },
     ...(konto && konto.admin ? [{ label: 'Betrieb öffnen', hint: 'Admin', ic: 'shop', run: openBetriebe }] : []),
@@ -1070,7 +1330,7 @@ const hochgeladen = new Set<string>(), offenePakete = new Set<string>();
 let synced = { shows: new Map<string, string>(), screens: new Map<string, string>(), betrieb: '' };
 let syncT: any, syncLaeuft = false, syncNochmal = false, syncFehler = '', ladeN = 0;
 const scFields = (sc: Screen) => JSON.stringify({ name: sc.name, standort: sc.place, ausrichtung: sc.orient, show_id: sc.show || null, strom: sc.power });
-const btFields = () => JSON.stringify({ hinweis: S.notice || null, einstellungen: { alert: S.alert, marke: S.marke || null, partner: S.partner || [] } });
+const btFields = () => JSON.stringify({ hinweis: S.notice || null, einstellungen: { alert: S.alert, marke: S.marke || null, partner: S.partner || [], werbung: S.werbung || null } });
 function merkeSync() { synced = { shows: new Map(S.shows.map(sh => [sh.id, JSON.stringify(sh)])), screens: new Map(S.screens.map(sc => [sc.id, scFields(sc)])), betrieb: btFields() }; }
 function cacheCloud() {
   try { localStorage.setItem(CKEY, JSON.stringify({ betrieb: konto.betrieb, S, offen: [...offenePakete], synced: { shows: [...synced.shows], screens: [...synced.screens], betrieb: synced.betrieb } })); } catch (e) { saveOK = false; }
@@ -1130,7 +1390,7 @@ async function cloudLaden() {
   const err = [bt, shows, dat, scr].find(r => r.error); if (err) throw err.error;
   const oldScreens = new Map(S.screens.map(sc => [sc.id, sc]));
   S = { shows: shows.data.map((r: any) => r.daten), screens: scr.data.map((r: any) => vomServer(r, oldScreens.get(r.id))), assets: dat.data.filter((d: any) => d.typ !== 'logo').map((d: any) => ({ id: d.id, type: d.typ, name: d.name, size: d.groesse, added: Date.parse(d.erstellt) })),
-    notice: bt.data.hinweis, alert: (bt.data.einstellungen || {}).alert, marke: (bt.data.einstellungen || {}).marke || null, partner: (bt.data.einstellungen || {}).partner || [] };
+    notice: bt.data.hinweis, alert: (bt.data.einstellungen || {}).alert, marke: (bt.data.einstellungen || {}).marke || null, partner: (bt.data.einstellungen || {}).partner || [], werbung: (bt.data.einstellungen || {}).werbung || undefined };
   normalize(S); dat.data.forEach((d: any) => hochgeladen.add(d.id)); merkeSync(); konto.name = bt.data.name;
   // Ein neues Konto startet leer. Die Einrichtungshilfe unter „Bildschirme“ führt durch die ersten Schritte.
   cacheCloud();

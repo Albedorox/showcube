@@ -29,6 +29,7 @@ Kurz: Es gibt **einen Player** auf der Box. Light und Cloud unterscheiden sich n
 | `panel/` | Das Web-Panel: Inhalte bearbeiten, veröffentlichen, Bildschirme aus der Ferne warten. | nein (nur Export aufs USB-Paket, z.B. durch dich beim Einrichten) | ja |
 | `konfigurator/` | Vertrieb: zeigt dem Kunden seinen Laden mit Bildschirm. | Verkaufshilfe | Verkaufshilfe und Vorschau im Panel |
 | `designer/` | Vorlagen-Designer: Marke (Logo, Farben, Schriften, Übergang) und eigene Vorlagen mit Animationen, für Kunden und Agenturen. Ergebnis ist ein Markenpaket, das im Panel landet und im Paket zur Box reist. Siehe [vorlagen-designer.md](vorlagen-designer.md). | Marke auch per Datei möglich | ja |
+| `bericht/` | Bericht für Werbepartner (Partner-Slots): öffentlich, ohne Login, die Zahlen stecken im Link. Siehe [partner-slots.md](partner-slots.md). | nein | ja |
 | `startseite/` | Der Beispiel-Fernseher auf der Startseite (`index.html`). Zeichnet die echten Player-Folien der Pizzeria mit Infoleiste und Übergängen. Die Farben kommen über eine Marke in ShowCube-Grün und -Gold, so wie ein Kunde seine eigenen Farben einstellt. Während der Mittagskarte fliegt ein Handy herein, ändert einen Preis, der sofort im Fernseher erscheint, und fliegt wieder hinaus. Der Build legt ihn als `release/startseite-demo.js` ab. Ändert sich eine Vorlage, ändert sich die Startseite nach dem nächsten Build mit. Mit „Bewegung reduzieren“ im Betriebssystem wechseln die Folien nur ruhig überblendet und das Handy blendet ein und aus, statt zu fliegen. | Website | Website |
 | `hardware/gehaeuse/` | Das Gehäuse der Box (Würfel-Front, Pi 5 hochkant auf der Rückwand). CAD-Dateien und Druckhinweise, siehe [LIESMICH.md](../hardware/gehaeuse/LIESMICH.md). | ja | ja |
 | `shared/paket.ts` | Das Format, das Panel und Player verbindet. Ein Format für beide Stufen. | | |
@@ -68,6 +69,7 @@ Echt:
 - Bausteine (QR-Code, Bewertungen, Countdown) und die Infoleiste reisen im Paket mit (`extras`, `leiste`). Der Player zeigt sie auch offline, nur das Wetter braucht Internet und fehlt sonst einfach.
 - Zeiträume (ab, bis, Wochentage) prüft der Player selbst anhand seiner Uhr. Ein Wochenangebot verschwindet also auch ohne Verbindung pünktlich.
 - Der Player zählt, wie oft jede Folie heute lief, und meldet das mit dem Herzschlag ans Panel (Fernwartung, „Heute gezeigt“, CSV-Bericht).
+- Partner-Slots (in den Einstellungen einschalten): Anzeigen von Werbepartnern laufen als jede N. Folie zwischen den eigenen, auch offline. Der Player zählt sie pro Tag, daraus wird der Bericht-Link für den Partner. Siehe [partner-slots.md](partner-slots.md).
 - „Für USB-Stick exportieren“ erzeugt `showcube-paket.json`, das der Player unter „Paket laden“ einliest.
 
 Mit Konto (sobald der Server eingerichtet ist, siehe [backend.md](backend.md)) ist auch das hier echt:
