@@ -37,6 +37,7 @@ const ICONS: Record<string, string> = {
   qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM17 17h4v4h-4"/>',
   play: '<path d="M7 5l12 7-12 7z"/>', plus: '<path d="M12 5v14M5 12h14"/>', trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  grip: '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
   up: '<path d="M6 15l6-6 6 6"/>', down: '<path d="M6 9l6 6 6-6"/>', undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
   upload: '<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>', download: '<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>', send: '<path d="M4 12l16-8-6 16-3-7z"/>',
   palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.6 1.7-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/>',
@@ -284,6 +285,11 @@ function neuesEl(typ: ElTyp, extra: Partial<El> = {}) {
 }
 function loeschen() { const v = V(); if (!v || !sel) return; merke(); beideListen(v).forEach(l => { const i = l.findIndex(e => e.id === sel); if (i >= 0) l.splice(i, 1); }); sel = null; save(); renderVorlagen(); }
 function verdoppeln() { const v = V(); if (!v || !sel) return; merke(); const nid = neueId(); beideListen(v).forEach(l => { const e = l.find(x => x.id === sel); if (e) l.push({ ...clone(e), id: nid, x: Math.min(95, e.x + 3), y: Math.min(95, e.y + 3) }); }); sel = nid; save(); renderVorlagen(); }
+// Ebenen: Die Liste läuft von hinten (Index 0) nach vorn. Neue Reihenfolge gilt in Quer- und Hochkant-Fassung.
+function ebenenOrdnen(ids: string[]) {
+  const v = V(); if (!v) return; const pos = new Map(ids.map((id, i) => [id, i]));
+  beideListen(v).forEach(l => l.sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9)));
+}
 function ebene(d: number) { const v = V(); if (!v || !sel) return; merke(); beideListen(v).forEach(l => { const i = l.findIndex(e => e.id === sel), j = i + d; if (i >= 0 && j >= 0 && j < l.length) l.splice(j, 0, l.splice(i, 1)[0]); }); save(); renderVorlagen(); }
 
 let buehne: HTMLCanvasElement = null, rahmen: HTMLElement = null, overlay: HTMLElement = null, kopfEl: HTMLElement = null;
@@ -446,23 +452,60 @@ function balkenTaste(ev: KeyboardEvent, e: El) {
   save(); renderSel(); renderEig(); renderZeit();
   (zeitEl.querySelector(`[data-id="${e.id}"]`) as HTMLElement)?.focus();
 }
+// Zeitleiste = Ebenenliste: oben steht, was vorn liegt. Am Griff links ziehen sortiert die Ebenen um.
+function zeilenZiehen(ev: PointerEvent, id: string, griff: HTMLElement) {
+  if (ev.button) return; ev.preventDefault(); ev.stopPropagation();
+  const zeilen = [...zeitEl.querySelectorAll<HTMLElement>('.zr[data-ebene]')], zeile = griff.closest<HTMLElement>('.zr');
+  const von = zeilen.indexOf(zeile), mitten = zeilen.map(z => { const r = z.getBoundingClientRect(); return r.top + r.height / 2; });
+  const hoehe = zeile.getBoundingClientRect().height + 4, y0 = ev.clientY; let ziel = von, moved = false;
+  griff.setPointerCapture?.(ev.pointerId);
+  const mv = (m: PointerEvent) => {
+    const dy = m.clientY - y0; if (!moved && Math.abs(dy) < 4) return;
+    if (!moved) { moved = true; zeile.classList.add('zieht'); zeitEl.classList.add('sortiert'); }
+    const y = mitten[von] + dy; ziel = mitten.filter((c, i) => i !== von && c < y).length;
+    zeile.style.transform = `translateY(${dy}px)`;
+    zeilen.forEach((z, i) => { if (i === von) return; const s = i > von && i <= ziel ? -1 : i < von && i >= ziel ? 1 : 0; z.style.transform = s ? `translateY(${s * hoehe}px)` : ''; });
+  };
+  const up = () => {
+    griff.removeEventListener('pointermove', mv); griff.removeEventListener('pointerup', up); griff.removeEventListener('pointercancel', up);
+    zeitEl.classList.remove('sortiert'); zeilen.forEach(z => { z.style.transform = ''; z.classList.remove('zieht'); });
+    if (!moved) { if (sel !== id) { sel = id; renderSel(); renderEig(); renderZeit(); } return; }
+    if (ziel === von) return;
+    const ids = zeilen.map(z => z.dataset.ebene); ids.splice(ziel, 0, ids.splice(von, 1)[0]);
+    merke(); sel = id; ebenenOrdnen(ids.reverse()); save(); renderVorlagen();
+    toast(`Ebene ${von + 1} liegt jetzt auf Position ${ziel + 1}.`);
+  };
+  griff.addEventListener('pointermove', mv); griff.addEventListener('pointerup', up); griff.addEventListener('pointercancel', up);
+}
+function griffTaste(ev: KeyboardEvent, id: string) {
+  const d = ev.key === 'ArrowUp' ? 1 : ev.key === 'ArrowDown' ? -1 : 0; if (!d) return; ev.preventDefault(); ev.stopPropagation();
+  sel = id; ebene(d); (zeitEl.querySelector(`.zr[data-ebene="${id}"] .griff`) as HTMLElement)?.focus();
+}
 function renderZeit() {
   if (!zeitEl) return; const v = V(); if (!v) return;
-  const an = els().filter(e => e.anim && e.anim !== 'keine'), ende = skala(v), schritt = ende > 12 ? 2 : 1;
+  const alle = els().slice().reverse(), an = alle.filter(e => e.anim && e.anim !== 'keine'), ende = skala(v), schritt = ende > 12 ? 2 : 1;
+  const typN = (e: El) => ({ text: 'Text', form: 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR' } as any)[e.typ] + (e.typ === 'text' || e.typ === 'qr' ? ': ' + (e.text || '').slice(0, 18) : '');
   kopfEl = h('div', { class: 'kopf', hidden: true });
-  fill(zeitEl, h('div', { class: 'row' }, h('h3', null, 'Zeitleiste'), h('span', { class: 'small' }, an.length ? 'Balken ziehen verschiebt den Start, an den Kanten ziehen ändert die Dauer. Anklicken wählt das Element aus.' : 'Noch keine Animation. Element wählen, rechts unter „Animation“ einstellen.')),
-    an.length ? h('div', { class: 'zr lineal', 'aria-hidden': 'true' }, h('span'), h('div', { class: 'skala' }, Array.from({ length: Math.ceil(ende / schritt) }, (_, i) => h('i', { style: `left:${i * schritt / ende * 100}%` }, i * schritt + ' s')))) : null,
-    an.map(e => h('div', { class: 'zr', 'aria-current': String(e.id === sel), onclick: () => { sel = e.id; renderSel(); renderEig(); renderZeit(); } },
-      h('span', null, ({ text: 'Text', form: 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR' } as any)[e.typ] + (e.typ === 'text' || e.typ === 'qr' ? ': ' + (e.text || '').slice(0, 18) : '') + ' · ' + ANIMS.find(a => a[0] === e.anim)[1]),
-      h('div', { class: 'bahn' }, (() => {
-        const b: HTMLElement = h('b', { class: endlos(e) ? 'endlos' : null, style: balkenStil(e, ende), tabindex: 0, role: 'slider', 'data-id': e.id, 'data-zeit': balkenTitel(e), title: balkenTitel(e),
-          'aria-label': 'Start der Animation', 'aria-valuemin': 0, 'aria-valuemax': ende, 'aria-valuenow': e.start || 0, 'aria-valuetext': balkenTitel(e),
-          onclick: (ev: Event) => ev.stopPropagation(), onkeydown: (ev: KeyboardEvent) => balkenTaste(ev, e) });
-        b.onpointerdown = (ev: PointerEvent) => balkenZiehen(ev, e, b, ende);
-        b.onpointermove = (ev: PointerEvent) => { if (ev.buttons || endlos(e)) return; const r = b.getBoundingClientRect(); b.style.cursor = ev.clientX - r.left < 8 || r.right - ev.clientX < 8 ? 'ew-resize' : 'grab'; };
-        return b;
-      })()))),
-    an.length ? h('div', { class: 'bahn', style: 'margin:0 4px 0 144px;background:transparent;height:6px' }, kopfEl) : null);
+  fill(zeitEl, h('div', { class: 'row' }, h('h3', null, 'Zeitleiste und Ebenen'), h('span', { class: 'small' }, alle.length < 2 ? (an.length ? 'Balken ziehen verschiebt den Start, an den Kanten ziehen ändert die Dauer.' : 'Noch keine Animation. Element wählen, rechts unter „Animation“ einstellen.')
+    : 'Oben liegt vorn. Am Griff links ziehen ändert die Reihenfolge der Ebenen. Balken ziehen verschiebt den Start, an den Kanten ziehen ändert die Dauer.')),
+    alle.length ? h('div', { class: 'zr lineal', 'aria-hidden': 'true' }, h('span'), h('span'), h('div', { class: 'skala' }, Array.from({ length: Math.ceil(ende / schritt) }, (_, i) => h('i', { style: `left:${i * schritt / ende * 100}%` }, i * schritt + ' s')))) : null,
+    alle.map((e, i) => {
+      const animiert = an.includes(e);
+      const griff: HTMLElement = h('button', { class: 'griff', title: 'Ziehen ändert die Reihenfolge der Ebenen (Pfeil hoch/runter mit der Tastatur)', 'aria-label': `Ebene ${i + 1} von ${alle.length}: ${typN(e)}. Pfeil hoch bringt sie nach vorn, Pfeil runter nach hinten.`,
+        onclick: (ev: Event) => ev.stopPropagation(), onkeydown: (ev: KeyboardEvent) => griffTaste(ev, e.id) }, icon('grip'));
+      griff.onpointerdown = (ev: PointerEvent) => zeilenZiehen(ev, e.id, griff);
+      return h('div', { class: 'zr', 'data-ebene': e.id, 'aria-current': String(e.id === sel), onclick: () => { sel = e.id; renderSel(); renderEig(); renderZeit(); } },
+        griff, h('span', null, h('em', null, String(i + 1)), typN(e) + (animiert ? ' · ' + ANIMS.find(a => a[0] === e.anim)[1] : '')),
+        h('div', { class: 'bahn' + (animiert ? '' : ' still') }, animiert ? (() => {
+          const b: HTMLElement = h('b', { class: endlos(e) ? 'endlos' : null, style: balkenStil(e, ende), tabindex: 0, role: 'slider', 'data-id': e.id, 'data-zeit': balkenTitel(e), title: balkenTitel(e),
+            'aria-label': 'Start der Animation', 'aria-valuemin': 0, 'aria-valuemax': ende, 'aria-valuenow': e.start || 0, 'aria-valuetext': balkenTitel(e),
+            onclick: (ev: Event) => ev.stopPropagation(), onkeydown: (ev: KeyboardEvent) => balkenTaste(ev, e) });
+          b.onpointerdown = (ev: PointerEvent) => balkenZiehen(ev, e, b, ende);
+          b.onpointermove = (ev: PointerEvent) => { if (ev.buttons || endlos(e)) return; const r = b.getBoundingClientRect(); b.style.cursor = ev.clientX - r.left < 8 || r.right - ev.clientX < 8 ? 'ew-resize' : 'grab'; };
+          return b;
+        })() : h('i', null, 'ohne Animation, immer sichtbar')));
+    }),
+    an.length ? h('div', { class: 'bahn', style: 'margin:0 4px 0 calc(var(--griff) + var(--label) + 24px);background:transparent;height:6px' }, kopfEl) : null);
 }
 function renderWerkzeuge() {
   if (!werkEl) return;
