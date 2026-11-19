@@ -29,6 +29,13 @@ Freie Gestaltung mit Text, Fläche, Kreis, Bild, Logo und QR-Code. Pro Element:
   spielt die Vorschau die Folie einmal ab. Umgekehrt folgen die Balken sofort, wenn du die Felder änderst.
   Mit der Tastatur: Balken anwählen, Pfeil links/rechts verschiebt, mit Umschalt ändert er die Dauer.
   Pulsieren und langsamer Zoom laufen bis zum Folienende, dort lässt sich nur der Start ziehen.
+- Ebenen in der Zeitleiste sortieren: Die Zeitleiste zeigt alle Elemente als Ebenen, oben liegt vorn
+  (Nummer 1 = ganz vorn). Am Griff links in der Zeile ziehen und loslassen ändert die Reihenfolge, auch per
+  Finger auf Handy und Tablet. Der Griff ist bewusst getrennt vom Zeitbalken, damit Sortieren und Zeit ziehen
+  sich nicht in die Quere kommen. Mit der Tastatur: Griff anwählen, Pfeil hoch bringt die Ebene nach vorn,
+  Pfeil runter nach hinten. Die Knöpfe „Nach vorn“ und „Nach hinten“ rechts gibt es weiterhin. Die Reihenfolge
+  gilt für Quer- und Hochkant-Fassung gleich, Strg + Z macht sie rückgängig. Elemente ohne Animation stehen
+  mit einer gestrichelten Bahn („immer sichtbar“) in der Liste.
 - **„Kunde darf das im Panel ausfüllen“**: macht das Element zu einem Feld (z. B. „Preis“, „Foto“).
   Alles andere bleibt gesperrt. So bleibt das CI sauber und der Kunde ändert trotzdem selbst den Preis.
 

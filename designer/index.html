@@ -139,7 +139,8 @@ header.top { position: sticky; top: 0; z-index: 20; display: flex; align-items: 
 .hilfs { position: absolute; background: #ff3d8b; pointer-events: none; }
 .hover { position: absolute; border: 1px dashed var(--sel); pointer-events: none; opacity: .7; }
 .zeit { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
-.zeit .zr { display: grid; grid-template-columns: 130px 1fr; gap: 10px; align-items: center; font-size: 12.5px; cursor: pointer; border-radius: 6px; padding: 1px 4px; }
+.zeit { --griff: 22px; --label: 130px; }
+.zeit .zr { display: grid; grid-template-columns: var(--griff) var(--label) 1fr; gap: 10px; align-items: center; font-size: 12.5px; cursor: pointer; border-radius: 6px; padding: 1px 4px; }
 .zeit .zr[aria-current="true"] { background: var(--surface-2); font-weight: 700; }
 .zeit .zr span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zeit .bahn { position: relative; height: 12px; background: var(--surface-2); border-radius: 6px; }
@@ -151,6 +152,18 @@ header.top { position: sticky; top: 0; z-index: 20; display: flex; align-items: 
 .zeit .bahn b.zieht { cursor: grabbing; opacity: 1; z-index: 2; }
 .zeit .bahn b.zieht::after { content: attr(data-zeit); position: absolute; left: 50%; bottom: calc(100% + 5px); transform: translateX(-50%); background: var(--ink); color: var(--surface); font: 700 11px var(--font-body); padding: 2px 7px; border-radius: 6px; white-space: nowrap; pointer-events: none; }
 .zeit .lineal { cursor: default; }
+.zeit .zr[data-ebene] { position: relative; transition: transform .15s; }
+.zeit .zr.zieht { transition: none; z-index: 3; background: var(--surface); box-shadow: 0 6px 18px -6px rgba(0,0,0,.35); }
+.zeit.sortiert, .zeit.sortiert * { cursor: grabbing !important; user-select: none; }
+.zeit .zr span em { font-style: normal; font-weight: 700; color: var(--faint); margin-right: 6px; font-variant-numeric: tabular-nums; }
+.zeit .griff { width: var(--griff); height: 22px; padding: 0; border: 0; background: none; color: var(--faint); border-radius: 5px; cursor: grab; touch-action: none; display: grid; place-items: center; }
+.zeit .griff svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+.zeit .griff:hover, .zeit .zr.zieht .griff { color: var(--ink); background: var(--surface-2); }
+.zeit .griff:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.zeit .bahn.still { overflow: hidden; background: repeating-linear-gradient(90deg, var(--surface-2) 0 6px, transparent 6px 10px); }
+.zeit .bahn.still i { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font: 600 10.5px var(--font-body); font-style: normal; color: var(--faint); white-space: nowrap; }
+@media (max-width: 800px) { .zeit { --label: 104px; } }
+@media (pointer: coarse) { .zeit { --griff: 34px; } .zeit .griff { height: 34px; } .zeit .zr { min-height: 36px; } }
 .zeit .skala { position: relative; height: 14px; border-bottom: 1px solid var(--line); }
 .zeit .skala i { position: absolute; bottom: 0; font: 600 10.5px var(--font-body); font-style: normal; color: var(--faint); padding-left: 3px; border-left: 1px solid var(--line); height: 10px; line-height: 10px; white-space: nowrap; }
 .zeit .kopf { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #ff3d8b; }
