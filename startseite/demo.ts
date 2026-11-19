@@ -4,8 +4,12 @@
 // mit Infoleiste, Übergängen und einem Handy, auf dem gerade ein Preis geändert wird.
 // So sieht der Interessent genau das, was später im Laden läuft, und nicht eine nachgebaute Grafik.
 //
+// Die Folien laufen in den ShowCube-Farben, über eine Marke (shared/marke.ts), genau so wie ein Kunde
+// seine eigenen Farben einstellt. Das Handy fliegt nur für die Preisänderung herein und danach wieder hinaus,
+// damit der Fernseher im Vordergrund bleibt.
+//
 // Bewegung reduzieren (Betriebssystem-Einstellung): Die Folien wechseln trotzdem, aber nur mit einer
-// ruhigen Überblendung. Pizza, Laufband und Zoom stehen still.
+// ruhigen Überblendung. Muster, Laufband und Zoom stehen still, das Handy blendet nur ein und aus.
 import { TEMPLATES } from '../shared/templates';
 import { bausteinSlide, drawLeiste, leisteH, type Baustein, type Leiste } from '../shared/bausteine';
 
@@ -15,14 +19,16 @@ interface Folie { draw: Draw; dur: number; menu?: boolean; }
 const T = TEMPLATES.gastro;
 const ALT = '8,90 €', NEU = '7,90 €';
 const items = () => T.items.split('\n').map(l => l.split('|').map(s => s.trim()));
-const d: any = { name: T.name, accent: T.accent, hours: 'Mo bis Sa, 11:30 bis 23 Uhr', items: items(), logo: null, marke: null };
+// ShowCube-Farben als Marke: Grün als Hauptfarbe, Gold als Zweitfarbe, das tiefe Grün der Startseite als Hintergrund.
+const FARBEN = { primaer: '#2bb596', zweit: '#f2b441', dunkel: '#0f2a25', hell: '#f6f5f1' };
+const d: any = { name: T.name, accent: FARBEN.primaer, hours: 'Mo bis Sa, 11:30 bis 23 Uhr', items: items(), logo: null, marke: { farben: FARBEN, vorlagen: [] } };
 const salame = d.items.findIndex(r => r[0] === 'Salame');
 
 const bs = (kind: Baustein['kind'], f: Record<string, string>): Draw => bausteinSlide({ id: kind, kind, on: true, when: 'always' as any, f } as Baustein) as Draw;
 const inTwoDays = () => { const x = new Date(Date.now() + 2 * 864e5 + 5 * 36e5); return x.toISOString(); };
 const [mittag, deal] = (T.slides as any)(0, d) as Draw[];
 const FOLIEN: Folie[] = [
-  { draw: mittag, dur: 9, menu: true },
+  { draw: mittag, dur: 10, menu: true },
   { draw: deal, dur: 7 },
   { draw: bs('reviews', { score: '4,8', count: '214 Bewertungen auf Google', q1: 'Die beste Pizza der Stadt, und super freundlich.', a1: 'Laura M.', q2: 'Schnell, heiß und der Teig ist ein Traum.', a2: 'Tobias K.', url: 'https://g.page/r/showcube-demo/review' }), dur: 9 },
   { draw: bs('countdown', { kicker: 'Nur diese Woche', title: 'Familien-Pizza', big: '−20 %', until: inTwoDays() }), dur: 7 },
@@ -64,7 +70,7 @@ function start(stage: HTMLElement, scr: HTMLElement) {
     const k = t - PUBLISH; if (k < 0 || k > 2.4 || salame < 0) return;
     const u = Math.min(w, h) / 100, rows = Math.min(d.items.length, 5), top = u * 34, avail = h - top - u * 16, step = Math.min(u * 11, avail / rows);
     const y = top + step * salame + step * .6, a = Math.max(0, 1 - k / 2.4);
-    c.save(); c.globalAlpha = a; c.strokeStyle = '#ffd36a'; c.lineWidth = u * .7;
+    c.save(); c.globalAlpha = a; c.strokeStyle = FARBEN.zweit; c.lineWidth = u * .7;
     const bw = u * 24, bh = u * 9; c.beginPath(); (c as any).roundRect(w - u * 6 - bw + u * 2, y - bh * .78, bw, bh, u * 2); c.stroke(); c.restore();
   }
   function frame(now: number) {
@@ -98,8 +104,9 @@ function start(stage: HTMLElement, scr: HTMLElement) {
 function resetPrice() { if (salame >= 0) d.items[salame][1] = ALT; }
 
 // ---------- Handy mit dem Panel ----------
-// Zeitachse innerhalb der Mittagskarte (Sekunden): antippen, tippen, veröffentlichen, live.
-const TAP = 1.6, TYPE = 2.4, PRESS = 4.0, PUBLISH = 4.5;
+// Zeitachse innerhalb der Mittagskarte (Sekunden): hereinfliegen, antippen, tippen, veröffentlichen, live, hinausfliegen.
+// Danach steht der Fernseher mit dem neuen Preis wieder allein im Bild.
+const IN = .5, TAP = 1.9, TYPE = 2.6, PRESS = 4.2, PUBLISH = 4.7, OUT = 6.9;
 function buildPhone(stage: HTMLElement) {
   const el = document.createElement('div'); el.className = 'phone'; el.setAttribute('aria-hidden', 'true');
   el.innerHTML = `<div class="pscr">
@@ -114,16 +121,16 @@ function buildPhone(stage: HTMLElement) {
   let last = '';
   return {
     update(t: number) {
-      // t < 0: gerade keine Mittagskarte, das Handy zeigt die Liste in Ruhe.
-      const st = t < 0 ? (last === 'live' || last === 'done' ? 'done' : 'idle')
-        : t < TAP ? 'idle' : t < TYPE ? 'tap' : t < PRESS ? 'type' : t < PUBLISH ? 'press' : t < PUBLISH + 3 ? 'live' : 'done';
+      // t < 0: gerade keine Mittagskarte. Außerhalb von IN bis OUT ist das Handy aus dem Bild geflogen.
+      const st = t < IN || t >= OUT ? 'off'
+        : t < TAP ? 'idle' : t < TYPE ? 'tap' : t < PRESS ? 'type' : t < PUBLISH ? 'press' : t < PUBLISH + 1.8 ? 'live' : 'done';
       if (st === 'type' && price) {
         const n = Math.min(NEU.length, Math.floor((t - TYPE) / ((PRESS - TYPE - .3) / NEU.length)));
         price.textContent = n <= 0 ? '' : NEU.slice(0, n);
       }
       if (st === last) return; last = st;
       el.dataset.st = st;
-      if (price && st === 'idle') price.textContent = ALT;
+      if (price && (st === 'idle' || (st === 'off' && t < IN))) price.textContent = ALT;
       if (price && (st === 'press' || st === 'live' || st === 'done')) price.textContent = NEU;
     },
   };
