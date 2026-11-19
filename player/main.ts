@@ -4,6 +4,7 @@ import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates
 import { CHANNEL, paketFromFile, type Msg, type Paket } from '../shared/paket';
 import { hatServer, verbinden, SPEICHER, BUCKET, type SupabaseClient } from '../shared/cloud';
 import { useMarke, logoBild } from '../shared/marke';
+import { werbeSlots, mischen } from '../shared/werbung';
 import { activeOn, bausteinActive, bausteinSlide, bausteinTitle, BAUSTEINE, drawLeiste, leisteH, fetchWetter, type Wetter } from '../shared/bausteine';
 
 // ?live=<id>: dieser Player ist ein Bildschirm im Cloud-Panel (Prototyp: anderer Tab im selben Browser).
@@ -13,7 +14,7 @@ const SUFFIX = LIVE ? '-live-' + LIVE : '';
 
 // ---------- Speicher: Einstellungen in localStorage, Dateien in IndexedDB ----------
 const KEY = 'svizzbox-player-v0' + SUFFIX;
-const DEF = { revision: 0, tpl: 'makler', tplOn: true, name: '', items: '', accent: '', dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', offDays: [], notice: null, dur: 8, fit: 'cover', media: [], extras: [], leiste: null, marke: null };
+const DEF = { revision: 0, tpl: 'makler', tplOn: true, name: '', items: '', accent: '', dayStart: '06:00', eveStart: '17:00', offOn: true, offFrom: '22:00', offTo: '07:00', offDays: [], notice: null, dur: 8, fit: 'cover', media: [], extras: [], leiste: null, marke: null, werbung: null };
 let C = Object.assign({}, DEF);
 let storeOK = true;
 try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) C = Object.assign({}, DEF, s); } catch (e) { storeOK = false; }
@@ -84,7 +85,8 @@ function playlist(p) {
   if (C.tplOn && TEMPLATES[C.tpl]) TEMPLATES[C.tpl].slides(p === 'eve', d).forEach((fn, i) => list.push({ kind: 'tpl', fn, label: TEMPLATES[C.tpl].label.split(':')[0] + ', Folie ' + (i + 1) }));
   (C.extras || []).filter(b => fits(b) && bausteinActive(b, now)).forEach(b => list.push({ kind: 'tpl', fn: bausteinSlide(b), label: BAUSTEINE[b.kind].label + ': ' + bausteinTitle(b) }));
   C.media.filter(m => fits(m) && activeOn(m, now)).forEach(m => { if (blobs.has(m.id)) list.push({ kind: m.type, id: m.id, label: m.name }); });
-  return list;
+  // Partner-Slots: Anzeigen der Werbepartner in die Schleife mischen (jede N. Folie).
+  return mischen(list, werbeSlots(C.werbung, p, now).map(w => ({ alle: w.alle, item: { kind: 'tpl', fn: bausteinSlide(w.folie), label: 'Partner: ' + w.name, partner: w.id } })));
 }
 
 // ---------- Wiedergabe-Nachweis: wie oft lief welche Folie heute ----------
@@ -94,6 +96,17 @@ try { const s = JSON.parse(localStorage.getItem(PKEY) || 'null'); if (s && s.day
 function countPlay(label: string) {
   if (!label) return; if (plays.day !== today()) plays = { day: today(), n: {} };
   plays.n[label] = (plays.n[label] || 0) + 1; try { localStorage.setItem(PKEY, JSON.stringify(plays)); } catch (e) {}
+}
+
+// Partner-Slots: Einblendungen je Partner und Tag, die letzten 62 Tage. Daraus entsteht der Bericht für den Partner.
+const WKEY = KEY + '-werbung';
+let wHist: Record<string, Record<string, number>> = {};
+try { wHist = JSON.parse(localStorage.getItem(WKEY) || '{}') || {}; } catch (e) {}
+function countPartner(id: string) {
+  const d = new Date(), k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const day = wHist[k] = wHist[k] || {}; day[id] = (day[id] || 0) + 1;
+  const keys = Object.keys(wHist).sort(); keys.slice(0, Math.max(0, keys.length - 62)).forEach(x => delete wHist[x]);
+  try { localStorage.setItem(WKEY, JSON.stringify(wHist)); } catch (e) {}
 }
 
 // ---------- Infoleiste: Laufband, Uhr, Wetter ----------
@@ -149,7 +162,7 @@ function advance() {
     timer = setTimeout(advance, 5000); return;
   }
   empty.hidden = true; offhint.hidden = true;
-  idx = (idx + 1) % list.length; countPlay(list[idx].label);
+  idx = (idx + 1) % list.length; countPlay(list[idx].label); if (list[idx].partner) countPartner(list[idx].partner);
   const L = makeLayer(list[idx]); screen.appendChild(L.el);
   L.t0 = performance.now();
   if (L.canvas) { sizeCanvas(L); L.fn = list[idx].fn; L.fn(L.ctx, L.canvas.width, L.canvas.height, data(), 0); }
@@ -268,7 +281,7 @@ function applyPaket(p: Paket) {
   C.media.forEach(m => dbDel(m.id)); dbDel('logo'); logoImg = null;
   Object.entries(p.files || {}).forEach(([id, b]) => { if (b instanceof Blob) dbPut(id, b); });
   Object.assign(C, { revision: p.show.revision, tplOn: !!c.tpl, tpl: c.tpl || C.tpl, name: c.name, items: c.items, accent: c.accent, dur: c.dur, fit: c.fit,
-    dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays || [], notice: c.notice || null, media: c.media.map(m => ({ ...m })), extras: (c.extras || []).map(b => ({ ...b, f: { ...b.f } })), leiste: c.leiste ? { ...c.leiste } : null, marke: c.marke || null });
+    dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays || [], notice: c.notice || null, media: c.media.map(m => ({ ...m })), extras: (c.extras || []).map(b => ({ ...b, f: { ...b.f } })), leiste: c.leiste ? { ...c.leiste } : null, marke: c.marke || null, werbung: c.werbung || null });
   useMarke(C.marke).then(() => { if (cur && cur.canvas) cur.t0 = performance.now(); }); bewegung();
   layoutLeiste(); loadWetter(); loadLogo(); applyTpl(C.tpl, true); syncForm(); renderMedia(); restart(); showNotice();
   toast('Neue Inhalte: „' + p.show.name + '“ (Stand ' + p.show.revision + ')');
@@ -317,7 +330,7 @@ if (LIVE && 'BroadcastChannel' in window) {
       if (m.cmd === 'shot') send({ t: 'shot', screen: LIVE, url: snapshot() });
     }
   };
-  const beat = () => send({ t: 'beat', screen: LIVE, period: period(new Date()), slide: idx + 1, of: playlist(period(new Date())).length, revision: C.revision, power: !forcedOff, w: innerWidth, h: innerHeight, uptime: Math.round((Date.now() - born) / 1000), plays: plays.day === today() ? plays.n : {}, wx: !!wxNow() });
+  const beat = () => send({ t: 'beat', screen: LIVE, period: period(new Date()), slide: idx + 1, of: playlist(period(new Date())).length, revision: C.revision, power: !forcedOff, w: innerWidth, h: innerHeight, uptime: Math.round((Date.now() - born) / 1000), plays: plays.day === today() ? plays.n : {}, wx: !!wxNow(), werbung: wHist });
   setInterval(beat, 3000);
   window['__live'] = () => { send({ t: 'hello', screen: LIVE }); beat(); };
 }
@@ -354,7 +367,7 @@ let cloudState: 'start' | 'pair' | 'ok' | 'offline' | 'fremd' = 'start', cloudNa
 let stand = ''; try { stand = localStorage.getItem(CKEY + '-stand') || ''; } catch (e) {}
 function zustand() {
   const p = period(new Date());
-  return { period: p, slide: idx + 1, of: playlist(p).length, revision: C.revision, power: !forcedOff, w: innerWidth, h: innerHeight, uptime: Math.round((Date.now() - born) / 1000), plays: plays.day === today() ? plays.n : {}, wx: !!wxNow() };
+  return { period: p, slide: idx + 1, of: playlist(p).length, revision: C.revision, power: !forcedOff, w: innerWidth, h: innerHeight, uptime: Math.round((Date.now() - born) / 1000), plays: plays.day === today() ? plays.n : {}, wx: !!wxNow(), werbung: wHist };
 }
 let pairCode: string | null = null;
 function showPair(code: string | null, offline = false) {

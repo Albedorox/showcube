@@ -55,7 +55,7 @@ export function drawQR(ctx: CanvasRenderingContext2D, text: string, x: number, y
 const short = (url: string) => (url || '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
 
 // ---------- Folienarten ----------
-export type BausteinKind = 'qr' | 'reviews' | 'countdown' | 'design';
+export type BausteinKind = 'qr' | 'reviews' | 'countdown' | 'design' | 'anzeige' | 'werbeplatz';
 export interface Baustein extends Zeitraum { id: string; kind: BausteinKind; on: boolean; when: When; f: Record<string, string>; }
 interface Field { k: string; label: string; ph?: string; type?: string; wide?: boolean; }
 export const BAUSTEINE: Record<BausteinKind, { label: string; desc: string; fields: Field[]; f: Record<string, string> }> = {
@@ -80,8 +80,21 @@ export const BAUSTEINE: Record<BausteinKind, { label: string; desc: string; fiel
     label: 'Eigene Vorlage', desc: 'Im Design deiner Marke, gestaltet im Vorlagen-Designer.',
     fields: [], f: {},
   },
+  // Partner-Slots (shared/werbung.ts): Anzeige eines Werbepartners. Eigene Farbe und eigenes Bild, nicht die Marke des Ladens.
+  // Mit Bild und ohne Überschrift zeigt die Folie nur das Bild (fertige Anzeige vom Partner).
+  anzeige: {
+    label: 'Anzeige', desc: 'Werbung eines Partners: Bild, Text und QR-Code in seiner Farbe.',
+    fields: [{ k: 'firma', label: 'Firma', ph: 'Blumen Berger' }, { k: 'title', label: 'Überschrift', ph: 'Frische Tulpen' }, { k: 'text', label: 'Text', ph: 'Zwei Minuten von hier, Marktstraße 12.', wide: true }, { k: 'url', label: 'Link für den QR-Code (leer = kein Code)', ph: 'https://…', type: 'url', wide: true }],
+    f: { firma: 'Blumen Berger', title: 'Frische Tulpen für dein Zuhause', text: 'Nur zwei Minuten von hier, Marktstraße 12.', url: '', farbe: '#c2185b' },
+  },
+  // Wirbt um neue Partner, solange Plätze frei sind. `reichweite` füllt das Panel aus dem Zeitplan aus.
+  werbeplatz: {
+    label: 'Werbeplatz frei', desc: 'Der Bildschirm wirbt selbst um neue Werbepartner.',
+    fields: [{ k: 'title', label: 'Überschrift', ph: 'Dein Geschäft auf diesem Bildschirm' }, { k: 'text', label: 'Text', ph: 'Wir vermieten Sendezeit an Nachbarn aus der Region.', wide: true }, { k: 'kontakt', label: 'Kontakt', ph: 'Frag einfach an der Kasse', wide: true }, { k: 'url', label: 'Link für den QR-Code', ph: 'mailto:… oder https://…', type: 'url', wide: true }],
+    f: { title: 'Dein Geschäft auf diesem Bildschirm', text: 'Wir vermieten Sendezeit an Geschäfte aus der Nachbarschaft.', kontakt: 'Frag einfach an der Kasse.', url: 'mailto:hallo@example.de?subject=Werbeplatz', reichweite: '' },
+  },
 };
-export const bausteinTitle = (b: Baustein) => b.kind === 'design' ? b.f.titel || 'Eigene Vorlage' : (b.kind === 'reviews' ? (b.f.score ? b.f.score + ' Sterne' : '') : b.f.title || '').trim() || BAUSTEINE[b.kind].label;
+export const bausteinTitle = (b: Baustein) => b.kind === 'design' ? b.f.titel || 'Eigene Vorlage' : b.kind === 'anzeige' ? (b.f.firma || b.f.title || 'Anzeige') : (b.kind === 'reviews' ? (b.f.score ? b.f.score + ' Sterne' : '') : b.f.title || '').trim() || BAUSTEINE[b.kind].label;
 // Ein Countdown nach seinem Ende ist auch abgelaufen.
 export const bausteinActive = (b: Baustein, d = new Date()) => b.on && activeOn(b, d) && !(b.kind === 'countdown' && b.f.until && Date.parse(b.f.until) <= d.getTime());
 
@@ -104,6 +117,8 @@ export function bausteinSlide(b: Baustein) {
     font(ctx, 600, u * 4, BODY); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('Vorlage „' + (f.titel || '') + '“ fehlt in der Marke', w / 2, h / 2);
   };
+  if (b.kind === 'anzeige') return anzeigeSlide(f);
+  if (b.kind === 'werbeplatz') return werbeplatzSlide(f);
   if (b.kind === 'qr') return (ctx: CanvasRenderingContext2D, w: number, h: number, d: any) => {
     const u = Math.min(w, h) / 100, port = h > w, P = pal(d);
     ctx.fillStyle = P.marke ? P.papier : '#f4f1ea'; ctx.fillRect(0, 0, w, h);
@@ -170,6 +185,67 @@ export function bausteinSlide(b: Baustein) {
       });
     } else { font(ctx, 600, u * 3.4, BODY); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillText('Enddatum eintragen, dann zählt die Folie herunter.', bx, by + bh / 2); }
     if (port) { font(ctx, 600, u * 3.4, BODY); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillText(d.name, u * 6, h - u * 5); } else brand(ctx, d, w, u, 'rgba(255,255,255,.9)');
+  };
+}
+
+// ---------- Partner-Slots: Anzeige und „Werbeplatz frei“ ----------
+const bilder = new Map<string, HTMLImageElement>();
+function bildVon(src: string) { if (!src) return null; let i = bilder.get(src); if (!i) { i = new Image(); i.src = src; bilder.set(src, i); } return i.complete && i.naturalWidth ? i : null; }
+const hexOk = (c: string) => /^#[0-9a-f]{6}$/i.test(c || '');
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
+  const s = Math.max(w / img.naturalWidth, h / img.naturalHeight), iw = img.naturalWidth * s, ih = img.naturalHeight * s;
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.drawImage(img, x + (w - iw) / 2, y + (h - ih) / 2, iw, ih); ctx.restore();
+}
+// Kleines Schild „Anzeige“: Werbung von Partnern ist auf dem Bildschirm als solche erkennbar.
+function anzeigeSchild(ctx: CanvasRenderingContext2D, w: number, u: number) {
+  ctx.save(); font(ctx, 700, u * 2.3, BODY); const t = 'ANZEIGE', tw = ctx.measureText(t).width;
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; rr(ctx, w - tw - u * 6.4, u * 3, tw + u * 3.4, u * 4.4, u * 2.2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(t, w - tw - u * 4.7, u * 5.25); ctx.restore();
+}
+function anzeigeSlide(f: Record<string, string>) {
+  return (ctx: CanvasRenderingContext2D, w: number, h: number, d: any, t = 0) => {
+    const u = Math.min(w, h) / 100, port = h > w, col = hexOk(f.farbe) ? f.farbe : '#c2185b', img = bildVon(f.bild);
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    // Fertige Anzeige: nur das Bild.
+    if (img && !(f.title || '').trim()) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h); drawCover(ctx, img, 0, 0, w, h); anzeigeSchild(ctx, w, u); return; }
+    ctx.fillStyle = mix(col, .55); ctx.fillRect(0, 0, w, h);
+    const iw = img ? (port ? w : w * .46) : 0, ih = img ? (port ? h * .42 : h) : 0;
+    if (img) { drawCover(ctx, img, port ? 0 : w - iw, 0, iw, ih); }
+    else { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(port ? w * .8 : w * .86, port ? h * .18 : h * .5, (port ? w * .5 : h * .55) * (1 + Math.sin(t * .8) * .02), 0, 7); ctx.fill(); }
+    const x0 = u * 7, tw = port ? w - u * 14 : (img ? w - iw : w * .72) - u * 12, qr = (f.url || '').trim();
+    let y = port ? (img ? ih + u * 12 : h * .4) : h * .24;
+    font(ctx, 700, u * 4.2, BODY); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillText((f.firma || '').toUpperCase(), x0, y);
+    font(ctx, 800, u * (port ? 10 : 10.5), DISP); ctx.fillStyle = '#fff';
+    const ls = wrap(ctx, f.title || '', tw).slice(0, 3); ls.forEach((l, i) => ctx.fillText(l, x0, y + u * 12.5 * (i + 1))); y += u * 12.5 * ls.length + u * 8;
+    font(ctx, 500, u * 4.8, BODY); ctx.fillStyle = 'rgba(255,255,255,.88)'; wrap(ctx, f.text || '', tw - (qr && !img && !port ? u * 4 : 0)).slice(0, 3).forEach((l, i) => ctx.fillText(l, x0, y + u * 6.6 * i));
+    if (qr) {
+      const s = port ? w * .26 : h * .24, qx = port ? w - s - u * 7 : (img ? w - iw - s - u * 6 : w - s - u * 8), qy = h - s - u * 7;
+      drawQR(ctx, qr, qx, qy, s);
+    }
+    anzeigeSchild(ctx, w, u);
+  };
+}
+function werbeplatzSlide(f: Record<string, string>) {
+  return (ctx: CanvasRenderingContext2D, w: number, h: number, d: any, t = 0) => {
+    const u = Math.min(w, h) / 100, port = h > w, P = pal(d);
+    ctx.fillStyle = P.marke ? P.dunkel : '#14181a'; ctx.fillRect(0, 0, w, h);
+    // Ein leerer Rahmen, der sanft pulsiert: hier ist Platz.
+    const fx = port ? u * 8 : w * .58, fy = port ? h * .1 : h * .16, fw = port ? w - u * 16 : w * .34, fh = port ? h * .3 : h * .68;
+    ctx.save(); ctx.setLineDash([u * 3, u * 2.2]); ctx.lineDashOffset = -t * u * 4; ctx.lineWidth = u * .8; ctx.strokeStyle = d.accent; rr(ctx, fx, fy, fw, fh, u * 3); ctx.stroke(); ctx.restore();
+    const qr = (f.url || '').trim(), s = Math.min(fw, fh) * .62;
+    if (qr) drawQR(ctx, qr, fx + (fw - s) / 2, fy + (fh - s) / 2 - u * 2, s);
+    font(ctx, 600, u * 2.8, BODY); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    if (qr) ctx.fillText('Scannen und anfragen', fx + fw / 2, fy + fh - u * 3.5);
+    ctx.textAlign = 'left';
+    const x0 = u * 7, tw = port ? w - u * 14 : w * .5 - u * 7; let y = port ? fy + fh + u * 12 : h * .26;
+    font(ctx, 700, u * 3.6, BODY); ctx.fillStyle = d.accent; ctx.fillText('WERBEPLATZ FREI', x0, y);
+    font(ctx, 800, u * (port ? 8 : 7.4), DISP); ctx.fillStyle = '#fff';
+    const ls = wrap(ctx, f.title || '', tw).slice(0, 3); ls.forEach((l, i) => ctx.fillText(l, x0, y + u * 9 * (i + 1))); y += u * 9 * ls.length + u * 7;
+    font(ctx, 500, u * 3.8, BODY); ctx.fillStyle = 'rgba(255,255,255,.8)';
+    const body = [f.text, f.reichweite].filter(x => (x || '').trim()).join(' ');
+    const bl = wrap(ctx, body, tw).slice(0, 4); bl.forEach((l, i) => ctx.fillText(l, x0, y + u * 5.4 * i)); y += u * 5.4 * bl.length + u * 4;
+    font(ctx, 700, u * 3.8, BODY); ctx.fillStyle = '#fff'; fit(ctx, f.kontakt || '', tw, u * 3.8, 700, BODY); ctx.fillText(f.kontakt || '', x0, y);
+    if (!port) brand(ctx, d, w, u, 'rgba(255,255,255,.85)');
   };
 }
 
