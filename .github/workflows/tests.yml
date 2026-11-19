@@ -1,0 +1,49 @@
+# Regressionstests: bei jedem Pull Request und auf main.
+# 1. Typprüfung und Build. Danach muss release/ genau dem eingecheckten Stand entsprechen.
+# 2. Playwright-Tests gegen release/ und die Startseite (Abläufe und Bildvergleiche), ohne echtes Backend.
+# Rot heißt: etwas, das vorher ging, ist kaputt. Erst reparieren, dann mergen. Anleitung: docs/tests.md
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+
+      - name: Typprüfung und Build
+        run: npm run build
+      - name: Ist release/ aktuell?
+        run: |
+          if ! git diff --quiet -- release/; then
+            git --no-pager diff --stat -- release/
+            echo "::error::release/ passt nicht zum Code. Bitte 'npm run build' ausführen und release/ mit einchecken."
+            exit 1
+          fi
+
+      - name: Browser für die Tests installieren
+        run: npx playwright install --with-deps chromium
+      - name: Playwright-Tests
+        run: npx playwright test
+      - name: Bericht hochladen
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: testbericht
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

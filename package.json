@@ -10,6 +10,9 @@
     "dev:designer": "vite designer",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && node scripts/build.mjs",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:bilder": "playwright test --grep Bildvergleich --update-snapshots=changed",
     "backend:start": "supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta,realtime",
     "backend:stop": "supabase stop",
     "backend:test": "node scripts/backend-test.mjs"
@@ -20,6 +23,7 @@
     "@fontsource-variable/nunito": "^5.3.0",
     "@fontsource-variable/oswald": "^5.3.0",
     "@fontsource-variable/playfair-display": "^5.3.0",
+    "@playwright/test": "^1.63.0",
     "@supabase/supabase-js": "^2.119.0",
     "qrcode-generator": "^1.4.4",
     "supabase": "^3.1.0",

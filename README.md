@@ -24,6 +24,7 @@ Internet läuft.
 | `shared/` | Gemeinsame Folien-Vorlagen, Schriften und das Paket-Format zwischen Panel und Player (Bricolage Grotesque, Figtree; beide OFL 1.1). | |
 | `index.html` | Startseite für GitHub Pages (https://albedorox.github.io/showcube/): Verkaufsseite für Interessenten mit Branchen, Funktionen, Preisen und häufigen Fragen. Die Links zu Panel, Player und Konfigurator stehen im Footer. `panel.html?demo` öffnet gleich die Demo. Der Fernseher oben zeigt die echten Player-Folien in den ShowCube-Farben (Code in `startseite/demo.ts`, gebaut nach `release/startseite-demo.js`). Für die Preisänderung fliegt ein Handy herein und danach wieder hinaus, damit der Fernseher im Vordergrund bleibt. Schriften und Vorschaubild liegen in `assets/`, `sitemap.xml` ist für die Google Search Console. | Preise, Kontaktadresse und Impressum sind noch vorläufig |
 | `hardware/` | Gehäuse v1 für den Raspberry Pi 5: von vorne ein Würfel (96 × 96 mm), 40 mm tief, Kabel gehen unsichtbar hinten unten raus. Solidcraft-Datei, STEP, STL und 3MF zum Drucken, Bilder und Druckhinweise in [hardware/gehaeuse/LIESMICH.md](hardware/gehaeuse/LIESMICH.md). Wird nicht auf GitHub Pages veröffentlicht (`_config.yml`). | Prototyp, Maße aus dem Datenblatt, noch nicht gedruckt |
+| `tests/` | Automatische Regressionstests mit Playwright: die wichtigsten Abläufe von Startseite, Player, Panel, Partner-Slots und Designer im echten Browser, dazu Bildvergleiche. Laufen bei jedem Pull Request auf GitHub (Workflow „Tests“), ohne echtes Backend und mit fester Uhrzeit. Jede neue Funktion bringt ihren Test mit. Siehe [docs/tests.md](docs/tests.md). | 44 Tests, laufen bei jedem PR |
 | `release/` | Fertig gebaute Einzeldateien `player.html`, `panel.html`, `konfigurator.html`, `designer.html` und `bericht.html` (Bericht für Werbepartner). | wird bei jedem Build erneuert |
 | `docs/` | Anleitungen, z.B. Testbox einrichten. | |
 
@@ -50,11 +51,13 @@ npm run dev:player         # Player mit Live-Vorschau
 npm run dev:konfigurator   # Konfigurator mit Live-Vorschau
 npm run dev:designer       # Vorlagen-Designer mit Live-Vorschau
 npm run build              # Typprüfung, dann release/*.html neu bauen
+npm test                   # alle Tests gegen release/ (vorher bauen), siehe docs/tests.md
 npm run backend:start      # lokaler Supabase-Server (braucht Docker), siehe docs/backend.md
 npm run backend:test       # prüft Koppeln, Veröffentlichen und Zugriffsregeln
 ```
 
-Nach Änderungen `npm run build` ausführen und `release/` mit einchecken.
+Nach Änderungen `npm run build` ausführen, `npm test` laufen lassen und `release/` mit einchecken.
+Neue Funktionen bringen ihren Test mit, siehe [docs/tests.md](docs/tests.md).
 
 App-Icon oder Aussehen des Panels geändert? Dann auch die Bilder fürs Installieren neu machen:
 `npm run build`, dann `node scripts/pwa-bilder.mjs` (braucht Playwright), dann noch einmal `npm run build`.
