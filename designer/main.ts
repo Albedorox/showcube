@@ -401,11 +401,13 @@ function renderEig() {
 let listeT: any; const renderListeSoon = () => { clearTimeout(listeT); listeT = setTimeout(renderListe, 300); };
 function renderListe() {
   if (!listeEl) return; const m = M();
-  fill(listeEl, h('h3', null, 'Vorlagen von ' + (m.name || 'Kunde')),
-    m.vorlagen.map((v, i) => h('button', { class: 'vitem', 'aria-current': String(i === vi), onclick: () => { vi = i; sel = null; renderVorlagen(); } }, leinwand((x, w, hh) => { useMarke(m); drawDesign(x, w, hh, daten(m), 99, v); }), h('b', null, v.name))),
-    h('h3', { style: 'margin-top:6px' }, 'Neu anfangen'),
-    h('div', { class: 'starter' }, STARTER.map(s => h('button', { onclick: () => { merke(); m.vorlagen.push(s.make()); vi = m.vorlagen.length - 1; sel = null; playAt = performance.now(); save(); renderVorlagen(); } }, h('b', null, s.name), h('span', null, s.desc))),
-      h('button', { onclick: () => { merke(); m.vorlagen.push(leereVorlage()); vi = m.vorlagen.length - 1; sel = null; save(); renderVorlagen(); } }, h('b', null, 'Leere Vorlage'), h('span', null, 'Nur eine Überschrift, alles andere baust du selbst.'))));
+  fill(listeEl, h('section', { class: 'gruppe', 'aria-label': 'Vorlagen von ' + (m.name || 'Kunde') },
+      h('div', { class: 'gkopf' }, h('h3', null, 'Vorlagen von ' + (m.name || 'Kunde')), h('span', { class: 'small' }, m.vorlagen.length ? m.vorlagen.length + (m.vorlagen.length === 1 ? ' Vorlage · zum Bearbeiten wählen' : ' Vorlagen · zum Bearbeiten wählen') : 'Noch keine. Unten einen Startpunkt wählen.')),
+      m.vorlagen.length ? h('div', { class: 'reihe' }, m.vorlagen.map((v, i) => h('button', { class: 'vitem', 'aria-current': String(i === vi), onclick: () => { vi = i; sel = null; renderVorlagen(); } }, leinwand((x, w, hh) => { useMarke(m); drawDesign(x, w, hh, daten(m), 99, v); }), h('b', null, v.name)))) : null),
+    h('section', { class: 'gruppe', 'aria-label': 'Neue Vorlage anlegen' },
+    h('div', { class: 'gkopf' }, h('h3', null, 'Neue Vorlage anlegen'), h('span', { class: 'small' }, 'Startpunkt wählen, er bekommt sofort die Farben und Schriften der Marke.')),
+    h('div', { class: 'starter reihe' }, STARTER.map(s => h('button', { onclick: () => { merke(); m.vorlagen.push(s.make()); vi = m.vorlagen.length - 1; sel = null; playAt = performance.now(); save(); renderVorlagen(); } }, h('b', null, s.name), h('span', null, s.desc))),
+      h('button', { onclick: () => { merke(); m.vorlagen.push(leereVorlage()); vi = m.vorlagen.length - 1; sel = null; save(); renderVorlagen(); } }, h('b', null, 'Leere Vorlage'), h('span', null, 'Nur eine Überschrift, alles andere baust du selbst.')))));
 }
 // Länge der Zeitleiste in Sekunden: etwas Luft hinter der letzten Animation, damit man Balken weiter nach rechts ziehen kann.
 const skala = (v: DesignVorlage) => Math.max(4, Math.ceil(animEnde(v) + 1.5));
@@ -524,7 +526,7 @@ function renderVorlagen() {
   listeEl = h('div', { class: 'liste' }); eigEl = h('div', { class: 'eig' }); zeitEl = h('div', { class: 'zeit' }); werkEl = h('div', { class: 'werkzeuge' });
   if (!m.vorlagen.length) {
     buehne = null; overlay = null;
-    main.replaceChildren(h('div', { class: 'editor' }, listeEl, h('div', { class: 'mitte' }, h('div', { class: 'box', style: 'align-items:flex-start' }, h('h2', null, 'Noch keine eigene Vorlage'), h('p', { class: 'small' }, 'Links einen Startpunkt wählen. Er erscheint sofort in den Farben und Schriften von „' + m.name + '“. Danach Texte, Bilder und Animationen anpassen.'))), h('div')));
+    main.replaceChildren(h('div', { class: 'editor' }, listeEl, h('div', { class: 'mitte' }, h('div', { class: 'box', style: 'align-items:flex-start' }, h('h2', null, 'Noch keine eigene Vorlage'), h('p', { class: 'small' }, 'Unter „Neue Vorlage anlegen“ einen Startpunkt wählen. Er erscheint sofort in den Farben und Schriften von „' + m.name + '“. Danach Texte, Bilder und Animationen anpassen.'))), h('div')));
     renderListe(); return;
   }
   buehne = h('canvas'); overlay = h('div', { style: 'position:absolute;inset:0' });

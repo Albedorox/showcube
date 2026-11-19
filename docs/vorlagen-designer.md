@@ -39,7 +39,9 @@ Freie Gestaltung mit Text, Fläche, Kreis, Bild, Logo und QR-Code. Pro Element:
 - **„Kunde darf das im Panel ausfüllen“**: macht das Element zu einem Feld (z. B. „Preis“, „Foto“).
   Alles andere bleibt gesperrt. So bleibt das CI sauber und der Kunde ändert trotzdem selbst den Preis.
 
-Startpunkte: Angebot groß, Foto mit Botschaft, Termin und QR, Willkommen.
+Startpunkte unter „Neue Vorlage anlegen“: Angebot groß, Foto mit Botschaft, Termin und QR, Willkommen.
+Darüber stehen die „Vorlagen von …“ des gewählten Kunden. Auf schmalen Bildschirmen (Tablet, Handy) sind beide
+Gruppen eigene Kästen mit Überschrift und kurzer Erklärung, die Vorlagen wischst du darin seitlich durch.
 
 ## Wie die Teile zusammenhängen
 
