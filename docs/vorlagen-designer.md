@@ -13,6 +13,8 @@ die Speisekarte lesbar bleibt.
 
 Die Marke gilt sofort für **alles**: Branchenvorlagen (Menütafel, Objekte, Angebote), Bausteine
 (QR, Bewertungen, Countdown) und eigene Vorlagen. Ohne Marke sieht alles aus wie bisher.
+Mit Marke bekommt die Menütafel einen weichen Schein in der Hauptfarbe, und die Angebotsfolie zeigt statt der Pizza
+ein langsam drehendes Muster aus abgerundeten Quadraten in den Markenfarben. So läuft auch der Fernseher auf der Startseite.
 
 ## 2. Eigene Vorlagen (Kunde selbst oder Agentur)
 

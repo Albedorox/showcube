@@ -55,6 +55,11 @@ export function menuSlide(title, sub) {
   return (ctx, w, h, d) => {
     const u = Math.min(w, h) / 100, port = h > w, P = pal(d);
     ctx.fillStyle = P.dunkel; ctx.fillRect(0, 0, w, h);
+    if (P.marke) {
+      // Mit Marke ein weicher Schein in der Hauptfarbe oben rechts, damit die dunkle Fläche nicht flach wirkt.
+      const g = ctx.createRadialGradient(w * .92, -h * .1, 0, w * .92, -h * .1, Math.max(w, h) * .75);
+      g.addColorStop(0, alpha(d.accent, .32)); g.addColorStop(1, alpha(d.accent, 0)); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    }
     ctx.fillStyle = d.accent; ctx.fillRect(0, 0, w, u * 1.6);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     font(ctx, 600, u * 4, BODY); ctx.fillStyle = d.accent; ctx.fillText(d.name.toUpperCase(), u * 6, u * 11);
@@ -79,9 +84,11 @@ export function promoSlide(kicker, line, big) {
     const px = port ? w / 2 : w * .74, py = port ? h * .7 : h * .52, pr = port ? w * .36 : h * .36;
     ctx.save(); ctx.translate(px, py); ctx.rotate(t * .25);
     if (P.marke) {
-      // Mit Marke keine Pizza, sondern ein ruhiges Muster aus den Markenfarben.
-      [[1, P.zweit], [.78, P.hell], [.56, P.zweit], [.34, d.accent]].forEach(([k, c]: any) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, pr * k, 0, 7); ctx.fill(); });
-      ctx.fillStyle = P.dunkel; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.beginPath(); ctx.arc(Math.cos(a) * pr * .67, Math.sin(a) * pr * .67, pr * .05, 0, 7); ctx.fill(); }
+      // Mit Marke keine Pizza, sondern ein ruhiges Muster aus den Markenfarben: ineinander gedrehte, abgerundete Quadrate.
+      ctx.shadowColor = 'rgba(0,0,0,.22)'; ctx.shadowBlur = pr * .12; ctx.shadowOffsetY = pr * .04;
+      [[1, P.dunkel, 0], [.74, P.zweit, .35], [.5, P.hell, -.3], [.27, d.accent, .5]].forEach(([k, c, r]: any) => {
+        const s2 = pr * k * 1.5; ctx.save(); ctx.rotate(r + t * r * .2); ctx.fillStyle = c; rr(ctx, -s2 / 2, -s2 / 2, s2, s2, s2 * .22); ctx.fill(); ctx.restore();
+      });
       ctx.restore();
     } else {
     ctx.fillStyle = '#e9b866'; ctx.beginPath(); ctx.arc(0, 0, pr, 0, 7); ctx.fill();
