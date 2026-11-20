@@ -1,0 +1,29 @@
+{
+  "id": "./panel.html",
+  "name": "ShowCube Cloud",
+  "short_name": "ShowCube",
+  "description": "Bildschirme, Preise und Hinweise für deine ShowCube-Boxen steuern.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "./panel.html#screens",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#f6f5f1",
+  "theme_color": "#f6f5f1",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "pwa/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Sofort-Hinweis", "short_name": "Hinweis", "url": "./panel.html?do=notice#screens", "icons": [{ "src": "pwa/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Inhalte bearbeiten", "short_name": "Inhalte", "url": "./panel.html#shows", "icons": [{ "src": "pwa/icon-192.png", "sizes": "192x192" }] }
+  ],
+  "screenshots": [
+    { "src": "pwa/screen-wide.png", "sizes": "1440x900", "type": "image/png", "form_factor": "wide", "label": "Alle Bildschirme auf einen Blick" },
+    { "src": "pwa/screen-phone.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Preise vom Handy aus ändern" }
+  ]
+}

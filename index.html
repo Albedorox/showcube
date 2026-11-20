@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShowCube: Digital Signage für kleine Betriebe | Plug &amp; Show</title>
+<meta name="description" content="ShowCube macht jeden Fernseher zur digitalen Speisekarte, zum Schaufenster-Bildschirm oder Info-Display. Box anstecken, Preise und Angebote in Sekunden per Handy ändern. Auch ohne Internet.">
+<link rel="canonical" href="https://showcube.de/">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b7a67">
+<link rel="icon" href="release/pwa/favicon-32.png" sizes="32x32">
+<link rel="icon" href="pwa/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="release/pwa/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:site_name" content="ShowCube">
+<meta property="og:title" content="ShowCube: Digital Signage für kleine Betriebe">
+<meta property="og:description" content="Box an den Fernseher stecken, Speisekarte, Angebote oder Immobilien zeigen und Preise in Sekunden per Handy ändern. Plug &amp; Show.">
+<meta property="og:url" content="https://showcube.de/">
+<meta property="og:image" content="https://showcube.de/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="assets/fonts/bricolage-grotesque-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/figtree-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "Organization", "@id": "https://showcube.de/#org", "name": "ShowCube", "url": "https://showcube.de/", "logo": "https://showcube.de/release/pwa/icon-512.png", "slogan": "Plug & Show" },
+    { "@type": "WebSite", "name": "ShowCube", "url": "https://showcube.de/", "inLanguage": "de", "publisher": { "@id": "https://showcube.de/#org" } },
+    { "@type": "Product", "name": "ShowCube", "category": "Digital Signage", "brand": { "@type": "Brand", "name": "ShowCube" }, "image": "https://showcube.de/assets/og.png",
+      "description": "Digital-Signage-Box für kleine Betriebe: an den Fernseher stecken und Speisekarte, Angebote oder Immobilien zeigen. Inhalte und Preise werden per Handy geändert, die Box läuft auch ohne Internet." },
+    { "@type": "FAQPage", "mainEntity": [
+      { "@type": "Question", "name": "Was ist Digital Signage?", "acceptedAnswer": { "@type": "Answer", "text": "Digital Signage heißt: Ein Bildschirm zeigt statt Plakat, Kreidetafel oder gedruckter Karte deine Inhalte, zum Beispiel Speisekarte, Angebote oder Immobilien. Die Inhalte lassen sich jederzeit ändern, ohne etwas neu zu drucken." } },
+      { "@type": "Question", "name": "Welchen Fernseher brauche ich für ShowCube?", "acceptedAnswer": { "@type": "Answer", "text": "Jeden Fernseher oder Monitor mit HDMI-Anschluss. Ein vorhandenes Gerät reicht völlig. Für Schaufenster mit viel Sonne lohnt sich ein besonders heller Bildschirm." } },
+      { "@type": "Question", "name": "Funktioniert ShowCube ohne Internet?", "acceptedAnswer": { "@type": "Answer", "text": "Ja. Die Inhalte liegen auf der Box und laufen auch ohne Internet weiter. ShowCube Light kommt ganz ohne Internet aus, neue Inhalte bringst du per USB-Stick. Bei ShowCube Cloud braucht die Box nur dann Internet, wenn sie Änderungen abholt." } },
+      { "@type": "Question", "name": "Wie ändere ich Preise oder Angebote?", "acceptedAnswer": { "@type": "Answer", "text": "Du öffnest ShowCube auf dem Handy, tippst den neuen Preis ein und veröffentlichst. Sekunden später steht er auf dem Bildschirm. Ein Gericht, das aus ist, blendest du mit einem Fingertipp für heute aus." } },
+      { "@type": "Question", "name": "Muss ich Inhalte selbst gestalten?", "acceptedAnswer": { "@type": "Answer", "text": "Nein. Es gibt fertige Vorlagen für Gastronomie, Läden und Immobilienmakler. Du trägst Namen, Gerichte oder Objekte und Preise ein, die Gestaltung bleibt gut lesbar. Eigene Bilder und Videos kannst du zusätzlich hochladen." } },
+      { "@type": "Question", "name": "Erscheinen die Folien im Design meiner Firma?", "acceptedAnswer": { "@type": "Answer", "text": "Ja. Du lädst einmal dein Logo hoch, Farben und Schriften werden übernommen, und alle Vorlagen erscheinen in deinem CI. Eigene Folien mit Animationen gestaltest du im Vorlagen-Designer, selbst oder mit deiner Werbeagentur. Dabei legst du fest, welche Felder im Alltag änderbar sind, zum Beispiel Preis, Text oder Foto." } },
+      { "@type": "Question", "name": "Kann ich mehrere Bildschirme und Standorte steuern?", "acceptedAnswer": { "@type": "Answer", "text": "Ja. Mit ShowCube Cloud verwaltest du beliebig viele Bildschirme an mehreren Standorten aus einem Konto und siehst, ob jeder Bildschirm läuft." } },
+      { "@type": "Question", "name": "Wo liegen meine Daten?", "acceptedAnswer": { "@type": "Answer", "text": "Die Daten von ShowCube Cloud liegen auf Servern in Frankfurt am Main. Der Bildschirm im Laden zeigt nur deine Inhalte und erfasst keine Daten über Passanten oder Gäste." } }
+    ] }
+  ]
+}
+</script>
+<style>
+/* Startseite für GitHub Pages. Verkaufsseite für Interessenten; die Links zu Panel, Player und Konfigurator stehen im Footer. */
+@font-face { font-family: "Bricolage Grotesque"; font-style: normal; font-display: swap; font-weight: 200 800; src: url("assets/fonts/bricolage-grotesque-latin-opsz-normal.woff2") format("woff2"); }
+@font-face { font-family: "Figtree"; font-style: normal; font-display: swap; font-weight: 300 900; src: url("assets/fonts/figtree-latin-wght-normal.woff2") format("woff2"); }
+:root {
+  --bg: #f6f5f1; --surface: #ffffff; --surface-2: #efede7; --ink: #14181a; --muted: #56605c; --line: #e2dfd6;
+  --accent: #0b7a67; --accent-ink: #ffffff; --accent-soft: #dcefe9; --mint: #46c9b0;
+  --deep: #0f2a25; --deep-ink: #eaf4f1; --deep-muted: #a9c4bd; --deep-line: #24443d;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0d1110; --surface: #151b1a; --surface-2: #1c2422; --ink: #e9efed; --muted: #9aa7a3; --line: #252e2c; --accent: #46c9b0; --accent-ink: #0b1312; --accent-soft: #15302b; --deep: #121917; --deep-line: #26332f; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0d1110; --surface: #151b1a; --surface-2: #1c2422; --ink: #e9efed; --muted: #9aa7a3; --line: #252e2c; --accent: #46c9b0; --accent-ink: #0b1312; --accent-soft: #15302b; --deep: #121917; --deep-line: #26332f; color-scheme: dark; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 76px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--font-body); overflow-x: hidden; }
+a { color: inherit; }
+img { max-width: 100%; height: auto; display: block; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+.skip { position: absolute; left: -999px; top: 8px; background: var(--accent); color: var(--accent-ink); padding: 8px 14px; border-radius: 8px; z-index: 30; }
+.skip:focus { left: 8px; }
+:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; border-radius: 6px; }
+
+/* Kopf */
+.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid transparent; transition: border-color .2s; }
+.top.scrolled { border-bottom-color: var(--line); }
+.top .wrap { display: flex; align-items: center; gap: 24px; height: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; font: 800 22px/1 var(--font-display); text-decoration: none; }
+.cube { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18); flex: none; }
+.cube::after { content: ""; width: 11px; height: 11px; border-radius: 3px; background: var(--accent-ink); }
+.nav { display: flex; gap: 4px; margin-left: auto; }
+.nav a { text-decoration: none; font-weight: 600; font-size: 15px; color: var(--muted); padding: 8px 12px; border-radius: 8px; }
+.nav a:hover { color: var(--ink); background: var(--surface-2); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 24px; border-radius: 12px; font: 700 16px var(--font-body); text-decoration: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { transform: translateY(-1px); box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 35%, transparent); }
+.btn.sm { min-height: 40px; padding: 0 16px; font-size: 15px; border-radius: 10px; }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; padding: 48px 0 72px; }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 5px 13px; margin: 0 0 20px; }
+h1 { font: 800 clamp(38px, 5.4vw, 64px)/1.02 var(--font-display); letter-spacing: -.025em; margin: 0 0 20px; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--accent); }
+.lead { font-size: 20px; line-height: 1.5; color: var(--muted); margin: 0 0 28px; max-width: 32em; }
+.cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.ticks { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 0; margin: 22px 0 0; font-size: 15px; font-weight: 600; color: var(--muted); }
+.ticks li::before { content: "✓"; color: var(--accent); font-weight: 800; margin-right: 7px; }
+
+/* Fernseher mit wechselnden Beispielen. Mit JavaScript zeichnet release/startseite-demo.js die echten Player-Folien
+   (Quelle startseite/demo.ts) in ShowCube-Farben. Ein Handy mit dem Panel fliegt für die Preisänderung herein und
+   wieder hinaus. Ohne JavaScript laufen die CSS-Folien. */
+.stage { position: relative; padding-bottom: 100px; }
+.tv { position: relative; aspect-ratio: 16 / 9; border-radius: 14px; background: #0a0a0a; padding: 10px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.45); }
+.scr { position: relative; height: 100%; border-radius: 6px; overflow: hidden; background: #111; container-type: inline-size; }
+.sl { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 6cqw 6cqw 0; opacity: 0; animation: sl 18s infinite; }
+.sl:nth-child(2) { animation-delay: 6s; } .sl:nth-child(3) { animation-delay: 12s; }
+@keyframes sl { 0% { opacity: 0; } 3%, 33% { opacity: 1; } 36%, 100% { opacity: 0; } }
+.sl .k { font: 700 2.2cqw/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; }
+.sl .t { font: 800 7.4cqw/1.02 var(--font-display); margin: 2.4cqw 0 3.4cqw; letter-spacing: -.01em; }
+.sl ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2.2cqw; flex: 1; }
+.sl li { display: flex; align-items: baseline; gap: 1.6cqw; font: 600 3.1cqw/1.2 var(--font-body); }
+.sl li i { flex: 1; border-bottom: .35cqw dotted currentColor; opacity: .3; transform: translateY(-.6cqw); }
+.sl li b { font-family: var(--font-display); font-weight: 800; }
+.bar { margin: 0 -6cqw; display: flex; align-items: center; gap: 2.4cqw; padding: 1.7cqw 6cqw; font: 600 2.3cqw/1 var(--font-body); white-space: nowrap; }
+.bar .run { flex: 1; overflow: hidden; }
+.bar .run span { display: inline-block; padding-left: 100%; animation: run 16s linear infinite; }
+.bar b { font: 800 3cqw/1 var(--font-display); }
+@keyframes run { to { transform: translateX(-100%); } }
+.s-gastro { background: #16120f; color: #fff6ea; } .s-gastro .k, .s-gastro li b { color: #f0714f; }
+.s-gastro .bar { background: #0f0c0a; border-top: .35cqw solid #e0583a; }
+.s-makler { background: #f3efe6; color: #1a2420; flex-direction: row; padding: 0; }
+.s-makler .ph { flex: 1.15; background: linear-gradient(180deg, #a9d4ee 0 52%, #7fb069 52% 100%); position: relative; overflow: hidden; }
+.s-makler .ph::before { content: ""; position: absolute; left: 18%; right: 18%; bottom: 20%; height: 38%; background: #fbf7ee; box-shadow: inset 0 -1.2cqw 0 rgba(0,0,0,.08); }
+.s-makler .ph::after { content: ""; position: absolute; left: 12%; right: 12%; bottom: 58%; height: 0; border-left: 19cqw solid transparent; border-right: 19cqw solid transparent; border-bottom: 9cqw solid #b4553a; width: 0; margin: 0 auto; }
+.s-makler .tx { flex: 1; padding: 5cqw 4.4cqw; display: flex; flex-direction: column; }
+.s-makler .k { color: #0b7a67; } .s-makler .t { font-size: 5.6cqw; margin-bottom: 2cqw; }
+.s-makler .f { font: 600 2.7cqw/1.5 var(--font-body); color: #47544f; margin: 0; }
+.s-makler .p { font: 800 5.6cqw/1 var(--font-display); color: #0b7a67; margin-top: auto; }
+.s-makler .q { font: 600 2.1cqw/1.3 var(--font-body); color: #47544f; margin-top: 1.4cqw; }
+.s-laden { background: #0b7a67; color: #fff; justify-content: center; padding-bottom: 6cqw; }
+.s-laden .k { color: #c6f3e8; } .s-laden .t { font-size: 10cqw; margin: 2cqw 0; }
+.s-laden .big { font: 800 5cqw/1.15 var(--font-display); color: #ffe27a; }
+.s-laden .cd { display: flex; gap: 1.6cqw; margin-top: 3.4cqw; }
+.s-laden .cd span { background: rgba(0,0,0,.22); border-radius: 1.4cqw; padding: 1.6cqw 2.2cqw; font: 600 2.1cqw/1.2 var(--font-body); text-align: center; }
+.s-laden .cd b { display: block; font: 800 5cqw/1 var(--font-display); }
+.sill { position: absolute; left: -3%; right: -3%; bottom: 34px; height: 10px; border-radius: 6px; background: color-mix(in srgb, var(--ink) 14%, var(--bg)); }
+.box { position: absolute; right: 9%; bottom: 44px; width: 46px; height: 46px; border-radius: 11px; background: linear-gradient(180deg, #0e8a75, #096555); box-shadow: inset 0 -5px 0 rgba(0,0,0,.2), 0 10px 18px -8px rgba(0,0,0,.5); display: grid; place-items: center; }
+.box::after { content: ""; width: 15px; height: 15px; border-radius: 4px; background: #fff; }
+.box::before { content: ""; position: absolute; right: 100%; bottom: 8px; width: 22cqw; max-width: 150px; height: 3px; background: #1d2321; border-radius: 2px; }
+.stand { position: absolute; left: 50%; bottom: 44px; width: 9%; height: 56px; transform: translateX(-50%); background: #1a1a1a; }
+.stand::after { content: ""; position: absolute; left: -90%; right: -90%; bottom: 0; height: 7px; border-radius: 4px 4px 0 0; background: #1a1a1a; }
+.cap { position: absolute; left: 0; bottom: 0; font-size: 13px; color: var(--muted); }
+.stage { container-type: inline-size; }
+.tv::after { content: ""; position: absolute; inset: 10px; border-radius: 6px; pointer-events: none; background: linear-gradient(115deg, rgba(255,255,255,.045) 0 28%, transparent 28.2%); }
+.tv::before { content: ""; position: absolute; right: 50%; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #3fd9a0; box-shadow: 0 0 6px #3fd9a0; }
+.scr canvas.live { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity .6s; }
+.stage.ready .scr canvas.live { opacity: 1; }
+.stage.ready .sl { visibility: hidden; animation: none; }
+/* Handy mit dem Panel: fliegt herein, ändert einen Preis, kurz danach steht er im Fernseher, dann fliegt es wieder hinaus. */
+/* Nur das animierte Handy im Hero. Der Handy-Screenshot bei „Steuerung per Handy“ (.shots .phone) hat seinen eigenen, dünnen Rahmen. */
+.stage .phone { position: absolute; left: 3%; bottom: 46px; width: 19cqw; aspect-ratio: 9 / 18.5; border-radius: 3cqw; background: #0c0f0e; padding: .9cqw; box-shadow: 0 18px 30px -12px rgba(0,0,0,.55), inset 0 0 0 .35cqw #2a302e; z-index: 2; transform-origin: 50% 100%; transition: transform .75s cubic-bezier(.2,.9,.25,1.05), opacity .45s; }
+.stage .phone[data-st="off"], .stage .phone:not([data-st]) { opacity: 0; transform: translate(-70%, 28%) rotate(-14deg); transition: transform .65s cubic-bezier(.55,0,.75,.2), opacity .5s .1s; }
+.stage .phone:not([data-st="off"]) { transform: rotate(-4deg); }
+.pscr { height: 100%; border-radius: 2.2cqw; overflow: hidden; background: #f6f5f1; color: #18201f; padding: 3.4cqw 1.2cqw 1.2cqw; display: flex; flex-direction: column; gap: 1cqw; font: 600 1.3cqw/1.25 var(--font-body); position: relative; }
+.pscr::before { content: ""; position: absolute; top: 1cqw; left: 50%; width: 4.6cqw; height: 1.1cqw; border-radius: 1cqw; background: #0c0f0e; transform: translateX(-50%); }
+.ptop { display: flex; align-items: center; gap: .7cqw; color: #5d6a68; font-size: 1.25cqw; }
+.pdot { width: .9cqw; height: .9cqw; border-radius: 50%; background: #2fae6a; }
+.ph1 { font: 800 2.3cqw/1.1 var(--font-display); }
+.pscr ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .7cqw; }
+.pscr li span { overflow: hidden; text-overflow: ellipsis; }
+.pscr li { white-space: nowrap; display: flex; justify-content: space-between; gap: .8cqw; background: #fff; border: .15cqw solid #d5dcda; border-radius: 1cqw; padding: .8cqw .8cqw; transition: border-color .25s, box-shadow .25s; }
+.pscr li b { font-weight: 800; color: #0f7b6c; flex: none; min-width: 4cqw; text-align: right; }
+.phone:is([data-st="tap"], [data-st="type"], [data-st="press"]) li.hit { border-color: #0f7b6c; box-shadow: 0 0 0 .35cqw rgba(15,123,108,.2); }
+.phone[data-st="type"] li.hit b::after { content: ""; display: inline-block; width: .15cqw; height: 1.3cqw; margin-left: .15cqw; background: #18201f; vertical-align: -.15cqw; animation: caret .8s steps(1) infinite; }
+@keyframes caret { 50% { opacity: 0; } }
+.pbtn { margin-top: auto; text-align: center; background: #0f7b6c; color: #fff; border-radius: 1cqw; padding: 1.1cqw; font-weight: 700; transition: transform .15s, filter .15s; }
+.phone[data-st="press"] .pbtn { transform: scale(.95); filter: brightness(.85); }
+.ptoast { position: absolute; left: 1.4cqw; right: 1.4cqw; bottom: 6.4cqw; background: #18201f; color: #fff; border-radius: 1cqw; padding: .9cqw 1cqw; text-align: center; font-size: 1.3cqw; opacity: 0; transform: translateY(1cqw); transition: opacity .3s, transform .3s; }
+.phone[data-st="live"] .ptoast { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .pscr li, .pbtn, .ptoast, .scr canvas.live { transition: none; } .phone[data-st="type"] li.hit b::after { animation: none; }
+  .stage .phone, .stage .phone[data-st="off"], .stage .phone:not([data-st]), .stage .phone:not([data-st="off"]) { transform: none; transition: opacity .4s; } }
+@media (prefers-reduced-motion: reduce) { .bar .run span { animation: none; padding-left: 0; } .sl { animation: none; } .sl:first-child { opacity: 1; } }
+
+/* Abschnitte */
+section { padding: 72px 0; }
+.kicker { font-size: 14px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+h2 { font: 800 clamp(30px, 3.8vw, 44px)/1.08 var(--font-display); letter-spacing: -.02em; margin: 0 0 14px; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 19px; margin: 0 0 40px; max-width: 40em; }
+h3 { font: 800 22px/1.2 var(--font-display); margin: 0 0 8px; letter-spacing: -.01em; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 26px; }
+.card p { margin: 0; color: var(--muted); font-size: 16px; }
+.ic { width: 46px; height: 46px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 16px; }
+.ic svg, .feat svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+.vs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.vs .old { font-size: 15px; color: var(--muted); margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--line); }
+.vs .old b { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
+.vs .new { display: block; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 4px; }
+
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+.steps li { counter-increment: s; background: var(--surface-2); border-radius: 18px; padding: 26px; }
+.steps li::before { content: counter(s); display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 800 18px/1 var(--font-display); margin-bottom: 16px; }
+.steps p { margin: 0; color: var(--muted); font-size: 16px; }
+
+.dark { background: var(--deep); color: var(--deep-ink); }
+.dark .kicker { color: var(--mint); } .dark .sub { color: var(--deep-muted); }
+.show { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 48px; align-items: center; }
+.shots { position: relative; padding: 0 0 0 56px; }
+.shots .wide { border-radius: 12px; border: 1px solid var(--deep-line); box-shadow: 0 30px 60px -24px rgba(0,0,0,.6); }
+.shots .phone { position: absolute; left: 0; bottom: -28px; width: 27%; height: auto; border-radius: 16px; border: 4px solid #0a0f0e; box-shadow: 0 0 0 1px #2a302e, 0 20px 40px -14px rgba(0,0,0,.7); }
+.pts { list-style: none; padding: 0; margin: 0 0 30px; display: grid; gap: 16px; }
+.pts li { padding-left: 34px; position: relative; color: var(--deep-muted); font-size: 16px; }
+.pts li b { color: var(--deep-ink); display: block; font-size: 17px; }
+.pts li::before { content: "✓"; position: absolute; left: 0; top: 1px; width: 22px; height: 22px; border-radius: 50%; background: var(--mint); color: #0b1312; font-weight: 800; font-size: 13px; display: grid; place-items: center; }
+.dark .btn { background: transparent; color: var(--deep-ink); border-color: var(--deep-line); }
+.dark .btn.primary { background: var(--mint); color: #0b1312; border-color: var(--mint); }
+
+.branche { display: flex; flex-direction: column; }
+.branche ul { margin: 14px 0 0; padding: 0; list-style: none; font-size: 15px; display: grid; gap: 6px; }
+.branche li { padding-left: 22px; position: relative; }
+.branche li::before { content: ""; position: absolute; left: 4px; top: .6em; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); }
+
+.feats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px 36px; }
+.feat { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 14px; }
+.feat svg { color: var(--accent); margin-top: 3px; }
+.feat h3 { font-size: 18px; margin-bottom: 4px; }
+.feat p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+.plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
+.plan { display: flex; flex-direction: column; position: relative; }
+.plan.top-plan { border: 2px solid var(--accent); }
+.badge { position: absolute; top: -13px; left: 24px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; border-radius: 999px; padding: 3px 12px; }
+.plan .for { font-size: 15px; color: var(--muted); margin: 0 0 18px; min-height: 3em; }
+.price { font: 800 40px/1 var(--font-display); letter-spacing: -.02em; }
+.price small { font: 600 15px var(--font-body); color: var(--muted); letter-spacing: 0; }
+.plan .note { font-size: 14px; color: var(--muted); margin: 8px 0 18px; min-height: 3em; }
+.plan ul { list-style: none; padding: 0; margin: 0 0 24px; display: grid; gap: 9px; font-size: 15.5px; flex: 1; }
+.plan li { padding-left: 26px; position: relative; }
+.plan li::before { content: "✓"; position: absolute; left: 0; color: var(--accent); font-weight: 800; }
+.fine { font-size: 14px; color: var(--muted); margin: 22px 0 0; }
+.extra { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.extra .card { background: var(--surface-2); border-color: transparent; }
+
+.faq { max-width: 820px; }
+details { border-bottom: 1px solid var(--line); }
+summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 20px; align-items: center; padding: 20px 0; font: 700 19px/1.3 var(--font-display); }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font: 400 28px/1 var(--font-body); color: var(--accent); flex: none; transition: transform .2s; }
+details[open] summary::after { transform: rotate(45deg); }
+details p { margin: 0 0 22px; color: var(--muted); max-width: 44em; }
+
+.final { background: var(--accent); color: var(--accent-ink); border-radius: 28px; padding: 56px 48px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 36px; align-items: center; }
+.final h2 { margin-bottom: 10px; } .final p { margin: 0; opacity: .88; font-size: 19px; }
+.final .cta { justify-content: flex-end; }
+.final .btn { background: var(--accent-ink); color: var(--accent); border-color: var(--accent-ink); }
+.final .btn.line { background: transparent; color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent-ink) 45%, transparent); }
+
+footer { padding: 48px 0 56px; color: var(--muted); font-size: 15px; }
+.fgrid { display: grid; grid-template-columns: 1.4fr repeat(3, minmax(0, 1fr)); gap: 32px; padding-bottom: 32px; border-bottom: 1px solid var(--line); }
+.fgrid h4 { font: 700 13px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); margin: 6px 0 14px; }
+.fgrid ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; }
+.fgrid a { text-decoration: none; } .fgrid a:hover { color: var(--ink); text-decoration: underline; }
+.fgrid p { margin: 12px 0 0; max-width: 24em; }
+.legal { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; padding-top: 22px; font-size: 14px; }
+
+@media (max-width: 980px) {
+  .nav { display: none; } .top .btn { margin-left: auto; }
+  .hero, .show, .final { grid-template-columns: minmax(0, 1fr); }
+  .hero { gap: 44px; padding: 28px 0 56px; }
+  .grid3, .vs, .steps, .plans, .feats { grid-template-columns: minmax(0, 1fr); }
+  .feats { gap: 24px; } .plans { gap: 28px; }
+  .plan .for, .plan .note { min-height: 0; }
+  .final .cta { justify-content: flex-start; }
+  .fgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  section { padding: 56px 0; }
+}
+@media (max-width: 640px) {
+  .stage .phone { width: 23cqw; }
+  body { font-size: 16px; }
+  .wrap { padding: 0 16px; }
+  .grid2, .extra { grid-template-columns: minmax(0, 1fr); }
+  .lead, .sub { font-size: 18px; }
+  .cta .btn { width: 100%; }
+  .final { padding: 36px 24px; border-radius: 22px; }
+  .shots { padding-left: 28px; }
+  .box { width: 36px; height: 36px; border-radius: 9px; } .box::after { width: 12px; height: 12px; } .box::before { width: 60px; }
+  .fgrid { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#inhalt">Zum Inhalt springen</a>
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="ShowCube Startseite"><span class="cube" aria-hidden="true"></span>ShowCube</a>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <a href="#so-gehts">So geht's</a>
+      <a href="#branchen">Branchen</a>
+      <a href="#funktionen">Funktionen</a>
+      <a href="#preise">Preise</a>
+      <a href="#fragen">Fragen</a>
+    </nav>
+    <a class="btn primary sm" href="release/panel.html?demo">Demo ansehen</a>
+  </div>
+</header>
+
+<main id="inhalt">
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <p class="eyebrow">Digital Signage für kleine Betriebe</p>
+      <h1>Dein Fernseher wird zum <em>besten Verkäufer.</em></h1>
+      <p class="lead">ShowCube ist die kleine Box, die aus jedem Fernseher eine digitale Speisekarte, ein Schaufenster-Display oder eine Angebotstafel macht. Anstecken, fertig. Preise und Angebote änderst du in Sekunden selbst, vom Handy aus.</p>
+      <div class="cta">
+        <a class="btn primary" href="release/panel.html?demo">Kostenlose Demo ansehen</a>
+        <a class="btn" href="release/konfigurator.html">Schaufenster-Vorschau</a>
+      </div>
+      <ul class="ticks">
+        <li>Ohne Anmeldung ausprobieren</li>
+        <li>Läuft auch ohne Internet</li>
+        <li>Server in Deutschland</li>
+      </ul>
+    </div>
+    <div class="stage" role="img" aria-label="Fernseher mit wechselnden Folien einer Pizzeria: Mittagskarte, Mittagsdeal, Google-Bewertungen, Countdown-Aktion und QR-Code zur Karte. Zwischendurch kommt ein Handy ins Bild, auf dem ein Preis geändert wird, der sofort im Fernseher erscheint. Daneben die ShowCube-Box.">
+      <div class="tv">
+        <div class="scr">
+          <div class="sl s-gastro">
+            <div class="k">Pizzeria Da Marco</div>
+            <div class="t">Mittagstisch</div>
+            <ul>
+              <li>Margherita<i></i><b>7,50 €</b></li>
+              <li>Salame<i></i><b>8,90 €</b></li>
+              <li>Funghi<i></i><b>8,50 €</b></li>
+              <li>Diavola<i></i><b>9,50 €</b></li>
+            </ul>
+            <div class="bar"><div class="run"><span>Heute frisch: Kürbis-Pizza mit Salbei · Jeden Mittwoch Pasta-Abend · Auch zum Mitnehmen</span></div><span>9°</span><b>12:30</b></div>
+          </div>
+          <div class="sl s-makler">
+            <div class="ph"></div>
+            <div class="tx">
+              <div class="k">Neu im Angebot</div>
+              <div class="t">Einfamilienhaus mit Garten</div>
+              <p class="f">142 m² Wohnfläche<br>5 Zimmer · Baujahr 2009<br>Ruhige Lage am Ortsrand</p>
+              <div class="p">489.000 €</div>
+              <div class="q">Exposé per QR-Code aufs Handy</div>
+            </div>
+          </div>
+          <div class="sl s-laden">
+            <div class="k">Nur diese Woche</div>
+            <div class="t">Winter-Sale</div>
+            <div class="big">20 % auf alle Jacken</div>
+            <div class="cd"><span><b>2</b>Tage</span><span><b>14</b>Std.</span><span><b>36</b>Min.</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="stand"></div><div class="sill"></div><div class="box"></div>
+      <span class="cap">Beispielinhalte, so wie sie auf dem Fernseher laufen.</span>
+    </div>
+  </div>
+</div>
+
+<section id="warum" aria-labelledby="h-warum" style="padding-top:24px">
+  <div class="wrap">
+    <p class="kicker">Warum ShowCube</p>
+    <h2 id="h-warum">Ein Bildschirm verkauft nur, wenn er aktuell ist</h2>
+    <p class="sub">Viele Bildschirme in Läden und Lokalen zeigen seit Monaten dasselbe, weil jede Änderung umständlich ist. ShowCube dreht das um: Ändern ist das Einfachste am ganzen System.</p>
+    <div class="vs">
+      <div class="card">
+        <p class="old"><b>Bisher</b>Neue Preise heißen neu drucken, neu laminieren oder die Agentur anrufen.</p>
+        <span class="new">Mit ShowCube</span>
+        <h3>Preise in 30 Sekunden ändern</h3>
+        <p>Deine Karte ist eine einfache Liste. Preis antippen, neuen Wert eintragen, veröffentlichen. Was aus ist, blendest du für heute mit einem Fingertipp aus.</p>
+      </div>
+      <div class="card">
+        <p class="old"><b>Bisher</b>Ein fertiges Video oder ein USB-Stick, an dem niemand mehr etwas ändern kann.</p>
+        <span class="new">Mit ShowCube</span>
+        <h3>Vorlagen, die man lesen kann</h3>
+        <p>Du füllst Vorlagen aus, statt zu gestalten. Die Schrift bleibt groß genug, damit Gäste und Passanten sie auch aus ein paar Metern erfassen.</p>
+      </div>
+      <div class="card">
+        <p class="old"><b>Bisher</b>Mittags läuft die Abendkarte und am Ruhetag leuchtet der Bildschirm ins Leere.</p>
+        <span class="new">Mit ShowCube</span>
+        <h3>Zur richtigen Zeit das Richtige</h3>
+        <p>Mittagstisch am Mittag, Abendkarte am Abend, Bildschirm aus in der Nacht und an Ruhetagen. Aktionen verschwinden nach ihrem Enddatum von selbst.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="so-gehts" aria-labelledby="h-so">
+  <div class="wrap">
+    <p class="kicker">Plug &amp; Show</p>
+    <h2 id="h-so">In drei Schritten auf dem Bildschirm</h2>
+    <p class="sub">Du brauchst keinen Techniker und keine Schulung. Wenn du einen Fernseher anschließen kannst, kannst du ShowCube einrichten.</p>
+    <ol class="steps">
+      <li><h3>Box anstecken</h3><p>ShowCube per HDMI an den Fernseher und an den Strom. Die Box startet von selbst und zeigt einen Code zum Koppeln.</p></li>
+      <li><h3>Vorlage ausfüllen</h3><p>Am Handy oder Rechner eine Vorlage wählen, Namen, Gerichte oder Angebote und Preise eintragen. Eigene Bilder und Videos gehen auch.</p></li>
+      <li><h3>Veröffentlichen</h3><p>Ein Fingertipp und der Bildschirm zeigt deine Inhalte. Jede spätere Änderung funktioniert genauso und ist Sekunden später zu sehen.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="dark" aria-labelledby="h-panel">
+  <div class="wrap show">
+    <div>
+      <p class="kicker">Steuerung per Handy</p>
+      <h2 id="h-panel">Alle Bildschirme in der Hosentasche</h2>
+      <p class="sub" style="margin-bottom:26px">Mit ShowCube Cloud steuerst du deine Bildschirme von überall. Die App läuft im Browser und lässt sich auf Handy, Tablet und Rechner installieren.</p>
+      <ul class="pts">
+        <li><b>Sofort-Hinweis</b>„Heute ab 15 Uhr geschlossen“ oder „Frische Brezeln“ in Sekunden auf allen Bildschirmen.</li>
+        <li><b>Sehen, ob alles läuft</b>Jeder Bildschirm meldet sich regelmäßig. Du siehst sofort, wenn einer ausfällt.</li>
+        <li><b>Nichts geht verloren</b>Ältere Versionen deiner Inhalte holst du mit einem Klick zurück.</li>
+      </ul>
+      <div class="cta"><a class="btn primary" href="release/panel.html?demo">Demo öffnen</a></div>
+    </div>
+    <div class="shots">
+      <img class="wide" src="release/pwa/screen-wide.png" width="1440" height="900" loading="lazy" alt="ShowCube Cloud am Rechner: Übersicht aller Bildschirme mit Vorschau und Status">
+      <img class="phone" src="release/pwa/screen-phone.png" width="780" height="1688" loading="lazy" alt="ShowCube Cloud auf dem Handy">
+    </div>
+  </div>
+</section>
+
+<section id="branchen" aria-labelledby="h-branchen">
+  <div class="wrap">
+    <p class="kicker">Für wen</p>
+    <h2 id="h-branchen">Gemacht für Betriebe ohne IT-Abteilung</h2>
+    <p class="sub">Ob ein Bildschirm über der Theke oder mehrere in verschiedenen Filialen: ShowCube passt zu Betrieben, die sich um ihr Geschäft kümmern wollen, nicht um Technik.</p>
+    <div class="grid2">
+      <article class="card branche">
+        <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v7a3 3 0 006 0V3M8 3v18M17 21V3c-2 1-3.5 3.5-3.5 7 0 2 1.5 3 3.5 3"/></svg></span>
+        <h3>Digitale Speisekarte für Gastronomie</h3>
+        <p>Für Imbiss, Döner, Pizzeria, Café, Bäckerei und Restaurant. Die Menütafel über der Theke wird zur digitalen Speisekarte, die du selbst pflegst.</p>
+        <ul><li>Mittags- und Abendkarte wechseln automatisch</li><li>„Heute aus“ mit einem Fingertipp</li><li>Tagesangebot und Aktionen mit Ablaufdatum</li></ul>
+      </article>
+      <article class="card branche">
+        <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9M4 9v11h16V9M9 20v-6h6v6"/></svg></span>
+        <h3>Schaufenster-Bildschirm für Läden</h3>
+        <p>Für Einzelhandel, Friseur, Kosmetik, Blumenladen und Werkstatt. Das digitale Schaufenster wirbt auch dann, wenn der Laden zu ist.</p>
+        <ul><li>Angebote und Neuheiten im Wechsel</li><li>Countdown bis zum Ende einer Aktion</li><li>QR-Code zu Shop, Termin oder Bewertung</li></ul>
+      </article>
+      <article class="card branche">
+        <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7M5 10v10h14V10M10 20v-5h4v5"/></svg></span>
+        <h3>Digitales Schaufenster für Immobilienmakler</h3>
+        <p>Statt Aushängen, die vergilben: aktuelle Objekte mit Bild, Eckdaten und Preis, rund um die Uhr sichtbar.</p>
+        <ul><li>Neue Objekte in Minuten im Fenster</li><li>Verkauftes verschwindet sofort</li><li>QR-Code führt direkt zum Exposé</li></ul>
+      </article>
+      <article class="card branche">
+        <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M12 7.5v6M9 10.5h6"/></svg></span>
+        <h3>Info-Bildschirm für Praxis, Studio und Empfang</h3>
+        <p>Für Wartezimmer, Fitnessstudio, Hotel und Vereinsheim. Hinweise, Öffnungszeiten und Leistungen, immer auf dem aktuellen Stand.</p>
+        <ul><li>Öffnungszeiten, Urlaub und Vertretung</li><li>Leistungen und Kurse vorstellen</li><li>Uhrzeit, Wetter und Laufband</li></ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="funktionen" aria-labelledby="h-funk" style="background:var(--surface-2)">
+  <div class="wrap">
+    <p class="kicker">Funktionen</p>
+    <h2 id="h-funk">Alles drin, was ein Bildschirm zum Verkaufen braucht</h2>
+    <p class="sub">Keine Zusatzmodule, keine Plugins. Diese Bausteine sind von Anfang an dabei.</p>
+    <div class="feats">
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7M17 15l2 2 3-4"/></svg><div><h3>Preisliste statt Grafikprogramm</h3><p>Gerichte, Leistungen und Preise pflegst du als Liste. Die Folien bauen sich daraus von selbst.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div><h3>Zeitplan</h3><p>Tag, Abend, Nacht und Ruhetage. Jede Folie kann zusätzlich einen eigenen Zeitraum und Wochentage bekommen.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a15 15 0 0120 0M5.5 12.5a10 10 0 0113 0M9 16a5 5 0 016 0M3 3l18 18"/></svg><div><h3>Läuft ohne Internet weiter</h3><p>Alle Inhalte liegen auf der Box. Fällt das WLAN aus, merkt dein Kunde davon nichts.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2M14 18h2v2M19 18v2"/></svg><div><h3>QR-Codes</h3><p>Vom Bildschirm aufs Handy: Speisekarte zum Mitnehmen, Online-Shop, Terminbuchung oder Exposé.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.2 6-5.5-3-5.5 3 1.2-6L3.2 9.4l6.1-.8z"/></svg><div><h3>Bewertungen zeigen</h3><p>Gute Kundenstimmen auf den Bildschirm bringen und mit einem QR-Code um neue Bewertungen bitten.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/></svg><div><h3>Countdown-Aktionen</h3><p>„Nur noch 2 Tage“ erzeugt Tempo. Nach dem Ende verschwindet die Aktion automatisch.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 010-8 5.5 5.5 0 0110.6 1.5A3.3 3.3 0 0117 18zM12 2v2M4.5 5.5l1.4 1.4"/></svg><div><h3>Infoleiste</h3><p>Laufband mit Neuigkeiten, dazu Uhrzeit und Wetter am unteren Bildschirmrand.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H4zM9 20h6M12 16v4"/><circle cx="12" cy="10.5" r="2.2"/></svg><div><h3>Eigene Bilder und Videos</h3><p>Fotos, Logo und Clips lädst du hoch und mischst sie mit den Vorlagen. Im Quer- oder Hochformat.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 100 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.6 1.7-1.6H17a4 4 0 004-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="7.5" r="1.2"/></svg><div><h3>Im Design deiner Marke</h3><p>Logo hochladen, Farben und Schriften werden übernommen. Alle Vorlagen erscheinen in deinem CI, mit Übergängen nach deinem Geschmack.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.5l5 5L10 19l-5 1 1-5zM13 6l5 5"/></svg><div><h3>Vorlagen-Designer</h3><p>Eigene Folien mit Animationen gestalten, selbst oder von deiner Werbeagentur. Du legst fest, was später änderbar ist, etwa Preis oder Foto.</p></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-5 4 3 8-8M15 7h5v5"/></svg><div><h3>Nachweis, auch für Werbepartner</h3><p>Sieh nach, was wann gelaufen ist. Wenn du willst, verdient dein Bildschirm mit: Vermiete Sendezeit an Nachbarn, ShowCube mischt ihre Anzeigen ein und jeder Partner bekommt seinen Bericht als Link.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="preise" aria-labelledby="h-preise">
+  <div class="wrap">
+    <p class="kicker">Preise</p>
+    <h2 id="h-preise">Einfache Preise, kein Kleingedrucktes</h2>
+    <p class="sub">Den Fernseher hast du meist schon. Dazu kommt die Box und, wenn du aus der Ferne steuern willst, ShowCube Cloud.</p>
+    <!-- PREISE: vorläufig, von Black zu bestätigen (Stand Strategie 30.10.2026) -->
+    <div class="plans">
+      <div class="card plan">
+        <h3>ShowCube Light</h3>
+        <p class="for">Ein Bildschirm, der selten wechselt. Ganz ohne Internet und ohne laufende Kosten.</p>
+        <div class="price">ab 199 € <small>einmalig</small></div>
+        <p class="note">Box inklusive. Keine monatlichen Gebühren.</p>
+        <ul><li>Vorlagen, eigene Bilder und Videos</li><li>Zeitplan für Tag, Abend und Nacht</li><li>Neue Inhalte per USB-Stick</li><li>Läuft komplett offline</li></ul>
+        <a class="btn" href="#kontakt">Light anfragen</a>
+      </div>
+      <div class="card plan top-plan">
+        <span class="badge">Unsere Empfehlung</span>
+        <h3>ShowCube Cloud</h3>
+        <p class="for">Für alle, die Preise und Angebote oft ändern oder mehrere Bildschirme haben.</p>
+        <div class="price">12 € <small>pro Bildschirm und Monat</small></div>
+        <p class="note">Oder 120 € im Jahr. Box einmalig 99 €, bei 24 Monaten Laufzeit kostenlos.</p>
+        <ul><li>Alles aus Light</li><li>Ändern per Handy, von überall</li><li>Sofort-Hinweis auf alle Bildschirme</li><li>QR-Codes, Bewertungen, Countdown</li><li>Fernwartung und Ausfall-Meldung</li><li>Beliebig viele Bildschirme und Standorte</li></ul>
+        <a class="btn primary" href="release/panel.html?demo">Demo ansehen</a>
+      </div>
+      <div class="card plan">
+        <h3>ShowCube Pro</h3>
+        <p class="for">Für Filialbetriebe, Einkaufszentren und Partner, die Bildschirme für Kunden betreiben.</p>
+        <div class="price">ab 19,90 € <small>pro Bildschirm und Monat</small></div>
+        <p class="note">Umfang nach Absprache.</p>
+        <ul><li>Alles aus Cloud</li><li>Viele Standorte zentral steuern</li><li>Persönliche Einrichtung</li><li>Konditionen für Partner und Agenturen</li></ul>
+        <a class="btn" href="#kontakt">Pro anfragen</a>
+      </div>
+    </div>
+    <div class="extra">
+      <div class="card"><h3>Einrichtung inklusive Inhalte</h3><p>Keine Zeit, selbst anzufangen? Wir richten deine Box ein und bauen aus deiner Karte oder deinen Angeboten die ersten Folien, zum Festpreis. Danach änderst du alles selbst.</p></div>
+      <div class="card"><h3>Für Agenturen und Werbetechniker</h3><p>Du gestaltest für deine Kunden im Vorlagen-Designer: Marke, eigene Vorlagen und Animationen, für mehrere Kunden in einer Ansicht. ShowCube liefert Box und Technik. Sprich uns auf Partnerkonditionen an.</p></div>
+    </div>
+    <p class="fine">Preise der Pilotphase, zuzüglich Mehrwertsteuer. Änderungen vorbehalten.</p>
+  </div>
+</section>
+
+<section id="fragen" aria-labelledby="h-faq" style="padding-top:24px">
+  <div class="wrap faq">
+    <p class="kicker">Häufige Fragen</p>
+    <h2 id="h-faq">Digital Signage, kurz erklärt</h2>
+    <div style="margin-top:24px">
+      <details open><summary>Was ist Digital Signage?</summary><p>Digital Signage heißt: Ein Bildschirm zeigt statt Plakat, Kreidetafel oder gedruckter Karte deine Inhalte, zum Beispiel Speisekarte, Angebote oder Immobilien. Die Inhalte lassen sich jederzeit ändern, ohne etwas neu zu drucken.</p></details>
+      <details><summary>Welchen Fernseher brauche ich für ShowCube?</summary><p>Jeden Fernseher oder Monitor mit HDMI-Anschluss. Ein vorhandenes Gerät reicht völlig. Für Schaufenster mit viel Sonne lohnt sich ein besonders heller Bildschirm.</p></details>
+      <details><summary>Funktioniert ShowCube ohne Internet?</summary><p>Ja. Die Inhalte liegen auf der Box und laufen auch ohne Internet weiter. ShowCube Light kommt ganz ohne Internet aus, neue Inhalte bringst du per USB-Stick. Bei ShowCube Cloud braucht die Box nur dann Internet, wenn sie Änderungen abholt.</p></details>
+      <details><summary>Wie ändere ich Preise oder Angebote?</summary><p>Du öffnest ShowCube auf dem Handy, tippst den neuen Preis ein und veröffentlichst. Sekunden später steht er auf dem Bildschirm. Ein Gericht, das aus ist, blendest du mit einem Fingertipp für heute aus.</p></details>
+      <details><summary>Muss ich Inhalte selbst gestalten?</summary><p>Nein. Es gibt fertige Vorlagen für Gastronomie, Läden und Immobilienmakler. Du trägst Namen, Gerichte oder Objekte und Preise ein, die Gestaltung bleibt gut lesbar. Eigene Bilder und Videos kannst du zusätzlich hochladen.</p></details>
+      <details><summary>Erscheinen die Folien im Design meiner Firma?</summary><p>Ja. Du lädst einmal dein Logo hoch, Farben und Schriften werden übernommen, und alle Vorlagen erscheinen in deinem CI. Eigene Folien mit Animationen gestaltest du im Vorlagen-Designer, selbst oder mit deiner Werbeagentur. Dabei legst du fest, welche Felder im Alltag änderbar sind, zum Beispiel Preis, Text oder Foto.</p></details>
+      <details><summary>Kann ich mehrere Bildschirme und Standorte steuern?</summary><p>Ja. Mit ShowCube Cloud verwaltest du beliebig viele Bildschirme an mehreren Standorten aus einem Konto und siehst, ob jeder Bildschirm läuft.</p></details>
+      <details><summary>Wo liegen meine Daten?</summary><p>Die Daten von ShowCube Cloud liegen auf Servern in Frankfurt am Main. Der Bildschirm im Laden zeigt nur deine Inhalte und erfasst keine Daten über Passanten oder Gäste.</p></details>
+    </div>
+  </div>
+</section>
+
+<section id="kontakt" aria-labelledby="h-kontakt" style="padding-top:24px">
+  <div class="wrap">
+    <div class="final">
+      <div>
+        <h2 id="h-kontakt">Sieh es dir in deinem Laden an</h2>
+        <p>ShowCube startet gerade mit den ersten Pilotbetrieben. Probier die Demo aus, setz den Bildschirm in ein Foto deines Schaufensters oder frag eine Testbox an.</p>
+      </div>
+      <div class="cta">
+        <!-- KONTAKT: Platzhalter-Adresse, von Black durch die echte ersetzen -->
+        <a class="btn" href="mailto:hallo@showcube.de?subject=Testbox%20anfragen&amp;body=Hallo%2C%0A%0Aich%20interessiere%20mich%20f%C3%BCr%20ShowCube.%0A%0ABetrieb%3A%20%0AOrt%3A%20%0AAnzahl%20Bildschirme%3A%20%0A">Testbox anfragen</a>
+        <a class="btn line" href="release/konfigurator.html">Schaufenster-Vorschau</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="fgrid">
+      <div>
+        <a class="brand" href="#top" style="color:var(--ink)"><span class="cube" aria-hidden="true"></span>ShowCube</a>
+        <p>Plug &amp; Show. Digital Signage für Gastronomie, Läden, Makler und Praxen.</p>
+      </div>
+      <div>
+        <h4>Produkt</h4>
+        <ul><li><a href="#so-gehts">So geht's</a></li><li><a href="#branchen">Branchen</a></li><li><a href="#funktionen">Funktionen</a></li><li><a href="#preise">Preise</a></li><li><a href="#fragen">Häufige Fragen</a></li></ul>
+      </div>
+      <div>
+        <h4>Apps</h4>
+        <ul><li><a href="release/panel.html">Cloud-Panel (Anmelden)</a></li><li><a href="release/player.html">Player</a></li><li><a href="release/konfigurator.html">Schaufenster-Konfigurator</a></li><li><a href="release/designer.html">Vorlagen-Designer</a></li></ul>
+      </div>
+      <div>
+        <h4>Kontakt</h4>
+        <ul><li><a href="mailto:hallo@showcube.de">hallo@showcube.de</a></li><li><a href="https://github.com/Albedorox/showcube" rel="noopener">Quellcode auf GitHub</a></li></ul>
+      </div>
+    </div>
+    <div class="legal"><span>© 2026 ShowCube</span><span>Impressum und Datenschutz folgen</span></div>
+  </div>
+</footer>
+<script src="release/startseite-demo.js" defer></script>
+<script>
+addEventListener('scroll', function () { document.getElementById('top').classList.toggle('scrolled', scrollY > 8); }, { passive: true });
+</script>
+<div id="stage-schild" style="position:fixed;left:12px;bottom:12px;z-index:9999;padding:6px 12px;border-radius:999px;background:#e8590c;color:#fff;font:600 13px/1.2 system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.25);pointer-events:none">Stage: Testumgebung</div>
+</body>
+</html>
