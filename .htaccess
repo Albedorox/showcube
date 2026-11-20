@@ -1,0 +1,24 @@
+# Von scripts/website.mjs erzeugt, nicht von Hand ändern.
+Options -Indexes
+RewriteEngine On
+# www.showcube.de → showcube.de
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+# Der Ordner der Stage-Subdomain liegt bei Hostinger in diesem Ordner: unter showcube.de/stage/ nicht zeigen.
+RewriteCond %{HTTP_HOST} ^(www\.)?showcube\.de$ [NC]
+RewriteRule ^stage(/|$) - [R=404,L]
+AddType application/manifest+json .webmanifest
+AddType text/plain .sh
+AddDefaultCharset utf-8
+<IfModule mod_headers.c>
+  # Seiten, Skripte und Versionsdatei immer beim Server nachfragen (auch über das Hostinger-CDN),
+  # damit ein neuer Stand sofort ankommt. Die Dateinamen tragen keine Versionsnummer.
+  <FilesMatch "\.(html|js|css|webmanifest|txt|xml|sh)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(png|jpg|webp|svg|woff2)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
