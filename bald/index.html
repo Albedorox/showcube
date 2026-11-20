@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShowCube: Bald da | Plug &amp; Show</title>
+<meta name="description" content="ShowCube macht jeden Fernseher zum Bildschirm, der für dich verkauft: Speisekarte, Schaufenster oder Info-Display, per Handy in Sekunden geändert. Bald hier.">
+<link rel="canonical" href="https://showcube.de/">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0f2a25">
+<link rel="icon" href="release/pwa/favicon-32.png" sizes="32x32">
+<link rel="icon" href="pwa/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="release/pwa/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:site_name" content="ShowCube">
+<meta property="og:title" content="ShowCube: Bald da">
+<meta property="og:description" content="Dein Fernseher wird zum besten Verkäufer. Bald hier.">
+<meta property="og:url" content="https://showcube.de/">
+<meta property="og:image" content="https://showcube.de/assets/og.png">
+<!-- Vorschaltseite für showcube.de, solange die Startseite noch nicht live ist. Ein- und ausschalten: website.json, siehe docs/deployment.md -->
+<style>
+@font-face { font-family: "Bricolage Grotesque"; font-style: normal; font-display: swap; font-weight: 200 800; src: url("assets/fonts/bricolage-grotesque-latin-opsz-normal.woff2") format("woff2"); }
+@font-face { font-family: "Figtree"; font-style: normal; font-display: swap; font-weight: 300 900; src: url("assets/fonts/figtree-latin-wght-normal.woff2") format("woff2"); }
+:root {
+  --bg: #0f2a25; --bg-2: #0b1f1b; --ink: #eaf4f1; --muted: #a9c4bd; --line: #24443d;
+  --accent: #0b7a67; --mint: #46c9b0; --cube-ink: #ffffff;
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif; --font-body: "Figtree", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; min-height: 100svh; display: grid; grid-template-rows: 1fr auto;
+  background: radial-gradient(120% 80% at 50% 38%, #164139 0%, var(--bg) 46%, var(--bg-2) 100%);
+  color: var(--ink); font: 400 17px/1.55 var(--font-body); -webkit-font-smoothing: antialiased;
+}
+main { display: grid; place-items: center; text-align: center; padding: 48px 16px 24px; }
+.inhalt { max-width: 620px; display: grid; justify-items: center; }
+
+/* Logo: der ShowCube-Würfel, groß in der Mitte */
+.logo { position: relative; width: clamp(132px, 34vw, 184px); aspect-ratio: 1; margin-bottom: 30px; }
+.logo .glow { position: absolute; inset: -40%; border-radius: 50%; background: radial-gradient(circle, rgba(70,201,176,.32) 0%, rgba(70,201,176,0) 62%); }
+.logo .wuerfel {
+  position: absolute; inset: 0; border-radius: 26%; display: grid; place-items: center;
+  background: linear-gradient(180deg, #0e8a75, #096555);
+  box-shadow: inset 0 -8px 0 rgba(0,0,0,.2), 0 24px 60px rgba(0,0,0,.35);
+  animation: schweben 6s ease-in-out infinite;
+}
+.logo .wuerfel::after { content: ""; width: 31%; aspect-ratio: 1; border-radius: 26%; background: var(--cube-ink); box-shadow: 0 5px 0 rgba(6,63,53,.35); }
+@keyframes schweben { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+.name { margin: 0; font: 800 clamp(40px, 9vw, 64px)/1 var(--font-display); letter-spacing: -.02em; }
+.claim { margin: 10px 0 0; color: var(--mint); font: 700 15px/1 var(--font-body); letter-spacing: .22em; text-transform: uppercase; }
+.bald {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 30px; padding: 7px 14px; border: 1px solid var(--line);
+  border-radius: 999px; color: var(--muted); font-size: 14px; font-weight: 600;
+}
+.bald::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); animation: puls 2.4s ease-in-out infinite; }
+@keyframes puls { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+h1 { margin: 22px 0 0; font: 700 clamp(26px, 5.4vw, 38px)/1.15 var(--font-display); letter-spacing: -.01em; text-wrap: balance; }
+.teaser { margin: 14px 0 0; color: var(--muted); max-width: 520px; text-wrap: pretty; }
+.kontakt { margin-top: 30px; color: var(--muted); font-size: 15px; }
+.kontakt a {
+  display: inline-block; margin-top: 8px; padding: 12px 22px; border-radius: 999px; background: var(--mint); color: #0b1312;
+  font-weight: 700; text-decoration: none;
+}
+.kontakt a:hover { background: #5fd8c0; }
+.kontakt a:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+footer { padding: 18px 16px 24px; text-align: center; color: var(--muted); font-size: 13px; }
+footer a { color: inherit; }
+@media (prefers-reduced-motion: reduce) { .logo .wuerfel, .bald::before { animation: none; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="inhalt">
+    <div class="logo" role="img" aria-label="ShowCube Logo"><span class="glow"></span><span class="wuerfel"></span></div>
+    <p class="name">ShowCube</p>
+    <p class="claim">Plug &amp; Show</p>
+    <span class="bald">Bald da</span>
+    <h1>Dein Fernseher wird zum besten Verkäufer.</h1>
+    <p class="teaser">Eine kleine Box am Fernseher, und dein Bildschirm zeigt Speisekarte, Angebote oder Objekte, immer aktuell und nach Tageszeit. Preise änderst du per Handy in Sekunden. Für Gastro, Läden, Makler und Praxen.</p>
+    <p class="kontakt">Neugierig oder Lust auf eine Testbox?<br><a href="mailto:hallo@showcube.de?subject=ShowCube%20Neugierig">Schreib uns: hallo@showcube.de</a></p>
+  </div>
+</main>
+<footer>© 2026 ShowCube · <a href="mailto:hallo@showcube.de">hallo@showcube.de</a></footer>
+</body>
+</html>

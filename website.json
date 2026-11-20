@@ -1,0 +1,4 @@
+{
+  "//": "Was auf https://showcube.de läuft: \"bald\" = Vorschaltseite aus bald/index.html, \"startseite\" = die volle Startseite. Stage zeigt immer die volle Startseite. Siehe docs/deployment.md",
+  "showcube.de": "bald"
+}

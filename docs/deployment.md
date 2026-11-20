@@ -8,7 +8,24 @@ Es gibt zwei Umgebungen:
 | **Stage** (Testumgebung) | https://stage.showcube.de | automatisch nach jedem Merge in `main`, sobald die Tests grün sind |
 | **Prod** (echte Seite) | https://showcube.de | nur wenn du auf „Live schalten“ drückst |
 
-Von Hand kopierst du nie etwas. Stage ist für Suchmaschinen gesperrt und zeigt unten links ein oranges Schild
+Von Hand kopierst du nie etwas.
+
+## Vorschaltseite „Bald da“
+
+Solange ShowCube noch nicht offiziell startet, zeigt **showcube.de** nur eine Vorschaltseite: das ShowCube-Logo
+in der Mitte, „Plug & Show“, „Dein Fernseher wird zum besten Verkäufer.“, ein kurzer Teaser und der Kontakt
+hallo@showcube.de. Die Seite steht in `bald/index.html`. Stage zeigt immer die volle Startseite, die Vorschaltseite
+siehst du dort zur Vorschau unter https://stage.showcube.de/bald/.
+
+Was auf showcube.de läuft, steht in `website.json`:
+
+```json
+{ "showcube.de": "bald" }
+```
+
+Zum offiziellen Start wird daraus `"startseite"`: Pull Request, mergen, dann „Live schalten“. Danach zeigt
+showcube.de die volle Startseite mit Sitemap. Die Apps unter `release/` (Panel, Player, Box-Skript) sind auch
+während „Bald da“ unter ihren Adressen erreichbar, aber nirgends verlinkt. Stage ist für Suchmaschinen gesperrt und zeigt unten links ein oranges Schild
 „Stage: Testumgebung“, damit du die beiden nicht verwechselst.
 
 ## So läuft eine Änderung bis zu den Kunden
@@ -28,7 +45,8 @@ Welcher Stand gerade online ist, steht in https://showcube.de/version.txt und ht
 ## Was dahinter passiert
 
 - `scripts/website.mjs stage|prod <ordner>` stellt die Website zusammen: `index.html`, `sitemap.xml`, `assets/`,
-  `release/` und das Favicon `pwa/icon.svg`. Quellcode, `tests/`, `docs/`, `supabase/` und die Gehäuse-Dateien
+  `release/` und das Favicon `pwa/icon.svg`. Für showcube.de mit `"bald"` kommt `bald/index.html` als Startseite
+  hinein und die Sitemap fällt weg. Quellcode, `tests/`, `docs/`, `supabase/` und die Gehäuse-Dateien
   in `hardware/` kommen **nicht** mit. Dazu kommen `.htaccess` (Zwischenspeicher, Dateitypen, www → ohne www),
   `robots.txt` und `version.txt` mit dem Commit.
 - `scripts/veroeffentlichen.sh` legt diesen Ordner als neuen Commit auf den Branch **`website-stage`** bzw.

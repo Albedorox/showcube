@@ -1,16 +1,17 @@
 // Website für Hostinger (scripts/website.mjs): Was auf stage.showcube.de und showcube.de hochgeladen wird.
 // Geprüft wird der fertig zusammengestellte Ordner, so wie ihn die Workflows „Stage aktualisieren“ und „Live schalten“ hochladen.
-import { test, expect } from './hilfen';
+import { test, expect, nurLinux } from './hilfen';
 // @ts-ignore: reines JavaScript-Modul ohne Typen
-import { zusammenstellen } from './website-hilfe.mjs';
+import { zusammenstellen, prodSeite } from './website-hilfe.mjs';
 
 const STAND = '0123456789abcdef0123456789abcdef01234567';
 type Website = { dateien: string[]; lesen(n: string): Promise<string>; gibtEs(n: string): boolean; adresse: string; original(n: string): Promise<string> };
-const bauen = (umgebung: 'stage' | 'prod', ordner: string): Promise<Website> => zusammenstellen(umgebung, ordner, STAND);
+type Seite = 'bald' | 'startseite';
+const bauen = (umgebung: 'stage' | 'prod', ordner: string, seite?: Seite): Promise<Website> => zusammenstellen(umgebung, ordner, STAND, seite);
 
 test.describe('Website für Hostinger', () => {
   test('Prod enthält nur, was online gehört', async ({}, info) => {
-    const w = await bauen('prod', info.outputPath('prod'));
+    const w = await bauen('prod', info.outputPath('prod'), 'startseite');
     const dateien = w.dateien;
     for (const muss of ['index.html', 'sitemap.xml', 'robots.txt', '.htaccess', 'version.txt', 'release/panel.html',
       'release/player.html', 'release/designer.html', 'release/bericht.html', 'release/konfigurator.html', 'release/sw.js',
@@ -41,14 +42,70 @@ test.describe('Website für Hostinger', () => {
     await expect(page.locator('#stage-schild')).toHaveText('Stage: Testumgebung');
     await expect(page.locator('meta[name="robots"]')).toHaveCount(1);
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
+
+    // Vorschau der Vorschaltseite unter /bald/, mit Schriften und Logo aus dem Hauptordner.
+    expect(w.dateien).toContain('bald/index.html');
+    await page.goto(w.adresse + 'bald/');
+    await expect(page.getByRole('img', { name: 'ShowCube Logo' })).toBeVisible();
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
+    await expect.poll(() => page.evaluate(() => document.fonts.check('700 20px "Bricolage Grotesque"'))).toBe(true);
   });
 
   test('jeder Link der Startseite führt auch im hochgeladenen Ordner zu einer Datei', async ({ page }, info) => {
-    const w = await bauen('prod', info.outputPath('prod-links'));
+    const w = await bauen('prod', info.outputPath('prod-links'), 'startseite');
     await page.goto(w.adresse);
     const ziele = await page.locator('a[href], link[href], img[src], script[src]').evaluateAll(els =>
       els.map(e => e.getAttribute('href') || e.getAttribute('src')).filter(u => u && !/^(#|mailto:|https?:)/.test(u)) as string[]);
     expect(ziele.length).toBeGreaterThan(5);
     for (const ziel of new Set(ziele)) expect(w.gibtEs(ziel.split(/[?#]/)[0]), ziel).toBe(true);
+  });
+});
+
+// Vorschaltseite „Bald da“ (bald/index.html): läuft auf showcube.de, solange website.json "bald" sagt.
+test.describe('Vorschaltseite Bald da', () => {
+  test('website.json sagt, was auf showcube.de läuft', async () => {
+    expect(['bald', 'startseite']).toContain(await prodSeite());
+  });
+
+  test('showcube.de zeigt Logo, Teaser und Kontakt, die Apps bleiben erreichbar', async ({ page, request }, info) => {
+    const w = await bauen('prod', info.outputPath('bald'), 'bald');
+    expect(await w.lesen('index.html')).toBe(await w.original('bald/index.html'));
+    expect(w.dateien, 'keine Sitemap, solange nur die Vorschaltseite läuft').not.toContain('sitemap.xml');
+    expect(await w.lesen('robots.txt')).not.toContain('Sitemap');
+    expect(w.dateien).toContain('release/box-einrichten.sh');
+    expect(w.dateien).not.toContain('bald/index.html');
+
+    await page.goto(w.adresse);
+    await expect(page).toHaveTitle(/ShowCube: Bald da/);
+    const logo = page.getByRole('img', { name: 'ShowCube Logo' });
+    await expect(logo).toBeVisible();
+    // Das Logo steht waagerecht in der Mitte.
+    const box = (await logo.boundingBox())!;
+    expect(Math.abs(box.x + box.width / 2 - 640)).toBeLessThan(2);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dein Fernseher wird zum besten Verkäufer.');
+    await expect(page.getByText('Bald da', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Schreib uns/ })).toHaveAttribute('href', /^mailto:hallo@showcube\.de/);
+    // Schriften und Icons kommen aus dem Ordner selbst, nicht aus dem Netz.
+    await expect.poll(() => page.evaluate(() => document.fonts.check('700 20px "Bricolage Grotesque"'))).toBe(true);
+    for (const ziel of await page.locator('link[href]').evaluateAll(els => els.map(e => e.getAttribute('href')!).filter(u => !/^https?:/.test(u)))) {
+      expect((await request.get(w.adresse + ziel)).status(), ziel).toBe(200);
+    }
+  });
+
+  test('Bildvergleich', async ({ page }, info) => {
+    nurLinux();
+    const w = await bauen('prod', info.outputPath('bald-bild'), 'bald');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(w.adresse);
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page).toHaveScreenshot('bald.png');
+  });
+
+  test('passt aufs Handy @handy', async ({ page }, info) => {
+    const w = await bauen('prod', info.outputPath('bald-handy'), 'bald');
+    await page.goto(w.adresse);
+    await expect(page.getByRole('img', { name: 'ShowCube Logo' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Schreib uns/ })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   });
 });
