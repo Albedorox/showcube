@@ -1,6 +1,25 @@
 // Startseite (index.html): Verkaufsseite für Interessenten.
 import { test, expect, nurLinux, erwarteAufLeinwand, leinwandLeeren, uhrAnhalten, uhrVor } from './hilfen';
 
+// Handy-Screenshot bei „Steuerung per Handy“: nur ein dünner Rahmen, Bild unverzerrt.
+// Früher griff die Hero-Regel für das animierte Handy auch hier (Polster, schwarzer Hintergrund, falsches Seitenverhältnis).
+async function pruefeHandyRahmen(page: import('@playwright/test').Page) {
+  await page.goto('./');
+  const handy = page.locator('.shots .phone');
+  await handy.scrollIntoViewIfNeeded();
+  await expect.poll(() => handy.evaluate((e: HTMLImageElement) => e.complete && e.naturalWidth > 0)).toBe(true);
+  const m = await handy.evaluate((e: HTMLImageElement) => {
+    const s = getComputedStyle(e), r = e.getBoundingClientRect();
+    const rand = parseFloat(s.borderLeftWidth) + parseFloat(s.paddingLeft);
+    return { rand, breite: r.width, innen: (r.height - 2 * rand) / (r.width - 2 * rand), bild: e.naturalHeight / e.naturalWidth, hintergrund: s.backgroundColor };
+  });
+  expect(m.rand, 'Rahmen höchstens 5 px').toBeLessThanOrEqual(5);
+  expect(m.rand / m.breite, 'Rahmen dünn im Verhältnis zum Handy').toBeLessThan(0.05);
+  expect(m.hintergrund, 'kein schwarzer Hintergrund hinter dem Bild').toBe('rgba(0, 0, 0, 0)');
+  expect(Math.abs(m.innen - m.bild), 'Bild nicht gestaucht').toBeLessThan(0.02);
+  return handy;
+}
+
 test.describe('Startseite', () => {
   test('zeigt die Texte, die bleiben sollen (siehe CLAUDE.md)', async ({ page }) => {
     await page.goto('./');
@@ -62,6 +81,16 @@ test.describe('Startseite', () => {
     await erwarteAufLeinwand(page, 'MITTAGSDEAL', 20_000);
   });
 
+  test('Handy bei „Steuerung per Handy“ hat einen dünnen Rahmen', async ({ page }) => {
+    await pruefeHandyRahmen(page);
+  });
+
+  test('Bildvergleich Steuerung per Handy (Desktop)', async ({ page }) => {
+    nurLinux();
+    await pruefeHandyRahmen(page);
+    await expect(page.locator('#h-panel').locator('xpath=ancestor::section[1]')).toHaveScreenshot('steuerung-per-handy.png');
+  });
+
   test('Bildvergleich oben (Desktop)', async ({ page }) => {
     nurLinux();
     await uhrAnhalten(page);
@@ -78,6 +107,16 @@ test.describe('Startseite auf dem Handy', () => {
     const breite = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
     expect(breite[0], 'keine waagerechte Scrollleiste').toBeLessThanOrEqual(breite[1]);
     await erwarteAufLeinwand(page, 'Mittagstisch');
+  });
+
+  test('Handy bei „Steuerung per Handy“ hat einen dünnen Rahmen @handy', async ({ page }) => {
+    await pruefeHandyRahmen(page);
+  });
+
+  test('Bildvergleich Steuerung per Handy @handy', async ({ page }) => {
+    nurLinux();
+    await pruefeHandyRahmen(page);
+    await expect(page.locator('.shots')).toHaveScreenshot('steuerung-per-handy-handy.png');
   });
 
   test('Bildvergleich oben @handy', async ({ page }) => {
