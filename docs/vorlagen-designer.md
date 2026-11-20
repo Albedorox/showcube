@@ -18,7 +18,7 @@ ein langsam drehendes Muster aus abgerundeten Quadraten in den Markenfarben. So 
 
 ## 2. Eigene Vorlagen (Kunde selbst oder Agentur)
 
-Freie Gestaltung mit Text, Fläche, Kreis, Bild, Logo und QR-Code. Pro Element:
+Freie Gestaltung mit Text, Fläche, Kreis, Bild, Video, Logo und QR-Code. Pro Element:
 
 - Lage und Größe, eigene Fassung für hochkant möglich.
 - Farbe als **Rolle der Marke** (Hauptfarbe, Zweitfarbe, Dunkel, Hell) oder als feste Farbe.
@@ -40,6 +40,12 @@ Freie Gestaltung mit Text, Fläche, Kreis, Bild, Logo und QR-Code. Pro Element:
   mit einer gestrichelten Bahn („immer sichtbar“) in der Liste.
 - **„Kunde darf das im Panel ausfüllen“**: macht das Element zu einem Feld (z. B. „Preis“, „Foto“).
   Alles andere bleibt gesperrt. So bleibt das CI sauber und der Kunde ändert trotzdem selbst den Preis.
+- **Video-Ebene** (Knopf „Video“): eine Fläche für einen fertig produzierten Film, z. B. vom Grafiker oder der
+  Agentur, mit Logo, Preis oder Text darüber. Sie liegt wie jede Ebene in der Zeitleiste, lässt sich animieren
+  (Einblenden, Heranzoomen …) und hat „Füllen“ oder „Ganz zeigen“ und runde Ecken. Den Film wählt immer der
+  Kunde im Panel aus seinen Medien (MP4 oder WebM), darum ist die Ebene immer ein freies Feld. So bleibt das
+  Markenpaket klein. Zum Ausprobieren im Designer gibt es „Testfilm wählen“, der Testfilm wird nicht gespeichert.
+  Auf der Box läuft der Film stumm, die Folie startet ihn von vorn und dauert so lange wie der Film.
 
 Startpunkte unter „Neue Vorlage anlegen“: Angebot groß, Foto mit Botschaft, Termin und QR, Willkommen.
 Darüber stehen die „Vorlagen von …“ des gewählten Kunden. Auf schmalen Bildschirmen (Tablet, Handy) sind beide
@@ -99,5 +105,6 @@ create table public.einladungen (
 
 - Eigene Schriften: Lizenz für Bildschirmnutzung muss der Kunde haben (Hinweis steht im Designer).
 - Große Bilder im Markenpaket machen Pakete schwer. Später als Dateien im Speicher statt data:-URL.
-- Videos als Element einer Vorlage fehlen noch.
+- Video-Ebene: Ton gibt es bewusst nicht (Laden, Wartezimmer). Ein Film, der länger als 10 Minuten läuft, wird abgebrochen.
+- Video-Ebene auf dem Pi 5 testen: der Film wird pro Bild auf die Leinwand gemalt. Bei 1080p sollte das flüssig sein, bei 4K eher nicht.
 - Übergang „Schieben“/„Zoomen“ auf dem Pi 5 testen (CSS-Transform, sollte flüssig laufen).

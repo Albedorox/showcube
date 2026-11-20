@@ -7,7 +7,7 @@
 import qrcode from 'qrcode-generator';
 import { font, fit, wrap, rr, mix, drawLogo, DISP, BODY, pal, alpha } from './templates';
 import type { When } from './paket';
-import { drawDesign } from './design';
+import { drawDesign, videosVon } from './design';
 
 // ---------- Zeitraum ----------
 export interface Zeitraum { from?: string; to?: string; days?: number[]; }   // from/to: JJJJ-MM-TT, beide inklusive
@@ -96,6 +96,8 @@ export const BAUSTEINE: Record<BausteinKind, { label: string; desc: string; fiel
 };
 export const bausteinTitle = (b: Baustein) => b.kind === 'design' ? b.f.titel || 'Eigene Vorlage' : b.kind === 'anzeige' ? (b.f.firma || b.f.title || 'Anzeige') : (b.kind === 'reviews' ? (b.f.score ? b.f.score + ' Sterne' : '') : b.f.title || '').trim() || BAUSTEINE[b.kind].label;
 // Ein Countdown nach seinem Ende ist auch abgelaufen.
+// Filme, die eine eigene Vorlage (Art 'design') zeigt. Sie müssen als Datei mit ins Paket.
+export const bausteinVideos = (b: Baustein, marke: any): string[] => b.kind !== 'design' || !marke ? [] : videosVon((marke.vorlagen || []).find((x: any) => x.id === b.f.vorlage), b.f);
 export const bausteinActive = (b: Baustein, d = new Date()) => b.on && activeOn(b, d) && !(b.kind === 'countdown' && b.f.until && Date.parse(b.f.until) <= d.getTime());
 
 function star(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, fillPart: number, on: string, off: string) {

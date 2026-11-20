@@ -1,7 +1,7 @@
 import '../shared/fonts.css';
 import '../shared/fonts-marke.css';
 import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates';
-import { activeOn, expired, zeitraumText, bausteinActive, bausteinSlide, bausteinTitle, BAUSTEINE, LEISTE, leisteH, drawLeiste, fetchWetter, findPlace, WETTER_DEMO, type Baustein, type BausteinKind, type Leiste, type Wetter, type Zeitraum } from '../shared/bausteine';
+import { activeOn, expired, zeitraumText, bausteinActive, bausteinSlide, bausteinTitle, bausteinVideos, BAUSTEINE, LEISTE, leisteH, drawLeiste, fetchWetter, findPlace, WETTER_DEMO, type Baustein, type BausteinKind, type Leiste, type Wetter, type Zeitraum } from '../shared/bausteine';
 import { useMarke, logoBild, markeAusDatei, markeAlsDatei, MARKE_FORMAT, type Marke } from '../shared/marke';
 import { drawDesign, freieFelder, type DesignVorlage } from '../shared/design';
 import { hatServer, verbinden, SPEICHER, BUCKET } from '../shared/cloud';
@@ -88,7 +88,7 @@ const BERICHT_URL = REL ? 'bericht.html' : '../bericht/';
 
 // ---------- Datenmodell ----------
 type Row = { c: string[]; off?: boolean };
-type MediaUse = { id: string; when: When } & Zeitraum;
+type MediaUse = { id: string; when: When; dauer?: number } & Zeitraum;
 interface Cfg { tpl: string | null; name: string; rows: Row[]; accent: string; logo: string | null; dur: number; fit: 'cover' | 'contain'; dayStart: string; eveStart: string; offOn: boolean; offFrom: string; offTo: string; offDays: number[]; media: MediaUse[]; extras: Baustein[]; leiste: Leiste; marke?: boolean; }
 interface Version { revision: number; at: number; cfg: Cfg; }
 interface Show { id: string; name: string; revision: number; published: number | null; cfg: Cfg; pub: Cfg | null; history: Version[]; }
@@ -197,6 +197,8 @@ const urlOf = (id: string) => { if (!urls.has(id) && blobs.has(id)) urls.set(id,
 const imgs = new Map<string, HTMLImageElement>(), vids = new Map<string, HTMLVideoElement>();
 function imgOf(id: string) { if (!imgs.has(id) && blobs.has(id)) { const i = new Image(); i.src = urlOf(id); imgs.set(id, i); } return imgs.get(id); }
 function vidOf(id: string) { if (!vids.has(id) && blobs.has(id)) { const v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.src = urlOf(id); vids.set(id, v); } return vids.get(id); }
+// Für Video-Ebenen eigener Vorlagen: der Film läuft in der Vorschau in der Schleife.
+function filmVon(id: string) { const v = vidOf(id); if (v && v.paused) v.play().catch(() => {}); return v; }
 
 // ---------- Zeitplan und Folien, wie im Player ----------
 const mins = (s: string) => { const [a, b] = (s || '0:0').split(':').map(Number); return a * 60 + b; };
@@ -208,7 +210,7 @@ const PERIOD = { day: 'Tag', eve: 'Abend', off: 'Nachts aus', rest: 'Ruhetag' };
 const markeOf = (c: Cfg): Marke | null => (c && c.marke !== false && S.marke) || null;
 function dataOf(c: Cfg) {
   const li = c.logo && imgOf(c.logo), m = markeOf(c);
-  return { name: c.name || (m && m.name) || ' ', accent: m ? m.farben.primaer : c.accent, logo: li && li.complete && li.naturalWidth ? li : logoBild(m), marke: m, hours: 'Montag bis Samstag, 9 bis 19 Uhr',
+  return { name: c.name || (m && m.name) || ' ', accent: m ? m.farben.primaer : c.accent, logo: li && li.complete && li.naturalWidth ? li : logoBild(m), marke: m, hours: 'Montag bis Samstag, 9 bis 19 Uhr', video: filmVon, vorschau: true,
     items: c.rows.filter(r => !r.off && (r.c[0] || '').trim()).map(r => r.c) };
 }
 // Vorschau-Datum: im Editor lässt sich ein anderer Tag simulieren, um Zeiträume zu prüfen.
@@ -224,10 +226,17 @@ function slidesOf(c: Cfg, p: string, showId?: string, at?: Date) {
   const list: any[] = [];
   const fits = (x: { when: When }) => x.when === 'always' || x.when === p;
   if (c.tpl && TEMPLATES[c.tpl]) TEMPLATES[c.tpl].slides(p === 'eve', dataOf(c)).forEach((fn, i) => list.push({ kind: 'tpl', fn, label: TEMPLATES[c.tpl].label.split(':')[0] + ', Folie ' + (i + 1) }));
-  (c.extras || []).forEach(b => { if (fits(b) && bausteinActive(b, day)) list.push({ kind: 'tpl', fn: slideFn(b), label: BAUSTEINE[b.kind].label + ': ' + bausteinTitle(b), bau: b.id }); });
-  c.media.forEach(m => { const a = assetById(m.id); if (a && blobs.has(a.id) && fits(m) && activeOn(m, day)) list.push({ kind: a.type, id: a.id, label: a.name }); });
+  (c.extras || []).forEach(b => { if (fits(b) && bausteinActive(b, day)) list.push({ kind: 'tpl', fn: slideFn(b), label: BAUSTEINE[b.kind].label + ': ' + bausteinTitle(b), bau: b.id, videos: bausteinVideos(b, markeOf(c)) }); });
+  c.media.forEach(m => { const a = assetById(m.id); if (a && blobs.has(a.id) && fits(m) && activeOn(m, day)) list.push({ kind: a.type, id: a.id, label: a.name, dauer: m.dauer }); });
   if (!showId) return list;
   return mischen(list, werbeSlots(werbungFor(showId, c), p, day).map(w => ({ alle: w.alle, item: { kind: 'tpl', fn: slideFn(w.folie), label: 'Partner: ' + w.name, partner: w.id } })));
+}
+// Wie lange eine Folie in der Vorschau steht, wie auf der Box: eigene Dauer, sonst Filmlänge (wenn bekannt), sonst „Sekunden pro Folie“.
+function dauerVon(it: any, c: Cfg) {
+  if (it && it.dauer) return it.dauer;
+  const filme = it ? (it.kind === 'video' ? [it.id] : it.videos || []) : [];
+  const laengen = filme.map((id: string) => { const v = vidOf(id); return v && isFinite(v.duration) ? v.duration : 0; }).filter(Boolean);
+  return laengen.length ? Math.max(...laengen) : Math.max(3, c.dur);
 }
 function drawItem(ctx: CanvasRenderingContext2D, w: number, h2: number, it: any, c: Cfg, t: number) {
   if (!it) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h2); return; }
@@ -281,8 +290,8 @@ function frame(now: number) {
     if (!list.length || (p.black && p.black())) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, hh); p.prev = null; }
     else {
       if (p.idx >= list.length) p.idx = 0;
-      if (!p.next) p.next = now + Math.max(3, c.dur) * 1000;
-      if (now > p.next) { p.prev = list[p.idx]; p.fadeAt = now; p.shownAt = null; p.idx = (p.idx + 1) % list.length; p.next = now + Math.max(3, c.dur) * 1000; }
+      if (!p.next) p.next = now + dauerVon(list[p.idx], c) * 1000;
+      if (now > p.next) { p.prev = list[p.idx]; p.fadeAt = now; p.shownAt = null; p.idx = (p.idx + 1) % list.length; p.next = now + dauerVon(list[p.idx], c) * 1000; }
       const a = p.prev ? Math.min(1, (now - p.fadeAt) / 450) : 1;
       // Animationen eigener Vorlagen laufen ab Beginn der Folie.
       if (p.shownIdx !== p.idx || p.shownAt == null) { p.shownIdx = p.idx; p.shownAt = now; }
@@ -306,12 +315,15 @@ const send = (m: Msg) => { if (konto) cloudSend(m); else if (ch) ch.postMessage(
 const isOn = (sc: Screen) => isLive(sc.id) || sc.sim === 'online';
 function noticeFor(id: string): Notice | null { const n = S.notice; return n && n.screens.includes(id) && (!n.until || Date.now() < n.until) ? { text: n.text, until: n.until } : null; }
 function toConfig(c: Cfg, sc?: Screen): ShowConfig {
-  const media = c.media.map(m => { const a = assetById(m.id); return a && (blobs.has(a.id) || (konto && hochgeladen.has(a.id))) ? { id: a.id, type: a.type, name: a.name, when: m.when, from: m.from, to: m.to, days: m.days } : null; }).filter(Boolean);
+  const media = c.media.map(m => { const a = assetById(m.id); return a && (blobs.has(a.id) || (konto && hochgeladen.has(a.id))) ? { id: a.id, type: a.type, name: a.name, when: m.when, from: m.from, to: m.to, days: m.days, ...(m.dauer ? { dauer: m.dauer } : {}) } : null; }).filter(Boolean);
   return { tpl: c.tpl, name: c.name, items: itemsOf(c), accent: c.accent, dur: c.dur, fit: c.fit, dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays, notice: sc ? noticeFor(sc.id) : null, media, extras: clone(c.extras || []), leiste: c.leiste && c.leiste.on ? { ...c.leiste } : null, marke: markeOf(c) };
 }
+// Filme aus Video-Ebenen eigener Vorlagen, die mit ins Paket müssen.
+const filmeIn = (config: ShowConfig) => [...new Set((config.extras || []).flatMap(b => bausteinVideos(b, config.marke)))].filter(id => assetById(id));
 function paketFor(sh: Show, c: Cfg, sc?: Screen): Paket {
   const config = toConfig(c, sc), files: Record<string, Blob> = {};
   config.media.forEach(m => { files[m.id] = blobs.get(m.id); });
+  filmeIn(config).forEach(id => { if (blobs.has(id)) files[id] = blobs.get(id); });
   if (c.logo && blobs.has(c.logo)) files.logo = blobs.get(c.logo);
   config.werbung = werbungFor(sh.id, c);
   return { format: PAKET_FORMAT, version: PAKET_VERSION, show: { id: sh.id, name: sh.name, revision: sh.revision, published: new Date(sh.published || Date.now()).toISOString() }, screen: sc ? { id: sc.id, name: sc.name } : undefined, config, files };
@@ -795,13 +807,15 @@ function renderPane() {
           h('span', { class: 'row', style: 'gap:2px' },
             h('select', { 'aria-label': 'Wann zeigen: ' + a.name, onchange: (e: any) => { m.when = e.target.value; changed(); } }, [['always', 'immer'], ['day', 'tagsüber'], ['eve', 'abends']].map(([val, tx]) => h('option', { value: val, selected: m.when === val }, tx))),
             h('input', { type: 'date', value: m.to || '', title: 'Zeigen bis (leer = immer)', 'aria-label': 'Zeigen bis: ' + a.name, onchange: (e: any) => { m.to = e.target.value || undefined; repaint(); } }),
+            h('label', { class: 'sek', title: a.type === 'video' ? 'Leer = ganzer Film. Mit Zahl wird nach so vielen Sekunden weitergeschaltet.' : 'Leer = „Sekunden pro Folie“ aus dem Zeitplan.' },
+              h('input', { type: 'number', min: 1, max: 600, step: 1, inputmode: 'numeric', value: m.dauer || '', placeholder: a.type === 'video' ? 'ganz' : String(c.dur), 'aria-label': 'Dauer in Sekunden: ' + a.name, onchange: (e: any) => { const n = Math.round(+e.target.value); if (n > 0) m.dauer = Math.min(600, n); else delete m.dauer; changed(); } }), 's'),
             h('button', { class: 'ib', 'aria-label': 'Nach oben: ' + a.name, disabled: i === 0, onclick: () => { c.media.splice(i - 1, 0, c.media.splice(i, 1)[0]); repaint(); } }, icon('up')),
             h('button', { class: 'ib', 'aria-label': 'Aus der Slideshow nehmen: ' + a.name, onclick: () => { c.media.splice(i, 1); repaint(); } }, icon('x'))));
       })) : h('div', { class: 'empty' }, 'Eigene Fotos und Videos laufen nach den Vorlagen-Folien.'),
       h('div', { class: 'row' },
         h('span', { class: 'btn file primary' }, icon('upload'), 'Hochladen', h('input', { type: 'file', accept: 'image/*,video/mp4,video/webm', multiple: true, 'aria-label': 'Bilder oder Videos hochladen', onchange: (e: any) => { const ids = addFiles(e.target.files, true); ids.forEach(id => c.media.push({ id, when: 'always' })); repaint(); } })),
         free.length ? h('select', { style: 'flex:1;min-width:180px', 'aria-label': 'Aus der Bibliothek hinzufügen', onchange: (e: any) => { if (e.target.value) { c.media.push({ id: e.target.value, when: 'always' }); repaint(); } } }, h('option', { value: '' }, 'Aus der Bibliothek hinzufügen …'), free.map(a => h('option', { value: a.id }, (a.type === 'video' ? 'Video: ' : '') + a.name))) : null),
-      h('span', { class: 'small' }, 'Bilder bleiben so lange stehen wie unter „Zeitplan“ eingestellt, Videos laufen bis zum Ende. Mit einem Datum verschwindet ein Medium danach von selbst.'));
+      h('span', { class: 'small' }, 'Dauer in Sekunden: leer heißt bei Bildern „Sekunden pro Folie“ aus dem Zeitplan, bei Videos der ganze Film. Videos laufen stumm. Mit einem Datum verschwindet ein Medium danach von selbst. Einen Film in dein eigenes Design setzen geht mit einer Video-Ebene im Vorlagen-Designer.'));
   } else if (tab === 'plan') {
     // Zeitleiste: 24 Stunden in Viertelstunden, gleiche Abschnitte zusammengefasst.
     const segs: { p: string; n: number }[] = [];
@@ -858,9 +872,9 @@ function bildKlein(f: File, max = 1600): Promise<string> {
 }
 const vorlageVon = (b: Baustein) => S.marke && S.marke.vorlagen.find(v => v.id === b.f.vorlage);
 // Eigene Vorlage: der Kunde füllt nur die Felder aus, die beim Gestalten freigegeben wurden.
-function designFelder(b: Baustein) {
+function designFelder(b: Baustein, mitVideo = true) {
   const v = vorlageVon(b); if (!v) return [];
-  return freieFelder(v).map(el => ({ k: el.id, label: el.frei, ph: el.typ === 'bild' ? '' : el.text || '', type: el.typ === 'bild' ? 'bild' : el.typ === 'qr' ? 'url' : 'text', wide: el.typ !== 'text' || (el.text || '').length > 24 }));
+  return freieFelder(v).filter(el => mitVideo || el.typ !== 'video').map(el => ({ k: el.id, label: el.frei, ph: el.typ === 'bild' || el.typ === 'video' ? '' : el.text || '', type: el.typ === 'bild' || el.typ === 'video' ? el.typ : el.typ === 'qr' ? 'url' : 'text', wide: el.typ !== 'text' || (el.text || '').length > 24 }));
 }
 function renderExtras(p: HTMLElement, c: Cfg, repaint: (f?: string) => void) {
   const list = c.extras, L = c.leiste, M = markeOf(c);
@@ -876,6 +890,16 @@ function renderExtras(p: HTMLElement, c: Cfg, repaint: (f?: string) => void) {
       b.kind === 'design' && !vorlageVon(b) ? h('span', { class: 'small' }, 'Diese Vorlage gibt es in der Marke nicht mehr. Die Folie wird übersprungen.') : null,
       h('div', { class: 'bst-f' }, (b.kind === 'design' ? designFelder(b) : B.fields).map((fd: any) => {
         const id = idp + fd.k, isQ = /^q\d/.test(fd.k);
+        if (fd.type === 'video') {
+          // Video-Ebene: Film aus den Medien wählen oder gleich hochladen. Die Folie läuft so lange wie der Film.
+          const filme = S.assets.filter(a => a.type === 'video'), a = b.f[fd.k] && assetById(b.f[fd.k]);
+          return h('div', { class: 'wide' }, h('label', { for: id }, fd.label), h('div', { class: 'row' },
+            a ? h('video', { class: 'th', src: urlOf(a.id) || '', muted: true }) : null,
+            h('select', { id, style: 'flex:1;min-width:160px', onchange: (e: any) => { if (e.target.value) b.f[fd.k] = e.target.value; else delete b.f[fd.k]; repaint('#' + id); } },
+              h('option', { value: '' }, filme.length ? 'Film aus den Medien wählen …' : 'Noch kein Film in den Medien'), filme.map(x => h('option', { value: x.id, selected: x.id === b.f[fd.k] }, x.name))),
+            h('span', { class: 'btn sm file' }, icon('upload'), 'Film hochladen', h('input', { type: 'file', accept: 'video/mp4,video/webm', 'aria-label': fd.label + ' hochladen', onchange: (e: any) => { const ids = addFiles(e.target.files, true); if (ids[0]) { b.f[fd.k] = ids[0]; repaint(); } } }))),
+            h('span', { class: 'small' }, a ? 'Läuft stumm. Die Folie dauert so lange wie der Film.' : 'Ohne Film bleibt die Fläche auf dem Bildschirm leer.'));
+        }
         if (fd.type === 'bild') return h('div', { class: 'wide' }, h('span', { class: 'label' }, fd.label), h('div', { class: 'logo' }, b.f[fd.k] ? h('img', { src: b.f[fd.k], alt: '' }) : null,
           h('span', { class: 'btn sm file' }, icon('upload'), b.f[fd.k] ? 'Bild ersetzen' : 'Eigenes Bild', h('input', { type: 'file', accept: 'image/*', 'aria-label': fd.label, onchange: async (e: any) => { const f = e.target.files[0]; if (!f) return; b.f[fd.k] = await bildKlein(f); repaint(); } })),
           b.f[fd.k] ? h('button', { class: 'btn ghost sm', onclick: () => { delete b.f[fd.k]; repaint(); } }, 'Bild der Vorlage') : h('span', { class: 'small' }, 'Ohne eigenes Bild bleibt das Bild aus der Vorlage.')));
@@ -1214,7 +1238,7 @@ function drawWerbeDlg() {
   const kinds: [string, string, () => void][] = [['anzeige', 'Anzeige', () => { p.folie = bau('anzeige', { firma: p.name, title: '', text: '', url: '' }); }],
     ...(M ? M.vorlagen.map(vo => ['v:' + vo.id, vo.name, () => { p.folie = bau('design', { vorlage: vo.id, titel: vo.name }); }] as [string, string, () => void]) : [])];
   const cur = art === 'design' ? 'v:' + p.folie.f.vorlage : 'anzeige';
-  const fields: any[] = art === 'design' ? designFelder(p.folie) : [...BAUSTEINE.anzeige.fields, { k: 'bild', label: 'Bild', type: 'bild', wide: true }];
+  const fields: any[] = art === 'design' ? designFelder(p.folie, false) : [...BAUSTEINE.anzeige.fields, { k: 'bild', label: 'Bild', type: 'bild', wide: true }];
   const swatches = ['#c2185b', '#d9482b', '#e09a1a', '#2f7d32', '#1f6f8b', '#3b3f9c', '#5d4037', '#212121'];
   fill(b,
     h('div', { class: 'dlg-h' }, h('h2', { id: 'dwTitle' }, e.neu ? 'Neuer Werbepartner' : p.name), h('button', { class: 'btn icon ghost', 'aria-label': 'Schließen', onclick: () => $('dlgWerbung').close() }, icon('x'))),
@@ -1446,6 +1470,7 @@ async function sync() {
       const sh = showById(id); if (!sh || !sh.pub) { offenePakete.delete(id); continue; }
       const p = paketFor(sh, sh.pub), files: Record<string, string> = {};
       p.config.media.forEach(m => { files[m.id] = SPEICHER + b + '/' + m.id; });
+      filmeIn(p.config).forEach(id => { if (hochgeladen.has(id)) files[id] = SPEICHER + b + '/' + id; });
       if (sh.pub.logo && hochgeladen.has(sh.pub.logo)) files.logo = SPEICHER + b + '/' + sh.pub.logo;
       const r = await sb.from('pakete').upsert({ betrieb_id: b, show_id: sh.id, revision: sh.revision, paket: { ...p, files } });
       if (r.error) throw r.error; offenePakete.delete(id);
