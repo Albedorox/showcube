@@ -63,5 +63,9 @@ jobs:
         run: GITHUB_SHA="$VOLL" node scripts/website.mjs prod "$RUNNER_TEMP/website"
       - name: Auf den Branch website-prod legen
         run: scripts/veroeffentlichen.sh "$RUNNER_TEMP/website" website-prod "$VOLL"
+      - name: Hostinger abholen lassen
+        env:
+          HOSTINGER_API_TOKEN: ${{ secrets.HOSTINGER_API_TOKEN }}
+        run: scripts/hostinger-abholen.sh showcube.de website-prod
       - name: Zeigt showcube.de den neuen Stand?
         run: scripts/online-pruefen.sh https://showcube.de/ "$VOLL"

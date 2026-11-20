@@ -1,7 +1,7 @@
 # Stage: Jeder Stand auf main, dessen Tests grün sind, geht automatisch auf https://stage.showcube.de.
 # Läuft erst, wenn der Workflow „Tests“ auf main erfolgreich war. Bei Rot wird nichts veröffentlicht.
 # Ablauf: Website zusammenstellen (scripts/website.mjs) → als Commit auf den Branch website-stage legen →
-# Hostinger holt ihn selbst ab → prüfen, dass stage.showcube.de den neuen Stand zeigt.
+# Hostinger holt ihn ab (angestoßen über die Hostinger-API, Secret HOSTINGER_API_TOKEN) → prüfen, dass stage.showcube.de den neuen Stand zeigt.
 # Danach dort selbst prüfen und mit „Live schalten“ (live.yml) genau diesen Stand auf showcube.de bringen.
 # Anleitung: docs/deployment.md
 name: Stage aktualisieren
@@ -42,5 +42,9 @@ jobs:
         run: GITHUB_SHA="$STAND" node scripts/website.mjs stage "$RUNNER_TEMP/website"
       - name: Auf den Branch website-stage legen
         run: scripts/veroeffentlichen.sh "$RUNNER_TEMP/website" website-stage "$STAND"
+      - name: Hostinger abholen lassen
+        env:
+          HOSTINGER_API_TOKEN: ${{ secrets.HOSTINGER_API_TOKEN }}
+        run: scripts/hostinger-abholen.sh stage.showcube.de website-stage
       - name: Zeigt stage.showcube.de den neuen Stand?
         run: scripts/online-pruefen.sh https://stage.showcube.de/ "$STAND"
