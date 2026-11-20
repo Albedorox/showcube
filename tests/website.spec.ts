@@ -15,9 +15,10 @@ test.describe('Website für Hostinger', () => {
     const dateien = w.dateien;
     for (const muss of ['index.html', 'sitemap.xml', 'robots.txt', '.htaccess', 'version.txt', 'release/panel.html',
       'release/player.html', 'release/designer.html', 'release/bericht.html', 'release/konfigurator.html', 'release/sw.js',
-      'release/box-einrichten.sh', 'assets/og.png', 'pwa/icon.svg']) expect(dateien, muss).toContain(muss);
+      'release/box-einrichten.sh', 'assets/og.png', 'pwa/icon.svg',
+      'impressum.html', 'datenschutz.html', 'kontakt.html', 'kontakt.php', 'assets/seiten.css']) expect(dateien, muss).toContain(muss);
     // Kein Quellcode, keine Tests, keine Gehäuse-Dateien, keine Doku, kein Backend.
-    for (const d of dateien) expect(d, d).toMatch(/^(index\.html|sitemap\.xml|robots\.txt|\.htaccess|version\.txt|assets\/|release\/|pwa\/icon\.svg$)/);
+    for (const d of dateien) expect(d, d).toMatch(/^(index\.html|sitemap\.xml|robots\.txt|\.htaccess|version\.txt|assets\/|release\/|pwa\/icon\.svg$|impressum\.html$|datenschutz\.html$|kontakt\.(html|php)$)/);
     expect(dateien.some(d => /\.(stl|step|3mf|ts|toml|sql)$/.test(d))).toBe(false);
 
     expect(await w.lesen('version.txt')).toBe(STAND + '\n');
@@ -84,7 +85,13 @@ test.describe('Vorschaltseite Bald da', () => {
     expect(Math.abs(box.x + box.width / 2 - 640)).toBeLessThan(2);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dein Fernseher wird zum besten Verkäufer.');
     await expect(page.getByText('Bald da', { exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Schreib uns/ })).toHaveAttribute('href', /^mailto:hallo@showcube\.de/);
+    await expect(page.getByRole('link', { name: 'Schreib uns' })).toHaveAttribute('href', 'kontakt.html?thema=testbox');
+    await expect(page.getByRole('link', { name: 'hallo@showcube.de' })).toHaveAttribute('href', 'mailto:hallo@showcube.de');
+    // Impressum und Datenschutz sind verlinkt und liegen im Ordner.
+    for (const [name, ziel] of [['Impressum', 'impressum.html'], ['Datenschutz', 'datenschutz.html']]) {
+      await expect(page.getByRole('link', { name, exact: true })).toHaveAttribute('href', ziel);
+      expect(w.gibtEs(ziel), ziel).toBe(true);
+    }
     // Schriften und Icons kommen aus dem Ordner selbst, nicht aus dem Netz.
     await expect.poll(() => page.evaluate(() => document.fonts.check('700 20px "Bricolage Grotesque"'))).toBe(true);
     for (const ziel of await page.locator('link[href]').evaluateAll(els => els.map(e => e.getAttribute('href')!).filter(u => !/^https?:/.test(u)))) {
@@ -105,7 +112,7 @@ test.describe('Vorschaltseite Bald da', () => {
     const w = await bauen('prod', info.outputPath('bald-handy'), 'bald');
     await page.goto(w.adresse);
     await expect(page.getByRole('img', { name: 'ShowCube Logo' })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Schreib uns/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Schreib uns' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   });
 });

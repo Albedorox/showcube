@@ -1,6 +1,7 @@
 // Stellt die Website für Hostinger zusammen: genau die Dateien, die online gehören, im Ordner website/.
 // Aufruf: node scripts/website.mjs stage|prod [zielordner]
-// - Mit dabei: index.html, sitemap.xml, assets/, release/ (fertige Apps aus `npm run build`), pwa/icon.svg (Favicon).
+// - Mit dabei: index.html, sitemap.xml, assets/, release/ (fertige Apps aus `npm run build`), pwa/icon.svg (Favicon),
+//   Impressum, Datenschutz und das Kontaktformular (kontakt.html, kontakt.php schickt die Mail).
 // - Nicht dabei: Quellcode, tests/, hardware/ (Gehäuse-CAD), docs/, supabase/, node_modules/.
 // - Dazu .htaccess (www-Umleitung, Zwischenspeicher, Dateitypen), robots.txt und version.txt mit dem Git-Stand.
 // - Stage wird für Suchmaschinen gesperrt und zeigt unten links ein kleines „Stage“-Schild.
@@ -13,7 +14,8 @@ import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 export const ADRESSEN = { stage: 'https://stage.showcube.de/', prod: 'https://showcube.de/' };
-export const DATEIEN = ['index.html', 'sitemap.xml', 'assets', 'release', 'pwa/icon.svg'];
+export const DATEIEN = ['index.html', 'sitemap.xml', 'assets', 'release', 'pwa/icon.svg',
+  'impressum.html', 'datenschutz.html', 'kontakt.html', 'kontakt.php'];
 
 /** Was auf showcube.de läuft: 'bald' (Vorschaltseite bald/index.html) oder 'startseite'. Steht in website.json. */
 export async function prodSeite() {

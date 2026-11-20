@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kontakt | ShowCube</title>
+<meta name="description" content="Schreib ShowCube: Testbox anfragen, Preise erfahren oder eine Frage stellen. Antwort meist am selben Werktag.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b7a67">
+<link rel="icon" href="release/pwa/favicon-32.png" sizes="32x32">
+<link rel="icon" href="pwa/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/seiten.css">
+</head>
+<body>
+<header class="kopf"><div class="wrap"><a class="brand" href="./"><span class="cube" aria-hidden="true"></span>ShowCube</a><nav><a href="./">Zur Startseite</a></nav></div></header>
+<main><div class="wrap">
+<h1>Schreib uns</h1>
+<p class="leise">Wähle einen Baustein, ergänze ein paar Worte und schick ab. Wir antworten meist am selben Werktag.</p>
+
+<ul class="bausteine" aria-label="Textbausteine">
+  <li><button type="button" data-thema="testbox" aria-pressed="false">Testbox anfragen</button></li>
+  <li><button type="button" data-thema="preise" aria-pressed="false">Preise und Pakete</button></li>
+  <li><button type="button" data-thema="rueckruf" aria-pressed="false">Rückruf gewünscht</button></li>
+  <li><button type="button" data-thema="partner" aria-pressed="false">Agentur oder Partner</button></li>
+  <li><button type="button" data-thema="frage" aria-pressed="false">Allgemeine Frage</button></li>
+</ul>
+
+<form id="kontakt" action="kontakt.php" method="post" novalidate>
+  <input type="hidden" name="thema" value="">
+  <input type="hidden" name="t" value="">
+  <div class="reihe">
+    <label>Name <input name="name" autocomplete="name" required maxlength="100"></label>
+    <label>E-Mail <input name="email" type="email" autocomplete="email" required maxlength="200"></label>
+  </div>
+  <div class="reihe">
+    <label><span>Betrieb <small>(optional)</small></span> <input name="betrieb" autocomplete="organization" maxlength="150"></label>
+    <label><span>Telefon <small>(optional, für Rückruf)</small></span> <input name="telefon" type="tel" autocomplete="tel" maxlength="40"></label>
+  </div>
+  <label><span>Branche <small>(optional)</small></span>
+    <select name="branche">
+      <option value="">Bitte wählen</option>
+      <option>Gastronomie</option><option>Laden</option><option>Makler</option><option>Praxis</option><option>Sonstiges</option>
+    </select>
+  </label>
+  <label>Nachricht <textarea name="nachricht" required maxlength="5000"></textarea></label>
+  <div class="falle" aria-hidden="true"><label>Website <input name="website" tabindex="-1" autocomplete="off"></label></div>
+  <p class="hinweis">Deine Angaben nutzen wir nur, um deine Anfrage zu beantworten. Mehr dazu in der <a href="datenschutz.html">Datenschutzerklärung</a>.</p>
+  <button class="senden" type="submit">Anfrage senden</button>
+  <div class="meldung" role="status" aria-live="polite"></div>
+</form>
+<p class="leise" style="margin-top:28px">Lieber direkt per E-Mail? <a href="mailto:hallo@showcube.de">hallo@showcube.de</a></p>
+</div></main>
+<footer class="fuss"><div class="wrap"><span>© 2026 ShowCube</span><a href="kontakt.html">Kontakt</a><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a></div></footer>
+<script>
+(function () {
+  var VORLAGEN = {
+    testbox: 'Hallo ShowCube-Team,\n\nich würde ShowCube gern mit einer Testbox ausprobieren.\nAnzahl Bildschirme: \nWas soll darauf laufen (z. B. Speisekarte, Angebote, Objekte): \n\nViele Grüße',
+    preise: 'Hallo ShowCube-Team,\n\nmich interessieren die Preise und Pakete.\nAnzahl Bildschirme: \nOffline (USB-Stick) oder mit Cloud-Panel: \n\nViele Grüße',
+    rueckruf: 'Hallo ShowCube-Team,\n\nbitte ruft mich zurück. Am besten erreichbar: \n\nViele Grüße',
+    partner: 'Hallo ShowCube-Team,\n\nwir sind eine Agentur bzw. ein möglicher Partner und möchten ShowCube für unsere Kunden einsetzen.\nUnsere Kunden: \n\nViele Grüße',
+    frage: 'Hallo ShowCube-Team,\n\nich habe eine Frage zu ShowCube:\n\n\nViele Grüße'
+  };
+  var form = document.getElementById('kontakt');
+  var feld = form.elements.nachricht;
+  var meldung = form.querySelector('.meldung');
+  var knopf = form.querySelector('.senden');
+  var letzteVorlage = '';
+  form.elements.t.value = String(Date.now());
+
+  function waehle(thema) {
+    var text = VORLAGEN[thema];
+    if (!text) return;
+    form.elements.thema.value = thema;
+    document.querySelectorAll('.bausteine button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.thema === thema)); });
+    // Eigenen Text nie überschreiben: Nur ersetzen, wenn das Feld leer ist oder noch die letzte Vorlage enthält.
+    if (feld.value.trim() === '' || feld.value === letzteVorlage) feld.value = text;
+    else feld.value = feld.value.replace(/\s*$/, '') + '\n\n' + text;
+    letzteVorlage = feld.value;
+    var stelle = feld.value.indexOf(': \n');
+    feld.focus();
+    if (stelle >= 0) feld.setSelectionRange(stelle + 2, stelle + 2);
+  }
+  document.querySelectorAll('.bausteine button').forEach(function (b) { b.addEventListener('click', function () { waehle(b.dataset.thema); }); });
+  var start = new URLSearchParams(location.search).get('thema');
+  if (start && VORLAGEN[start]) { waehle(start); feld.blur(); }
+
+  function zeige(text, art) { meldung.textContent = text; meldung.className = 'meldung' + (art ? ' ' + art : ''); }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var fehlt = [];
+    if (!form.elements.name.value.trim()) fehlt.push('deinen Namen');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.elements.email.value.trim())) fehlt.push('eine gültige E-Mail-Adresse');
+    if (form.elements.nachricht.value.trim().length < 10) fehlt.push('eine kurze Nachricht');
+    if (fehlt.length) { zeige('Bitte ergänze noch ' + fehlt.join(', ') + '.', 'fehler'); return; }
+    knopf.disabled = true; zeige('Wird gesendet …');
+    fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+      .then(function (a) {
+        if (a && a.ok) {
+          form.reset(); letzteVorlage = '';
+          document.querySelectorAll('.bausteine button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+          form.elements.t.value = String(Date.now());
+          zeige('Danke, deine Anfrage ist angekommen. Wir melden uns bald bei dir.', 'ok');
+        } else {
+          zeige((a && a.fehler) || 'Das hat leider nicht geklappt. Schreib uns bitte direkt an hallo@showcube.de.', 'fehler');
+        }
+      })
+      .catch(function () { zeige('Keine Verbindung. Schreib uns bitte direkt an hallo@showcube.de.', 'fehler'); })
+      .then(function () { knopf.disabled = false; });
+  });
+})();
+</script>
+</body>
+</html>
