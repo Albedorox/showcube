@@ -3,6 +3,9 @@
 // Läuft auf dem Hostinger-Webhosting (PHP). Antwortet mit JSON { ok: true } oder { ok: false, fehler: "…" }.
 // Schutz gegen Spam: verstecktes Feld („website“), Mindestzeit zum Ausfüllen, höchstens 5 Anfragen pro Stunde und IP
 // (IP nur als Prüfsumme, Datei wird nach einer Stunde nicht mehr beachtet), keine Zeilenumbrüche in Kopfzeilen.
+// Versand über die Hostinger-Mail-API aus dem Postfach hallo@ (signiert, landet nicht im Spam). Den Schlüssel dafür
+// liest das Skript aus showcube-geheim.php eine Ebene ÜBER dem Webordner, also nie aus dem Repo. Fehlt der Schlüssel
+// oder klappt die API nicht, geht die Mail wie früher mit mail() raus.
 // Anleitung: docs/kontaktformular.md
 
 declare(strict_types=1);
@@ -33,6 +36,43 @@ function feld(string $name, int $max): string {
 }
 function einzeilig(string $wert): string {
   return trim(preg_replace('/[\r\n]+/', ' ', $wert) ?? '');
+}
+/** Schlüssel für die Mail-API: ['mail_api_token' => …, 'postfach' => 'AC…', 'mail_api_url' => optional]. */
+function geheim(): array {
+  $datei = getenv('SHOWCUBE_GEHEIM') ?: dirname(__DIR__) . '/showcube-geheim.php';
+  if (!is_file($datei)) return [];
+  $werte = include $datei;
+  return is_array($werte) ? $werte : [];
+}
+/** Schickt die Mail über die Hostinger-Mail-API. true, wenn Hostinger sie angenommen hat (HTTP 2xx). */
+function ueberMailApi(array $geheim, string $betreff, string $text, string $html): bool {
+  $token = (string)($geheim['mail_api_token'] ?? '');
+  $postfach = (string)($geheim['postfach'] ?? '');
+  if ($token === '' || !preg_match('/^AC[A-Za-z0-9]+$/', $postfach)) return false;
+  $basis = rtrim((string)($geheim['mail_api_url'] ?? 'https://api.mail.hostinger.com'), '/');
+  $daten = json_encode([
+    'to' => [EMPFAENGER], 'displayName' => 'ShowCube Kontaktformular',
+    'subject' => $betreff, 'text' => $text, 'html' => $html,
+  ], JSON_UNESCAPED_UNICODE);
+  $url = "$basis/api/v1/mailboxes/$postfach/send";
+  $kopf = ["Authorization: Bearer $token", 'Content-Type: application/json', 'Accept: application/json'];
+  if (function_exists('curl_init')) {
+    $c = curl_init($url);
+    curl_setopt_array($c, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $daten, CURLOPT_HTTPHEADER => $kopf,
+      CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_CONNECTTIMEOUT => 5]);
+    $antwort = curl_exec($c);
+    $status = (int)curl_getinfo($c, CURLINFO_RESPONSE_CODE);
+    if ($antwort === false) $antwort = curl_error($c);
+  } else {
+    $kontext = stream_context_create(['http' => ['method' => 'POST', 'timeout' => 15, 'ignore_errors' => true,
+      'header' => implode("\r\n", $kopf) . "\r\n", 'content' => $daten]]);
+    $antwort = @file_get_contents($url, false, $kontext);
+    $status = 0;
+    foreach ($http_response_header ?? [] as $zeile) if (preg_match('#^HTTP/\S+ (\d{3})#', $zeile, $m)) $status = (int)$m[1];
+  }
+  if ($status >= 200 && $status < 300) return true;
+  error_log("kontakt.php: Mail-API antwortet $status " . mb_substr((string)$antwort, 0, 300));
+  return false;
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') antwort(405, ['ok' => false, 'fehler' => 'Bitte das Formular auf showcube.de/kontakt.html nutzen.']);
@@ -89,6 +129,21 @@ $kopf = [
   'X-Mailer' => 'ShowCube Kontaktformular',
 ];
 
-$gesendet = mail(EMPFAENGER, mb_encode_mimeheader($betreff, 'UTF-8', 'Q'), $text, $kopf, '-f' . ABSENDER);
+// Die Mail-API kennt keine Antwortadresse. Deshalb steht oben in der Mail ein Knopf, der eine Antwort an die
+// Person öffnet, die geschrieben hat.
+$h = fn(string $w): string => htmlspecialchars($w, ENT_QUOTES, 'UTF-8');
+$antwortLink = 'mailto:' . rawurlencode($email) . '?subject=' . rawurlencode('Re: Deine Anfrage bei ShowCube (' . $thema . ')');
+$zeilen = [['Thema', $thema], ['Name', $name], ['E-Mail', $email], ['Betrieb', $betrieb], ['Branche', $branche], ['Telefon', $telefon], ['Zeit', date('d.m.Y H:i')]];
+$html = '<div style="font:15px/1.5 system-ui,sans-serif;color:#1d2b28;max-width:640px">'
+  . '<p>Neue Anfrage über das Kontaktformular auf ' . $h($host ?: 'showcube.de') . '.</p>'
+  . '<p><a href="' . $h($antwortLink) . '" style="display:inline-block;padding:10px 18px;border-radius:999px;background:#0b7a67;color:#fff;text-decoration:none;font-weight:600">'
+  . 'Antworten an ' . $h($name) . '</a></p><table style="border-collapse:collapse">';
+foreach ($zeilen as [$k, $v]) if ($v !== '') $html .= '<tr><td style="padding:2px 16px 2px 0;color:#5b6b67">' . $h($k) . '</td><td>'
+  . ($k === 'E-Mail' ? '<a href="' . $h($antwortLink) . '">' . $h($v) . '</a>' : $h($v)) . '</td></tr>';
+$html .= '</table><p style="white-space:pre-wrap;border-left:3px solid #0b7a67;padding-left:12px">' . $h($nachricht) . '</p></div>';
+$textApi = str_replace("Einfach auf diese E-Mail antworten, die Antwort geht an $email.", "Antwort bitte an $email schicken (Knopf „Antworten an …“ oben in der Mail).", $text);
+
+$gesendet = ueberMailApi(geheim(), $betreff, $textApi, $html)
+  || mail(EMPFAENGER, mb_encode_mimeheader($betreff, 'UTF-8', 'Q'), $text, $kopf, '-f' . ABSENDER);
 if (!$gesendet) antwort(500, ['ok' => false, 'fehler' => 'Das hat leider nicht geklappt. Schreib uns bitte direkt an hallo@showcube.de.']);
 antwort(200, ['ok' => true]);
