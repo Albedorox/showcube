@@ -60,6 +60,9 @@ Teilweise, und so ist es richtig:
 
 Echt:
 - Slideshows aus Vorlagen und eigenen Bildern/Videos zusammenstellen, mit Vorschau Tag/Abend, quer/hoch.
+  Pro Bild oder Video lässt sich die Dauer in Sekunden einstellen (`dauer` im Paket). Leer heißt: Bild so lange
+  wie „Sekunden pro Folie“, Video ganz. Videos laufen stumm. Filme aus Video-Ebenen eigener Vorlagen reisen wie
+  Medien als Datei im Paket mit (`files`, Schlüssel = Nummer der Datei).
 - Preistabelle: eine Zeile pro Eintrag, einzelne Einträge mit dem Auge ausblenden („heute aus“), ohne sie zu löschen.
 - Sofort-Hinweis: ein Band über allen Folien, sofort auf den gewählten Bildschirmen, für eine Stunde, heute oder bis er beendet wird.
 - Zeitplan mit Ruhetagen, Logo des Betriebs, die letzten acht veröffentlichten Stände zum Zurückholen, Rückgängig nach jedem Löschen.

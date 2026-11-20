@@ -84,3 +84,37 @@ test.describe('Light: Paket per USB-Stick', () => {
     await erwarteAufLeinwand(player, '4,44 €');
   });
 });
+
+test.describe('Eigene Bilder und Videos', () => {
+  const FILM = 'tests/dateien/film-2s.webm';
+
+  test('Video im Panel hochladen, Dauer einstellen, im Player läuft es stumm', async ({ page, context }) => {
+    await page.goto('release/panel.html?demo');
+    await slideshowOeffnen(page, 'Mittags- und Abendkarte');
+    await page.getByRole('tab', { name: /^Medien/ }).click();
+    await page.getByLabel('Bilder oder Videos hochladen').setInputFiles(FILM);
+    const dauer = page.getByLabel('Dauer in Sekunden: film-2s.webm');
+    await expect(dauer).toHaveAttribute('placeholder', 'ganz');
+    await dauer.fill('5');
+    await dauer.press('Enter');
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Für USB-Stick' }).click()]);
+    const datei = await download.path();
+
+    const player = await context.newPage();
+    await player.goto('release/player.html');
+    await player.keyboard.press('e');
+    await player.getByLabel('ShowCube-Paket laden').setInputFiles(datei);
+    await expect(player.locator('#paketNote')).toContainText('geladen');
+    // Das Paket bringt den Film als Datei mit, samt eigener Dauer.
+    const media = await player.evaluate(() => JSON.parse(localStorage.getItem('svizzbox-player-v0') || '{}').media);
+    expect(media).toContainEqual(expect.objectContaining({ name: 'film-2s.webm', type: 'video', dauer: 5 }));
+    await expect(player.locator('#mediaList')).toContainText('Video: film-2s.webm');
+    await expect(player.locator('#mediaList')).not.toContainText('(fehlt)');
+    await player.keyboard.press('Escape');
+    // Bis zum Film weiterschalten. Er läuft stumm, und wegen der eigenen Dauer (5 s) in der Schleife.
+    await expect.poll(async () => { if (await player.locator('#screen .layer.on video').count()) return true; await player.keyboard.press('ArrowRight'); return false; },
+      { message: 'Film erscheint im Player', timeout: 15_000, intervals: [400] }).toBe(true);
+    const v = player.locator('#screen .layer.on video');
+    await expect.poll(() => v.evaluate((x: HTMLVideoElement) => x.muted && x.loop && !x.paused)).toBe(true);
+  });
+});

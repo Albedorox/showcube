@@ -18,7 +18,9 @@ import type { WerbungCfg } from './werbung';
 
 export type When = 'always' | 'day' | 'eve';
 // Zeitraum (von, bis, Wochentage) ist freiwillig. Ohne Zeitraum läuft das Medium immer.
-export interface MediaRef extends Zeitraum { id: string; type: 'image' | 'video'; name: string; when: When; }
+// dauer: Sekunden auf dem Bildschirm. Bild ohne dauer = "Sekunden pro Folie". Video ohne dauer = ganze Länge,
+// mit dauer wird es nach so vielen Sekunden abgebrochen (ist es kürzer, läuft es in der Schleife).
+export interface MediaRef extends Zeitraum { id: string; type: 'image' | 'video'; name: string; when: When; dauer?: number; }
 
 // Felder heißen bewusst wie die Einstellungen im Player, damit er sie direkt übernehmen kann.
 export interface ShowConfig {
@@ -33,7 +35,8 @@ export interface ShowConfig {
   offDays?: number[];      // Ruhetage: 0 = Sonntag … 6 = Samstag, Bildschirm bleibt schwarz
   notice?: Notice | null;  // Sofort-Hinweis, siehe unten
   media: MediaRef[];
-  extras?: Baustein[];     // Zusatzfolien: QR-Code, Bewertungen, Countdown. Laufen nach den Vorlagen-Folien.
+  extras?: Baustein[];     // Zusatzfolien: QR-Code, Bewertungen, Countdown, eigene Vorlagen. Laufen nach den Vorlagen-Folien.
+                           // Filme in Video-Ebenen eigener Vorlagen stecken wie Medien in `files` (Schlüssel = Nummer der Datei).
   leiste?: Leiste | null;  // Infoleiste unten: Laufband, Uhr, Wetter
   marke?: Marke | null;    // Marken-Kit: Farben, Schriften, Logo, Übergang und eigene Vorlagen (Bausteine der Art 'design'). Alles steckt als data:-URL drin.
   werbung?: WerbungCfg | null; // Partner-Slots: Werbung von Partnern, in die Schleife gemischt (shared/werbung.ts). Nur wenn im Panel eingeschaltet.

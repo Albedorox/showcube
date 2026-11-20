@@ -5,7 +5,7 @@ import { CHANNEL, paketFromFile, type Msg, type Paket } from '../shared/paket';
 import { hatServer, verbinden, SPEICHER, BUCKET, type SupabaseClient } from '../shared/cloud';
 import { useMarke, logoBild } from '../shared/marke';
 import { werbeSlots, mischen } from '../shared/werbung';
-import { activeOn, bausteinActive, bausteinSlide, bausteinTitle, BAUSTEINE, drawLeiste, leisteH, fetchWetter, type Wetter } from '../shared/bausteine';
+import { activeOn, bausteinActive, bausteinSlide, bausteinTitle, bausteinVideos, BAUSTEINE, drawLeiste, leisteH, fetchWetter, type Wetter } from '../shared/bausteine';
 
 // ?live=<id>: dieser Player ist ein Bildschirm im Cloud-Panel (Prototyp: anderer Tab im selben Browser).
 // Er bekommt eigene Speicherplätze, damit der normale Test-Player nicht überschrieben wird.
@@ -44,6 +44,13 @@ function dbLoadAll() {
 }
 const urlOf = id => { if (!urls.has(id) && blobs.has(id)) urls.set(id, URL.createObjectURL(blobs.get(id))); return urls.get(id); };
 let logoImg = null;
+// Filme in Video-Ebenen eigener Vorlagen: ein <video> pro Datei, die Vorlage malt davon das aktuelle Bild.
+const filme = new Map<string, HTMLVideoElement>();
+function filmVon(id: string) {
+  if (!filme.has(id)) { if (!blobs.has(id)) return null; const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = urlOf(id); filme.set(id, v); }
+  return filme.get(id);
+}
+function filmeWeg() { filme.forEach(v => { v.pause(); v.removeAttribute('src'); v.load(); }); filme.clear(); }
 function loadLogo() { logoImg = null; if (!blobs.has('logo')) return; const i = new Image(); i.onload = () => { logoImg = i; }; i.src = urlOf('logo'); }
 
 // ---------- Zeitplan ----------
@@ -75,7 +82,7 @@ function bewegung() {
 }
 const fadeMs = () => { const b = C.marke && C.marke.bewegung; return b && b.uebergang === 'hart' ? 0 : Math.round((b ? +b.tempo || .8 : .8) * 1000) + 100; };
 function data() {
-  return { name: C.name || (C.marke && C.marke.name) || ' ', accent: acc(), logo: logoImg || logoBild(C.marke), marke: C.marke, hours: 'Montag bis Samstag, 9 bis 19 Uhr',
+  return { name: C.name || (C.marke && C.marke.name) || ' ', accent: acc(), logo: logoImg || logoBild(C.marke), marke: C.marke, hours: 'Montag bis Samstag, 9 bis 19 Uhr', video: filmVon,
     items: C.items.split('\n').map(l => l.split('|').map(s => s.trim())).filter(r => r[0]) };
 }
 function playlist(p) {
@@ -83,8 +90,8 @@ function playlist(p) {
   const d = data(), list = [];
   const now = new Date(), fits = (x: any) => x.when === 'always' || x.when === p;
   if (C.tplOn && TEMPLATES[C.tpl]) TEMPLATES[C.tpl].slides(p === 'eve', d).forEach((fn, i) => list.push({ kind: 'tpl', fn, label: TEMPLATES[C.tpl].label.split(':')[0] + ', Folie ' + (i + 1) }));
-  (C.extras || []).filter(b => fits(b) && bausteinActive(b, now)).forEach(b => list.push({ kind: 'tpl', fn: bausteinSlide(b), label: BAUSTEINE[b.kind].label + ': ' + bausteinTitle(b) }));
-  C.media.filter(m => fits(m) && activeOn(m, now)).forEach(m => { if (blobs.has(m.id)) list.push({ kind: m.type, id: m.id, label: m.name }); });
+  (C.extras || []).filter(b => fits(b) && bausteinActive(b, now)).forEach(b => list.push({ kind: 'tpl', fn: bausteinSlide(b), label: BAUSTEINE[b.kind].label + ': ' + bausteinTitle(b), videos: bausteinVideos(b, C.marke).filter(id => blobs.has(id)) }));
+  C.media.filter(m => fits(m) && activeOn(m, now)).forEach(m => { if (blobs.has(m.id)) list.push({ kind: m.type, id: m.id, label: m.name, dauer: +m.dauer || 0 }); });
   // Partner-Slots: Anzeigen der Werbepartner in die Schleife mischen (jede N. Folie).
   return mischen(list, werbeSlots(C.werbung, p, now).map(w => ({ alle: w.alle, item: { kind: 'tpl', fn: bausteinSlide(w.folie), label: 'Partner: ' + w.name, partner: w.id } })));
 }
@@ -168,13 +175,22 @@ function advance() {
   if (L.canvas) { sizeCanvas(L); L.fn = list[idx].fn; L.fn(L.ctx, L.canvas.width, L.canvas.height, data(), 0); }
   requestAnimationFrame(() => L.el.classList.add('on'));
   const old = cur; cur = L;
-  if (old) { old.el.classList.remove('on'); old.el.classList.add('out'); setTimeout(() => { if (old.video) old.video.pause(); old.el.remove(); }, fadeMs()); }
+  if (old) { old.el.classList.remove('on'); old.el.classList.add('out'); setTimeout(() => { if (old.video) old.video.pause(); if (old.filme) old.filme.forEach(v => { if (!(L.filme || []).includes(v)) v.pause(); }); old.el.remove(); }, fadeMs()); }
+  const item = list[idx], sek = Math.max(3, +C.dur || 8);
+  let done = false; const next = () => { if (!done) { done = true; advance(); } };
   if (L.video) {
-    let done = false; const next = () => { if (!done) { done = true; advance(); } };
-    L.video.onended = next; L.video.onerror = next;
+    // Video: ganze Länge, oder mit eigener Dauer abbrechen (kürzere Filme laufen dann in der Schleife).
+    L.video.onerror = next;
+    if (item.dauer) { L.video.loop = true; timer = setTimeout(next, item.dauer * 1000); }
+    else { L.video.onended = next; timer = setTimeout(next, 10 * 60 * 1000); }
     L.video.play().catch(next);
+  } else if (item.videos && item.videos.length) {
+    // Eigene Vorlage mit Film: alle Filme starten mit der Folie, die Folie endet mit dem längsten Film.
+    L.filme = item.videos.map(filmVon).filter(Boolean); let offen = L.filme.length;
+    const fertig = () => { if (--offen <= 0) next(); };
+    L.filme.forEach(v => { v.loop = false; v.onended = fertig; v.onerror = fertig; try { v.currentTime = 0; } catch (e) {} v.play().catch(fertig); });
     timer = setTimeout(next, 10 * 60 * 1000);
-  } else timer = setTimeout(advance, Math.max(3, +C.dur || 8) * 1000);
+  } else timer = setTimeout(next, (item.kind === 'image' && item.dauer ? Math.max(1, item.dauer) : sek) * 1000);
 }
 function tick() {
   if (cur && cur.canvas && cur.fn) { sizeCanvas(cur); cur.fn(cur.ctx, cur.canvas.width, cur.canvas.height, data(), (performance.now() - cur.t0) / 1000); }
@@ -266,7 +282,7 @@ function renderMedia() {
 $('fs').onclick = () => { const d = document.documentElement; (d.requestFullscreen ? d.requestFullscreen() : Promise.reject()).catch(() => { $('storeNote').textContent = 'Vollbild ist hier gesperrt. Auf der Box startet der Player ohnehin im Vollbild.'; }); };
 $('reset').onclick = () => {
   if ($('reset').dataset.armed !== '1') { $('reset').dataset.armed = '1'; $('reset').textContent = 'Wirklich alles löschen?'; setTimeout(() => { $('reset').dataset.armed = ''; $('reset').textContent = 'Alles zurücksetzen'; }, 4000); return; }
-  C.media.forEach(m => dbDel(m.id)); dbDel('logo'); logoImg = null; C = Object.assign({}, DEF, { media: [] }); applyTpl(C.tpl, false); syncForm(); renderMedia(); restart();
+  filmeWeg(); [...blobs.keys()].forEach(dbDel); logoImg = null; C = Object.assign({}, DEF, { media: [] }); applyTpl(C.tpl, false); syncForm(); renderMedia(); restart();
   $('reset').dataset.armed = ''; $('reset').textContent = 'Alles zurücksetzen';
 };
 function syncForm() {
@@ -278,7 +294,8 @@ addEventListener('resize', () => { layoutLeiste(); if (cur && cur.canvas) sizeCa
 // ---------- Paket übernehmen: aus der Cloud oder vom USB-Stick ----------
 function applyPaket(p: Paket) {
   const c = p.config;
-  C.media.forEach(m => dbDel(m.id)); dbDel('logo'); logoImg = null;
+  // Alte Dateien weg (Medien, Logo, Filme in Vorlagen). Was im neuen Paket wieder vorkommt, steckt dort schon als Blob drin.
+  filmeWeg(); [...blobs.keys()].forEach(dbDel); logoImg = null;
   Object.entries(p.files || {}).forEach(([id, b]) => { if (b instanceof Blob) dbPut(id, b); });
   Object.assign(C, { revision: p.show.revision, tplOn: !!c.tpl, tpl: c.tpl || C.tpl, name: c.name, items: c.items, accent: c.accent, dur: c.dur, fit: c.fit,
     dayStart: c.dayStart, eveStart: c.eveStart, offOn: c.offOn, offFrom: c.offFrom, offTo: c.offTo, offDays: c.offDays || [], notice: c.notice || null, media: c.media.map(m => ({ ...m })), extras: (c.extras || []).map(b => ({ ...b, f: { ...b.f } })), leiste: c.leiste ? { ...c.leiste } : null, marke: c.marke || null, werbung: c.werbung || null });

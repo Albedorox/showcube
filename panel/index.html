@@ -447,6 +447,10 @@ html, body { overflow-x: clip; }
 .leiste-f { display: grid; grid-template-columns: 1fr auto; gap: 9px 12px; align-items: end; }
 textarea { height: auto; min-height: 64px; padding: 8px 11px; font: inherit; resize: vertical; }
 .mlist input[type=date] { width: 150px; height: 32px; font-size: 13px; padding: 0 8px; }
+.mlist .sek { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; color: var(--muted); }
+.mlist .sek input { width: 58px; height: 32px; font-size: 13px; padding: 0 6px; }
+@media (max-width: 640px) { .mlist li { grid-template-columns: 64px minmax(0, 1fr); } .mlist li > .row { grid-column: 1 / -1; flex-wrap: wrap; } }
+.bst-f video.th { width: 64px; height: 40px; object-fit: cover; border-radius: 6px; background: #222; }
 .pop { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .pop li { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 4px 10px; align-items: center; font-size: 13px; }
 .pop li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

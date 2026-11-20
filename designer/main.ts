@@ -32,6 +32,7 @@ function h(tag: string, props: Record<string, any> | null = null, ...kids: Kid[]
 function fill(e: Element, ...kids: Kid[]) { const f = h('div', null, ...kids); e.replaceChildren(...f.childNodes); }
 const ICONS: Record<string, string> = {
   text: '<path d="M5 6V4h14v2M12 4v16M9 20h6"/>', rect: '<rect x="4" y="6" width="16" height="12" rx="2"/>', circle: '<circle cx="12" cy="12" r="8"/>',
+  video: '<rect x="3" y="5" width="13" height="14" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
   image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-9 9"/>',
   logo: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
   qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM17 17h4v4h-4"/>',
@@ -122,7 +123,15 @@ function zurueck() { const s = undo.pop(); if (!s) return toast('Nichts mehr rü
 
 // Daten wie auf der Box, mit Beispieleinträgen.
 const ITEMS: Record<string, string[][]> = Object.fromEntries(Object.entries(TEMPLATES).map(([k, T]: any) => [k, T.items.split('\n').map((l: string) => l.split('|').map(s => s.trim()))]));
-function daten(m: Marke, items = ITEMS.gastro) { return { name: m.name, accent: m.farben.primaer, logo: logoBild(m), marke: m, hours: 'Montag bis Samstag, 9 bis 19 Uhr', items }; }
+// Testfilme für Video-Ebenen: nur zum Ansehen hier im Designer, sie werden nicht gespeichert.
+// Den echten Film wählt der Kunde im Panel aus seinen Medien.
+const testFilme = new Map<string, HTMLVideoElement>();
+function testFilm(elId: string) { const v = testFilme.get(elId); if (v && v.paused && !v.ended) v.play().catch(() => {}); return v || null; }
+function testFilmSetzen(elId: string, f: File) {
+  const alt = testFilme.get(elId); if (alt) { alt.pause(); URL.revokeObjectURL(alt.src); }
+  const v = h('video') as HTMLVideoElement; v.muted = true; v.loop = true; v.playsInline = true; v.src = URL.createObjectURL(f); testFilme.set(elId, v); v.play().catch(() => {});
+}
+function daten(m: Marke, items = ITEMS.gastro) { return { name: m.name, accent: m.farben.primaer, logo: logoBild(m), marke: m, hours: 'Montag bis Samstag, 9 bis 19 Uhr', items, video: testFilm, vorschau: true }; }
 
 // ---------- Kopf ----------
 function renderKopf() {
@@ -280,7 +289,7 @@ function setze(key: keyof El, val: any) {
 function neuesEl(typ: ElTyp, extra: Partial<El> = {}) {
   const v = V(); if (!v) return; merke();
   const base: El = { id: neueId(), typ, x: 30, y: 30, w: 40, h: 22, anim: 'blende', start: 0, dauer: .8, ...(typ === 'text' ? { text: 'Neuer Text', rolle: 'text', gr: 6, farbe: v.hinter === 'hell' ? 'dunkel' : 'hell', ausr: 'left' } : {}),
-    ...(typ === 'form' ? { fuell: 'primaer', ecken: 8 } : {}), ...(typ === 'logo' ? { x: 70, y: 6, w: 24, h: 14, ausr: 'right' } : {}), ...(typ === 'qr' ? { text: 'https://', frei: 'Link', x: 70, y: 30, w: 22, h: 40, farbe: 'dunkel', fuell: 'hell' } : {}), ...(typ === 'bild' ? { frei: 'Bild', anim: 'kenburns' } : {}), ...extra } as El;
+    ...(typ === 'form' ? { fuell: 'primaer', ecken: 8 } : {}), ...(typ === 'logo' ? { x: 70, y: 6, w: 24, h: 14, ausr: 'right' } : {}), ...(typ === 'qr' ? { text: 'https://', frei: 'Link', x: 70, y: 30, w: 22, h: 40, farbe: 'dunkel', fuell: 'hell' } : {}), ...(typ === 'bild' ? { frei: 'Bild', anim: 'kenburns' } : {}), ...(typ === 'video' ? { frei: 'Video', x: 8, y: 12, w: 56, h: 76, ecken: 4 } : {}), ...extra } as El;
   beideListen(v).forEach(l => l.push(clone(base))); sel = base.id; save(); renderVorlagen();
 }
 function loeschen() { const v = V(); if (!v || !sel) return; merke(); beideListen(v).forEach(l => { const i = l.findIndex(e => e.id === sel); if (i >= 0) l.splice(i, 1); }); sel = null; save(); renderVorlagen(); }
@@ -365,7 +374,7 @@ function renderEig() {
     return;
   }
   const num = (k: keyof El, label: string, step = .5) => h('div', null, h('label', null, label), h('input', { type: 'number', step, value: Math.round(((e as any)[k] ?? 0) * 10) / 10, onchange: (ev: any) => setze(k, +ev.target.value) }));
-  const typName = { text: 'Text', form: 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR-Code' }[e.typ];
+  const typName = { text: 'Text', form: 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR-Code', video: 'Video' }[e.typ];
   const teile: Kid[] = [];
   if (e.typ === 'text' || e.typ === 'qr') teile.push(h('div', null, h('label', { for: 'eText' }, e.typ === 'qr' ? 'Link' : 'Text'), h('textarea', { id: 'eText', rows: e.typ === 'qr' ? 1 : 3, oninput: (ev: any) => { beideListen().forEach(l => { const x = l.find(y => y.id === e.id); if (x) x.text = ev.target.value; }); save(); } , onfocus: () => merke() }, e.text || '')),
     e.typ === 'text' ? h('span', { class: 'small' }, 'Platzhalter: {name}, {zeiten}, {datum}, {1.2} = Eintrag 1, Spalte 2 aus der Preisliste.') : null);
@@ -382,6 +391,10 @@ function renderEig() {
   if (e.typ === 'qr') teile.push(farbWahl('Punkte', e.farbe, k => setze('farbe', k)), farbWahl('Grund', e.fuell, k => setze('fuell', k)));
   if (e.typ === 'bild') teile.push(h('div', { class: 'row' }, h('span', { class: 'btn sm' }, icon('upload'), e.bild ? 'Bild ersetzen' : 'Bild wählen', h('input', { type: 'file', accept: 'image/*', 'aria-label': 'Bild wählen', onchange: async (ev: any) => { const f = ev.target.files[0]; if (!f) return; setze('bild', await bildKlein(f, 1600)); } })),
     h('div', { class: 'seg' }, (['cover', 'contain'] as const).map(p => h('button', { 'aria-pressed': String((e.passt || 'cover') === p), onclick: () => setze('passt', p) }, p === 'cover' ? 'Füllen' : 'Ganz zeigen')))), num('ecken', 'Ecken (%)', 1));
+  if (e.typ === 'video') teile.push(h('span', { class: 'small' }, 'Den fertigen Film wählt der Kunde im Panel aus seinen Medien (MP4 oder WebM). Er läuft stumm, und die Folie dauert so lange wie der Film. Darüber liegende Ebenen wie Logo, Preis oder Text bleiben stehen.'),
+    h('div', { class: 'row' }, h('span', { class: 'btn sm' }, icon('upload'), testFilme.has(e.id) ? 'Anderen Testfilm' : 'Testfilm wählen', h('input', { type: 'file', accept: 'video/mp4,video/webm', 'aria-label': 'Testfilm wählen', onchange: (ev: any) => { const f = ev.target.files[0]; if (!f) return; testFilmSetzen(e.id, f); renderEig(); } })),
+      h('div', { class: 'seg' }, (['cover', 'contain'] as const).map(p => h('button', { 'aria-pressed': String((e.passt || 'cover') === p), onclick: () => setze('passt', p) }, p === 'cover' ? 'Füllen' : 'Ganz zeigen')))),
+    h('span', { class: 'small' }, 'Der Testfilm ist nur zum Ansehen hier und wird nicht gespeichert.'), num('ecken', 'Ecken (%)', 1));
   if (e.typ === 'logo') teile.push(h('span', { class: 'small' }, 'Zeigt das Logo der Marke. Ohne Logo steht dort der Name.'), h('div', null, h('span', { class: 'label' }, 'Ausrichtung'), h('div', { class: 'seg' }, (['left', 'center', 'right'] as const).map(a => h('button', { 'aria-pressed': String((e.ausr || 'center') === a), onclick: () => setze('ausr', a) }, a === 'left' ? 'links' : a === 'center' ? 'Mitte' : 'rechts')))));
   fill(eigEl,
     h('div', { class: 'box' }, h('div', { class: 'row' }, h('h3', null, typName), h('span', { class: 'grow' }),
@@ -394,7 +407,7 @@ function renderEig() {
       h('select', { 'aria-label': 'Animation', onchange: (ev: any) => { setze('anim', ev.target.value); playAt = performance.now(); renderWerkzeuge(); } }, ANIMS.filter(([a]) => a !== 'kenburns' || e.typ === 'bild').map(([a, l]) => h('option', { value: a, selected: (e.anim || 'keine') === a }, l))),
       (e.anim || 'keine') !== 'keine' ? h('div', { class: 'grid2 zeitfelder' }, num('start', 'Start nach (s)', .1), e.anim !== 'puls' && e.anim !== 'kenburns' ? num('dauer', 'Dauer (s)', .1) : null) : null),
     e.typ !== 'form' ? h('div', { class: 'frei-box' },
-      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!e.frei, onchange: (ev: any) => setze('frei', ev.target.checked ? (e.typ === 'bild' ? 'Bild' : e.typ === 'qr' ? 'Link' : 'Text') : undefined) }), 'Kunde darf das im Panel ausfüllen'),
+      e.typ === 'video' ? h('span', { class: 'small' }, 'Der Kunde wählt den Film im Panel aus.') : h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!e.frei, onchange: (ev: any) => setze('frei', ev.target.checked ? (e.typ === 'bild' ? 'Bild' : e.typ === 'qr' ? 'Link' : 'Text') : undefined) }), 'Kunde darf das im Panel ausfüllen'),
       e.frei ? h('div', null, h('label', { for: 'eFrei' }, 'Name des Feldes im Panel'), h('input', { type: 'text', id: 'eFrei', value: e.frei, oninput: (ev: any) => { beideListen().forEach(l => { const x = l.find(y => y.id === e.id); if (x) x.frei = ev.target.value || 'Feld'; }); save(); renderSel(); } }))
         : h('span', { class: 'small' }, icon('lock'), ' Gesperrt: bleibt genau so, wie gestaltet.')) : null);
 }
@@ -486,7 +499,7 @@ function griffTaste(ev: KeyboardEvent, id: string) {
 function renderZeit() {
   if (!zeitEl) return; const v = V(); if (!v) return;
   const alle = els().slice().reverse(), an = alle.filter(e => e.anim && e.anim !== 'keine'), ende = skala(v), schritt = ende > 12 ? 2 : 1;
-  const typN = (e: El) => ({ text: 'Text', form: 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR' } as any)[e.typ] + (e.typ === 'text' || e.typ === 'qr' ? ': ' + (e.text || '').slice(0, 18) : '');
+  const typN = (e: El) => ({ text: 'Text', form: 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR', video: 'Video' } as any)[e.typ] + (e.typ === 'text' || e.typ === 'qr' ? ': ' + (e.text || '').slice(0, 18) : '');
   kopfEl = h('div', { class: 'kopf', hidden: true });
   fill(zeitEl, h('div', { class: 'row' }, h('h3', null, 'Zeitleiste und Ebenen'), h('span', { class: 'small' }, alle.length < 2 ? (an.length ? 'Balken ziehen verschiebt den Start, an den Kanten ziehen ändert die Dauer.' : 'Noch keine Animation. Element wählen, rechts unter „Animation“ einstellen.')
     : 'Oben liegt vorn. Am Griff links ziehen ändert die Reihenfolge der Ebenen. Balken ziehen verschiebt den Start, an den Kanten ziehen ändert die Dauer.')),
@@ -512,12 +525,12 @@ function renderZeit() {
 function renderWerkzeuge() {
   if (!werkEl) return;
   const add = (typ: ElTyp, ic: string, l: string, extra: Partial<El> = {}) => h('button', { class: 'btn sm', onclick: () => neuesEl(typ, extra) }, icon(ic), l);
-  werkEl.replaceChildren(add('text', 'text', 'Text'), add('form', 'rect', 'Fläche'), add('form', 'circle', 'Kreis', { form: 'kreis', w: 20, h: 35.5 }), add('bild', 'image', 'Bild'), add('logo', 'logo', 'Logo'), add('qr', 'qr', 'QR'),
+  werkEl.replaceChildren(add('text', 'text', 'Text'), add('form', 'rect', 'Fläche'), add('form', 'circle', 'Kreis', { form: 'kreis', w: 20, h: 35.5 }), add('bild', 'image', 'Bild'), add('video', 'video', 'Video'), add('logo', 'logo', 'Logo'), add('qr', 'qr', 'QR'),
     h('span', { class: 'sep' }),
     h('div', { class: 'seg', role: 'group', 'aria-label': 'Ausrichtung' }, (['quer', 'hoch'] as const).map(o => h('button', { 'aria-pressed': String(orient === o), onclick: () => { orient = o; renderVorlagen(); } }, o === 'quer' ? 'Quer' : 'Hochkant' + (V() && !V().hoch && o === 'hoch' ? ' (aus Quer)' : '')))),
     h('span', { class: 'grow' }),
     h('button', { class: 'btn sm ghost', title: 'Rückgängig (Strg + Z)', 'aria-label': 'Rückgängig', onclick: zurueck }, icon('undo')),
-    h('button', { class: 'btn sm primary', onclick: () => { playAt = performance.now(); renderWerkzeuge(); } }, icon('play'), playAt ? 'Läuft …' : 'Abspielen'));
+    h('button', { class: 'btn sm primary', onclick: () => { playAt = performance.now(); testFilme.forEach(v => { try { v.currentTime = 0; } catch (e) {} }); renderWerkzeuge(); } }, icon('play'), playAt ? 'Läuft …' : 'Abspielen'));
 }
 function renderVorlagen() {
   const m = M(), main = $('main');

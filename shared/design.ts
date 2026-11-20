@@ -1,16 +1,19 @@
 // Eigene Vorlagen aus dem Vorlagen-Designer.
 //
-// Eine Design-Vorlage ist eine Liste von Elementen (Text, Fläche, Bild, Logo, QR-Code) mit Lage, Farbe,
+// Eine Design-Vorlage ist eine Liste von Elementen (Text, Fläche, Bild, Video, Logo, QR-Code) mit Lage, Farbe,
 // Schrift und Animation, einmal für quer und auf Wunsch eigens für hoch. Farben und Schriften sind Rollen
 // der Marke ("primaer", "titel"), keine festen Werte: Ändert sich die Marke, ändern sich alle Vorlagen mit.
 //
 // Wer gestaltet (Kunde oder Agentur), legt fest, welche Elemente der Kunde später im Panel ausfüllen darf
 // (`frei` = Beschriftung des Feldes). Alles andere bleibt so, wie gestaltet. So bleibt das CI sauber,
 // und der Kunde ändert trotzdem in 30 Sekunden den Preis.
+//
+// Video-Ebenen sind immer freie Felder: Der Film kommt aus den Medien des Kunden im Panel (Wert = Nummer der Datei),
+// nicht aus der Vorlage. So bleibt das Markenpaket klein. Wer zeichnet, gibt mit d.video(nummer) das <video> dazu.
 import { font, wrap, rr, pal, DISP, BODY } from './templates';
 import { drawQR } from './bausteine';
 
-export type ElTyp = 'text' | 'form' | 'bild' | 'logo' | 'qr';
+export type ElTyp = 'text' | 'form' | 'bild' | 'logo' | 'qr' | 'video';
 export type Anim = 'keine' | 'blende' | 'hoch' | 'links' | 'rechts' | 'zoom' | 'pop' | 'schreiben' | 'puls' | 'kenburns';
 export type Farbe = string;   // 'primaer' | 'zweit' | 'dunkel' | 'hell' | '#rrggbb'
 export interface El {
@@ -95,6 +98,19 @@ export function drawDesign(ctx: CanvasRenderingContext2D, w: number, h: number, 
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + bw, y + bh); ctx.moveTo(x + bw, y); ctx.lineTo(x, y + bh); ctx.stroke();
       }
       ctx.restore();
+    } else if (el.typ === 'video') {
+      const vid: HTMLVideoElement | null = d.video ? d.video(val || el.id) : null, r = (el.ecken || 0) / 100 * Math.min(bw, bh);
+      ctx.save(); rr(ctx, x, y, bw, bh, r); ctx.clip();
+      if (vid && vid.readyState >= 2 && vid.videoWidth) {
+        const iw = vid.videoWidth, ih = vid.videoHeight, s = (el.passt || 'cover') === 'contain' ? Math.min(bw / iw, bh / ih) : Math.max(bw / iw, bh / ih);
+        try { ctx.drawImage(vid, cx - iw * s / 2, cy - ih * s / 2, iw * s, ih * s); } catch (e) {}
+      } else if (opt.platz || d.vorschau) {
+        // Platzhalter, solange noch kein Film gewählt ist: dunkle Fläche mit Abspiel-Dreieck.
+        ctx.fillStyle = 'rgba(20,20,20,.55)'; ctx.fillRect(x, y, bw, bh);
+        const k = Math.min(bw, bh) * .16; ctx.fillStyle = 'rgba(255,255,255,.85)';
+        ctx.beginPath(); ctx.moveTo(cx - k * .6, cy - k); ctx.lineTo(cx + k, cy); ctx.lineTo(cx - k * .6, cy + k); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
     } else if (el.typ === 'qr') {
       const s = Math.min(bw, bh); drawQR(ctx, platzhalter(val || el.text || '', d), cx - s / 2, cy - s / 2, s, farbe(el.farbe || 'dunkel', d), farbe(el.fuell || 'hell', d));
     } else {
@@ -115,6 +131,11 @@ export function drawDesign(ctx: CanvasRenderingContext2D, w: number, h: number, 
 
 // Wie lange die Animationen einer Vorlage dauern (für "Abspielen" im Designer).
 export const animEnde = (v: DesignVorlage) => Math.max(1, ...[...v.quer, ...(v.hoch || [])].filter(e => e.anim && e.anim !== 'keine' && e.anim !== 'puls' && e.anim !== 'kenburns').map(e => (e.start || 0) + (e.dauer || .8)));
+// Welche Filme eine eigene Vorlage braucht: die Nummern der Medien, die der Kunde in Video-Ebenen gewählt hat.
+export function videosVon(v: DesignVorlage | null | undefined, werte: Record<string, string> = {}): string[] {
+  if (!v) return [];
+  return [...new Set([...v.quer, ...(v.hoch || [])].filter(e => e.typ === 'video' && werte[e.id]).map(e => werte[e.id]))];
+}
 export const freieFelder = (v: DesignVorlage) => { const seen = new Set<string>(); return [...v.quer, ...(v.hoch || [])].filter(e => e.frei && !seen.has(e.id) && seen.add(e.id)); };
 
 // ---------- Startpunkte für den Designer ----------
