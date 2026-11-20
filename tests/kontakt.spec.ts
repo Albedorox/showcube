@@ -74,7 +74,7 @@ test.describe('kontakt.php', () => {
   const vorher = (ms: number) => String(Date.now() - ms);
   const anfrage = (felder: Record<string, string>) => ({ multipart: { name: 'Erika Muster', email: 'erika@example.com', nachricht: 'Ich hätte gern eine Testbox.', thema: 'testbox', t: vorher(10_000), website: '', ...felder } });
 
-  test('schickt die Mail an hallo@showcube.de mit Betreff und Antwortadresse', async ({ request }) => {
+  test('ohne Mail-API-Schlüssel: schickt die Mail mit mail() an hallo@showcube.de mit Betreff und Antwortadresse', async ({ request }) => {
     const a = await request.post(server.adresse + 'kontakt.php', anfrage({ betrieb: 'Pizzeria Sole', telefon: '07541 123' }));
     expect(a.status()).toBe(200);
     expect(await a.json()).toEqual({ ok: true });
@@ -107,6 +107,50 @@ test.describe('kontakt.php', () => {
     let letzter = 0;
     for (let i = 0; i < 6; i++) letzter = (await request.post(url, anfrage({}))).status();
     expect(letzter).toBe(429);
+  });
+});
+
+test.describe('kontakt.php über die Hostinger-Mail-API', () => {
+  let server: { adresse: string; api: { status: number; anfragen: { methode: string; pfad: string; auth: string; daten: any }[] }; mails(): string; stoppen(): void };
+  test.beforeAll(async () => { server = await phpServer({ mailApi: true }); });
+  test.afterAll(() => server?.stoppen());
+
+  const anfrage = (felder: Record<string, string> = {}) => ({ multipart: { name: 'Erika Muster', email: 'erika@example.com', nachricht: 'Ich hätte gern eine Testbox.', thema: 'testbox', betrieb: 'Pizzeria Sole', t: String(Date.now() - 10_000), website: '', ...felder } });
+
+  test('schickt aus dem Postfach hallo@ an hallo@showcube.de, mit Knopf zum Antworten', async ({ request }) => {
+    server.api.status = 204;
+    const a = await request.post(server.adresse + 'kontakt.php', anfrage());
+    expect(await a.json()).toEqual({ ok: true });
+    const letzte = server.api.anfragen.at(-1)!;
+    expect(letzte.methode).toBe('POST');
+    expect(letzte.pfad).toBe('/api/v1/mailboxes/ACtest123/send');
+    expect(letzte.auth).toBe('Bearer test-schluessel');
+    expect(letzte.daten.to).toEqual(['hallo@showcube.de']);
+    expect(letzte.daten.displayName).toBe('ShowCube Kontaktformular');
+    expect(letzte.daten.subject).toBe('[Kontaktformular] Testbox anfragen – Erika Muster (Pizzeria Sole)');
+    expect(letzte.daten.text).toContain('Antwort bitte an erika@example.com');
+    expect(letzte.daten.text).toContain('Ich hätte gern eine Testbox.');
+    expect(letzte.daten.html).toContain('href="mailto:erika%40example.com?subject=Re%3A%20Deine%20Anfrage%20bei%20ShowCube');
+    expect(letzte.daten.html).toContain('Antworten an Erika Muster');
+    // Kein zweiter Versand über mail().
+    expect(server.mails()).toBe('');
+  });
+
+  test('HTML in der Anfrage wird in der Mail nicht ausgeführt', async ({ request }) => {
+    server.api.status = 204;
+    await request.post(server.adresse + 'kontakt.php', anfrage({ name: '<b>Erika</b>', nachricht: 'Hallo <script>alert(1)</script> Welt' }));
+    const html: string = server.api.anfragen.at(-1)!.daten.html;
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).toContain('&lt;b&gt;Erika&lt;/b&gt;');
+  });
+
+  test('klappt die Mail-API nicht, geht die Mail trotzdem mit mail() raus', async ({ request }) => {
+    server.api.status = 500;
+    const a = await request.post(server.adresse + 'kontakt.php', anfrage({ email: 'notfall@example.com' }));
+    expect(await a.json()).toEqual({ ok: true });
+    expect(server.mails()).toContain('To: hallo@showcube.de');
+    expect(server.mails()).toContain('<notfall@example.com>');
   });
 });
 
