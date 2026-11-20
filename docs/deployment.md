@@ -46,7 +46,8 @@ Welcher Stand gerade online ist, steht in https://showcube.de/version.txt und ht
 
 - `scripts/website.mjs stage|prod <ordner>` stellt die Website zusammen: `index.html`, `sitemap.xml`, `assets/`,
   `release/` und das Favicon `pwa/icon.svg`. Für showcube.de mit `"bald"` kommt `bald/index.html` als Startseite
-  hinein und die Sitemap fällt weg. Quellcode, `tests/`, `docs/`, `supabase/` und die Gehäuse-Dateien
+  hinein und die Sitemap fällt weg. Impressum, Datenschutz und Kontaktformular (`kontakt.php`, braucht PHP) sind
+  in beiden Umgebungen dabei, siehe [kontaktformular.md](kontaktformular.md). Quellcode, `tests/`, `docs/`, `supabase/` und die Gehäuse-Dateien
   in `hardware/` kommen **nicht** mit. Dazu kommen `.htaccess` (Zwischenspeicher, Dateitypen, www → ohne www),
   `robots.txt` und `version.txt` mit dem Commit.
 - `scripts/veroeffentlichen.sh` legt diesen Ordner als neuen Commit auf den Branch **`website-stage`** bzw.
