@@ -9,7 +9,7 @@ Testbox bei einem Pilotkunden laufen, gesteuert aus dem Panel von überall.
 | Teil | Wo | Kosten |
 | --- | --- | --- |
 | Datenbank, Login, Dateien | [Supabase](https://supabase.com), Region Frankfurt (EU) | 0 € im Free-Plan |
-| Panel, Player, Konfigurator | GitHub Pages wie bisher (`release/`) | 0 € |
+| Panel, Player, Konfigurator | Hostinger-Webhosting (showcube.de, Stage auf stage.showcube.de), siehe [deployment.md](deployment.md) | im Hosting-Paket |
 
 Warum Supabase: Login, Datenbank mit Zugriffsregeln und Dateispeicher kommen aus einer Hand, es
 läuft in Frankfurt, und es gibt keinen eigenen Server, den jemand pflegen, patchen und überwachen

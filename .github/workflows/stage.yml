@@ -1,0 +1,46 @@
+# Stage: Jeder Stand auf main, dessen Tests grün sind, geht automatisch auf https://stage.showcube.de.
+# Läuft erst, wenn der Workflow „Tests“ auf main erfolgreich war. Bei Rot wird nichts veröffentlicht.
+# Ablauf: Website zusammenstellen (scripts/website.mjs) → als Commit auf den Branch website-stage legen →
+# Hostinger holt ihn selbst ab → prüfen, dass stage.showcube.de den neuen Stand zeigt.
+# Danach dort selbst prüfen und mit „Live schalten“ (live.yml) genau diesen Stand auf showcube.de bringen.
+# Anleitung: docs/deployment.md
+name: Stage aktualisieren
+
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: website-stage
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  stage:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: stage
+      url: https://stage.showcube.de/
+    env:
+      STAND: ${{ github.event.workflow_run.head_sha || github.sha }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { ref: '${{ env.STAND }}' }
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - name: Website für Stage zusammenstellen
+        run: GITHUB_SHA="$STAND" node scripts/website.mjs stage "$RUNNER_TEMP/website"
+      - name: Auf den Branch website-stage legen
+        run: scripts/veroeffentlichen.sh "$RUNNER_TEMP/website" website-stage "$STAND"
+      - name: Zeigt stage.showcube.de den neuen Stand?
+        run: scripts/online-pruefen.sh https://stage.showcube.de/ "$STAND"

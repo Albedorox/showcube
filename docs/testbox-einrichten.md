@@ -36,7 +36,7 @@ Pi an den Fernseher, Tastatur, Maus und Stick anschließen, Netzteil zuletzt ein
 Im Terminal:
 
 ```bash
-curl -fsSLO https://albedorox.github.io/showcube/release/box-einrichten.sh
+curl -fsSLO https://showcube.de/release/box-einrichten.sh
 bash box-einrichten.sh
 sudo reboot
 ```

@@ -32,7 +32,7 @@ const FOLIEN: Folie[] = [
   { draw: deal, dur: 7 },
   { draw: bs('reviews', { score: '4,8', count: '214 Bewertungen auf Google', q1: 'Die beste Pizza der Stadt, und super freundlich.', a1: 'Laura M.', q2: 'Schnell, heiß und der Teig ist ein Traum.', a2: 'Tobias K.', url: 'https://g.page/r/showcube-demo/review' }), dur: 9 },
   { draw: bs('countdown', { kicker: 'Nur diese Woche', title: 'Familien-Pizza', big: '−20 %', until: inTwoDays() }), dur: 7 },
-  { draw: bs('qr', { title: 'Die ganze Karte aufs Handy', text: 'Einfach mit der Kamera scannen. Auch zum Bestellen und Mitnehmen.', url: 'https://albedorox.github.io/showcube/' }), dur: 7 },
+  { draw: bs('qr', { title: 'Die ganze Karte aufs Handy', text: 'Einfach mit der Kamera scannen. Auch zum Bestellen und Mitnehmen.', url: 'https://showcube.de/' }), dur: 7 },
 ];
 const LEISTE: Leiste = { on: true, ticker: 'Heute frisch: Kürbis-Pizza mit Salbei   •   Jeden Mittwoch Pasta-Abend   •   Auch zum Mitnehmen', clock: true, weather: true, place: '' };
 const WX = { temp: 9, code: 2, at: 0 };

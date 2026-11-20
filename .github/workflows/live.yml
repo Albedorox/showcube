@@ -1,0 +1,67 @@
+# Live schalten: bringt genau den Stand, der gerade auf https://stage.showcube.de läuft, auf https://showcube.de.
+# Nur von Hand: Actions → „Live schalten“ → Run workflow. Optional einen bestimmten Commit angeben.
+# Der Stand muss auf main liegen und seine Tests müssen grün sein, sonst bricht der Workflow ab.
+# Ablauf wie bei Stage, nur mit dem Branch website-prod. Anleitung: docs/deployment.md
+name: Live schalten
+
+on:
+  workflow_dispatch:
+    inputs:
+      stand:
+        description: 'Commit (leer lassen = der Stand, der gerade auf Stage läuft)'
+        required: false
+        default: ''
+
+concurrency:
+  group: website-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: prod
+      url: https://showcube.de/
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Welcher Stand geht live?
+        id: stand
+        env:
+          EINGABE: ${{ inputs.stand }}
+        run: |
+          stand="$EINGABE"
+          if [ -z "$stand" ]; then
+            stand=$(curl -fsS -H 'Cache-Control: no-cache' "https://stage.showcube.de/version.txt?t=$(date +%s)" | tr -d '[:space:]') || true
+          fi
+          if ! [[ "$stand" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::Kein gültiger Stand gefunden („$stand“). Läuft stage.showcube.de? Sonst den Commit von Hand angeben."; exit 1
+          fi
+          echo "stand=$stand" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Liegt der Stand auf main und sind seine Tests grün?
+        env:
+          STAND: ${{ steps.stand.outputs.stand }}
+        run: |
+          voll=$(git rev-parse --verify "$STAND^{commit}") || { echo "::error::$STAND gibt es nicht."; exit 1; }
+          git merge-base --is-ancestor "$voll" origin/main || { echo "::error::$voll liegt nicht auf main."; exit 1; }
+          ok=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/tests.yml/runs?head_sha=$voll&status=success&per_page=1" --jq '.total_count')
+          [ "$ok" -gt 0 ] || { echo "::error::Für $voll gibt es keinen grünen Testlauf."; exit 1; }
+          git checkout -q "$voll"
+          echo "VOLL=$voll" >> "$GITHUB_ENV"
+          echo "Geht live: $(git log -1 --format='%h %s')"
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - name: Website für showcube.de zusammenstellen
+        run: GITHUB_SHA="$VOLL" node scripts/website.mjs prod "$RUNNER_TEMP/website"
+      - name: Auf den Branch website-prod legen
+        run: scripts/veroeffentlichen.sh "$RUNNER_TEMP/website" website-prod "$VOLL"
+      - name: Zeigt showcube.de den neuen Stand?
+        run: scripts/online-pruefen.sh https://showcube.de/ "$VOLL"
