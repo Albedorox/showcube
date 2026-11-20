@@ -51,22 +51,31 @@ Welcher Stand gerade online ist, steht in https://showcube.de/version.txt und ht
   `robots.txt` und `version.txt` mit dem Commit.
 - `scripts/veroeffentlichen.sh` legt diesen Ordner als neuen Commit auf den Branch **`website-stage`** bzw.
   **`website-prod`**. Auf diesen Branches liegt nur die fertige Website. Nicht von Hand ändern.
-- Hostinger ist mit beiden Branches verbunden (Git-Deployment in hPanel) und holt jeden neuen Commit sofort ab:
-  `website-stage` → Ordner `public_html/stage` (stage.showcube.de), `website-prod` → `public_html` (showcube.de).
+- Hostinger ist mit beiden Branches verbunden (Git-Deployment) und holt sie ab:
+  `website-stage` → stage.showcube.de (eigene Website mit eigenem Ordner), `website-prod` → showcube.de.
+  Zusätzlich kann `scripts/hostinger-abholen.sh` das Abholen über die Hostinger-API anstoßen, falls Hostinger
+  einen Push einmal nicht bemerkt. Das geht nur mit dem Secret `HOSTINGER_API_TOKEN`, sonst gibt es nur einen Hinweis.
+- Stage darf nicht im Ordner von showcube.de liegen: Hostinger spielt eine Website nur in einen leeren Ordner ein.
 - `scripts/online-pruefen.sh` wartet danach, bis die Seite den neuen Stand in `version.txt` zeigt.
 - Workflows: `.github/workflows/stage.yml` („Stage aktualisieren“) und `.github/workflows/live.yml` („Live schalten“).
   In GitHub erscheinen beide als Umgebungen **stage** und **prod** mit Verlauf (Repo-Startseite rechts „Deployments“).
 
-Es gibt keine Passwörter oder Zugangsdaten in GitHub. Hostinger liest über seine GitHub-App.
+In GitHub liegen keine FTP- oder SSH-Passwörter, höchstens der Hostinger-API-Schlüssel (Secret `HOSTINGER_API_TOKEN`).
+Hostinger liest das Repo über seine GitHub-App.
 
 ## Einmalige Einrichtung (erledigt am 20.11.2026)
 
-1. In hPanel: Domain `showcube.de`, Subdomain `stage.showcube.de` (Ordner `public_html/stage`), SSL für beide,
+1. In hPanel: Website `showcube.de` und eigene Website `stage.showcube.de`, SSL für beide,
    „HTTPS erzwingen“ an. Hostinger-CDN ist an.
 2. In hPanel unter Websites → showcube.de → Verwalten → Erweitert → Git: GitHub verbunden, Zugriff auf `showcube`.
 3. Git-Deployment eingerichtet (über den Hostinger-Connector, `hosting_deploy`, Typ „static“):
    stage.showcube.de ← Branch `website-stage`, showcube.de ← Branch `website-prod`, jeweils mit Auto-Deploy.
-4. Supabase: `site_url` ist https://showcube.de/, erlaubte Login-Ziele sind showcube.de, stage.showcube.de und
+   Stage war zuerst eine Subdomain im Ordner `public_html/stage` von showcube.de. Dann lehnt Hostinger showcube.de ab
+   („Project directory is not empty“). Deshalb ist stage.showcube.de seit 20.11.2026 eine eigene Website.
+4. Nur falls Hostinger Pushes nicht von selbst abholt, API-Schlüssel: In hPanel oben rechts auf das Profil → **API** → **Neues Token erstellen** (Name „GitHub Deploy“,
+   ohne Ablaufdatum oder 1 Jahr). Das Token in GitHub unter **Settings → Secrets and variables → Actions →
+   New repository secret** als `HOSTINGER_API_TOKEN` speichern.
+5. Supabase: `site_url` ist https://showcube.de/, erlaubte Login-Ziele sind showcube.de, stage.showcube.de und
    übergangsweise die alte GitHub-Pages-Adresse (`supabase/config.toml`, geht beim Merge automatisch raus).
 
 ## Wenn etwas hakt

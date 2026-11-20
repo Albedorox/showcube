@@ -73,7 +73,7 @@ export async function website(umgebung, ziel, { seite } = {}) {
       '# www.showcube.de → showcube.de',
       'RewriteCond %{HTTP_HOST} ^www\\.(.+)$ [NC]',
       'RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]',
-      '# Der Ordner der Stage-Subdomain liegt bei Hostinger in diesem Ordner: unter showcube.de/stage/ nicht zeigen.',
+      '# Alter Stage-Ordner (bis 20.11.2026 lag Stage hier): unter showcube.de/stage/ nicht zeigen.',
       'RewriteCond %{HTTP_HOST} ^(www\\.)?showcube\\.de$ [NC]',
       'RewriteRule ^stage(/|$) - [R=404,L]',
     ]),
