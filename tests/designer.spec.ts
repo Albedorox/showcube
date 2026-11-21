@@ -334,7 +334,7 @@ test.describe('Vorlagen-Designer auf dem Handy', () => {
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' };
 const FUNKTION = '**/functions/v1/vorlage-aus-bild';
 /** Wie im Panel angemeldet (gleiche Sitzung im Browser), Abo-Stand nachgestellt. */
-async function angemeldet(page: Page, stand: { pro: boolean; grenze?: number | null; genutzt?: number }) {
+async function angemeldet(page: Page, stand: { pro: boolean; admin?: boolean; grenze?: number | null; genutzt?: number }) {
   const ablauf = Math.floor(JETZT.getTime() / 1000) + 36_000;
   await page.addInitScript(([exp]) => {
     const b64 = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -451,6 +451,21 @@ test.describe('Vorlagen-Designer: Vorlage aus Bild', () => {
     await dlg.getByRole('button', { name: /^Mit KI erkennen/ }).click();
     await expect(dlg.getByRole('alert')).toHaveText('Das Kontingent für diesen Monat ist aufgebraucht. Am 1. geht es weiter.');
     await expect(dlg.getByRole('button', { name: 'Als Vorlage übernehmen' })).toBeDisabled();
+  });
+
+  test('Fehler der KI steht im Ergebnisfeld, Admins sehen den Grund', async ({ page }) => {
+    await angemeldet(page, { pro: true, admin: true, grenze: null });
+    const text = 'Das Guthaben im Anthropic-Konto ist aufgebraucht. Unter console.anthropic.com → Plans & Billing aufladen.';
+    await page.route(FUNKTION, r => r.request().method() === 'OPTIONS' ? r.fulfill({ status: 204, headers: CORS })
+      : r.fulfill({ status: 402, json: { fehler: 'KI_GUTHABEN', text }, headers: CORS }));
+    const dlg = await ausBildDialog(page);
+    await dlg.getByLabel('Bild oder SVG wählen').setInputFiles('tests/dateien/plakat.jpg');
+    await dlg.getByRole('button', { name: /^Mit KI erkennen/ }).click();
+    const ergebnisFeld = dlg.locator('figure', { has: page.getByText('Ergebnis', { exact: true }) });
+    await expect(ergebnisFeld.getByRole('alert')).toHaveText(text);
+    await expect(dlg.getByRole('alert')).toHaveCount(1);
+    await expect(dlg.getByText('Noch nicht erkannt.')).toHaveCount(0);
+    await expect(ergebnisFeld.getByRole('button', { name: /^Mit KI erkennen/ })).toBeEnabled();
   });
 });
 

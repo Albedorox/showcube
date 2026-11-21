@@ -170,6 +170,17 @@ Deno.serve(async (req) => {
     await zuruecknehmen();
     console.error('vorlage-aus-bild', e);
     const status = e instanceof Anthropic.RateLimitError ? 503 : 502;
+    // Admins (rest = null) sehen den genauen Grund, Kunden nur einen neutralen Hinweis.
+    if (buchung.rest == null) {
+      const text = e instanceof Error ? e.message : String(e);
+      if (e instanceof Anthropic.BadRequestError && /credit balance/i.test(text)) {
+        return fehler(402, 'KI_GUTHABEN', 'Das Guthaben im Anthropic-Konto ist aufgebraucht. Unter console.anthropic.com → Plans & Billing aufladen.');
+      }
+      if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
+        return fehler(502, 'KI_SCHLUESSEL', 'Anthropic lehnt den Schlüssel ab. ANTHROPIC_API_KEY in Supabase (Edge Functions → Secrets) prüfen.');
+      }
+      return fehler(status, 'KI_FEHLER', 'Die KI ist gerade nicht erreichbar: ' + text.slice(0, 300));
+    }
     return fehler(status, 'KI_FEHLER', 'Die KI ist gerade nicht erreichbar. Bitte gleich noch einmal versuchen.');
   }
 });

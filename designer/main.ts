@@ -722,6 +722,9 @@ function ausBildOeffnen() {
     if (stand.pro) return h('p', { class: 'small' }, stand.grenze == null ? `Pro · angemeldet als ${stand.email || 'Admin'} · ohne Grenze` : `Pro · noch ${Math.max(0, stand.grenze - (stand.genutzt || 0))} von ${stand.grenze} Analysen in diesem Monat`);
     return h('p', { class: 'small' }, `Angemeldet als ${stand.email || 'Nutzer'}.`);
   }
+  // Fehler stehen dort, wo das Ergebnis erscheinen sollte (sonst übersieht man sie unter dem Original).
+  const fehlerText = () => fehler && h('p', { class: 'ab-fehler', role: 'alert' }, fehler.text,
+    fehler.code === 'KI_NICHT_ANGEMELDET' ? [' ', h('a', { href: PANEL_URL, target: '_blank', rel: 'noopener' }, 'Panel öffnen')] : null);
   function zeichne() {
     const r = ergebnis();
     const kopf = h('div', { class: 'dlg-kopf' }, h('h2', { id: 'abTitel' }, 'Vorlage aus Bild ', h('span', { class: 'badge pro' }, 'Pro')), h('span', { class: 'grow' }),
@@ -742,14 +745,14 @@ function ausBildOeffnen() {
         h('button', { class: 'btn' + (svg ? '' : ' primary'), disabled: laeuft || !kiMoeglich || stand?.pro === false || stand?.angemeldet === false, onclick: mitKi }, icon('wand'), erk && !svg ? 'Noch einmal erkennen' : 'Mit KI erkennen', h('span', { class: 'badge pro' }, 'Pro')));
       const rechts = laeuft ? h('div', { class: 'ab-platz', role: 'status' }, h('span', { class: 'ab-spinner', 'aria-hidden': 'true' }), svg && !stand?.pro ? 'Ebenen werden gelesen …' : 'Die KI liest das Bild. Das dauert meist 20 bis 60 Sekunden.')
         : r ? leinwand((x, w, hh, t) => { useMarke(M()); drawDesign(x, w, hh, daten(M()), opt.animieren ? t : 99, r.vorlage, {}, { platz: true }); }, 5)
-        : h('div', { class: 'ab-platz' }, svg ? 'SVG erkannt. Die Ebenen lassen sich direkt lesen.' : 'Noch nicht erkannt.', knoepfe);
+        : h('div', { class: 'ab-platz' + (fehler ? ' mit-fehler' : '') }, fehler ? fehlerText() : svg ? 'SVG erkannt. Die Ebenen lassen sich direkt lesen.' : 'Noch nicht erkannt.', knoepfe);
       if (r && !laeuft && rechts.tagName === 'CANVAS') { rechts.classList.add('ab-bild'); rechts.setAttribute('aria-label', 'Ergebnis: ' + zusammenfassung(r.vorlage)); rechts.style.aspectRatio = r.hoch ? '9 / 16' : '16 / 9'; }
       inhalt = h('div', { class: 'ab-inhalt' },
         h('div', { class: 'ab-vergleich' },
           h('figure', null, h('figcaption', null, 'Original'), h('img', { class: 'ab-bild', src: quelleUrl, alt: 'Original: ' + q.name })),
           h('figure', null, h('figcaption', null, r ? 'Ergebnis in deiner Marke' : 'Ergebnis'), rechts)),
         r ? h('p', { class: 'ab-ergebnis' }, h('b', null, r.vorlage.name), ' · ', zusammenfassung(r.vorlage), rest != null ? ` · noch ${rest} Analysen diesen Monat` : '') : null,
-        fehler ? h('p', { class: 'ab-fehler', role: 'alert' }, fehler.text, fehler.code === 'KI_NICHT_ANGEMELDET' ? [' ', h('a', { href: PANEL_URL, target: '_blank', rel: 'noopener' }, 'Panel öffnen')] : null) : null,
+        fehler && r ? fehlerText() : null,
         h('div', { class: 'ab-optionen' },
           h('div', { class: 'seg', role: 'group', 'aria-label': 'Farben' }, ([['bild', 'Farben wie im Bild'], ['marke', 'In Markenfarben']] as const).map(([k, l]) => h('button', { 'aria-pressed': String(opt.farben === k), onclick: () => { opt.farben = k; zeichne(); } }, l))),
           check('felder', 'Preise, Überschriften und Fotos als Felder freigeben', opt.felder, v => opt.felder = v),
