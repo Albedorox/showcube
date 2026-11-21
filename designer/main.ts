@@ -308,7 +308,7 @@ function setze(key: keyof El, val: any) {
 function neuesEl(typ: ElTyp, extra: Partial<El> = {}) {
   const v = V(); if (!v) return; merke();
   const base: El = { id: neueId(), typ, x: 30, y: 30, w: 40, h: 22, anim: 'blende', start: 0, dauer: .8, ...(typ === 'text' ? { text: 'Neuer Text', rolle: 'text', gr: 6, farbe: v.hinter === 'hell' ? 'dunkel' : 'hell', ausr: 'left' } : {}),
-    ...(typ === 'form' ? { fuell: 'primaer', ecken: 8 } : {}), ...(typ === 'logo' ? { x: 70, y: 6, w: 24, h: 14, ausr: 'right' } : {}), ...(typ === 'qr' ? { text: 'https://', frei: 'Link', x: 70, y: 30, w: 22, h: 40, farbe: 'dunkel', fuell: 'hell' } : {}), ...(typ === 'bild' ? { frei: 'Bild', anim: 'kenburns' } : {}), ...(typ === 'video' ? { frei: 'Video', x: 8, y: 12, w: 56, h: 76, ecken: 4 } : {}), ...extra } as El;
+    ...(typ === 'form' ? { fuell: 'primaer', ecken: 8 } : {}), ...(typ === 'logo' ? { x: 70, y: 6, w: 24, h: 14, ausr: 'right' } : {}), ...(typ === 'qr' ? { text: 'https://', frei: 'Link', x: 70, y: 30, w: 22, h: 40, farbe: 'dunkel', fuell: 'hell' } : {}), ...(typ === 'bild' ? { frei: 'Bild', anim: 'kenburns', passt: 'contain' } : {}), ...(typ === 'video' ? { frei: 'Video', x: 8, y: 12, w: 56, h: 76, ecken: 4 } : {}), ...extra } as El;
   beideListen(v).forEach(l => l.push(clone(base))); waehle(base.id); save(); renderVorlagen();
 }
 function loeschen() { const v = V(), ids = gewaehlt(); if (!v || !ids.length) return; merke(); beideListen(v).forEach(l => { for (let i = l.length - 1; i >= 0; i--) if (ids.includes(l[i].id)) l.splice(i, 1); }); waehle(null); save(); renderVorlagen(); if (ids.length > 1) toast(ids.length + ' Elemente gelöscht. Strg + Z holt sie zurück.'); }
@@ -426,6 +426,13 @@ function farbWahl(label: string, wert: string | undefined, set: (v: string) => v
       h('input', { type: 'color', value: istRolle ? '#888888' : wert, 'aria-label': label + ': eigene Farbe wählen', onchange: (e: any) => set(e.target.value) }), 'Eigene Farbe')));
 }
 let eigEl: HTMLElement = null, listeEl: HTMLElement = null, zeitEl: HTMLElement = null, werkEl: HTMLElement = null;
+// Wie Bild oder Film in die Fläche passen: ganz zeigen (evtl. mit Rand) oder füllen (Ränder werden abgeschnitten).
+function anzeigeWahl(e: El) {
+  const jetzt = e.passt || (e.typ === 'logo' ? 'contain' : 'cover');
+  return h('div', null, h('span', { class: 'label' }, 'Anzeige'), h('div', { class: 'seg', role: 'group', 'aria-label': 'Anzeige' },
+    ([['contain', 'Ganz zeigen'], ['cover', 'Füllen']] as const).map(([p, l]) => h('button', { 'aria-pressed': String(jetzt === p), onclick: () => setze('passt', p) }, l))),
+    h('span', { class: 'small' }, jetzt === 'contain' ? 'Das ganze Bild ist zu sehen, freie Ränder bleiben leer.' : 'Füllt die Fläche ganz, überstehende Ränder werden abgeschnitten.'));
+}
 // Lage und Größe, klar getrennt: X/Y = Abstand der oberen linken Ecke vom Rand, Breite/Höhe = Größe. Alles in % der Folie.
 type Lage = { x: number; y: number; w?: number; h?: number };
 function lageFelder(e: Lage, set: (k: 'x' | 'y' | 'w' | 'h', wert: number) => void, titel = 'Position') {
@@ -492,11 +499,17 @@ function renderEig() {
   if (e.typ === 'form') teile.push(farbWahl('Füllfarbe', e.fuell, k => setze('fuell', k)),
     h('div', { class: 'grid2' }, h('div', null, h('span', { class: 'label' }, 'Form'), h('div', { class: 'seg' }, (['rechteck', 'kreis'] as const).map(f => h('button', { 'aria-pressed': String((e.form || 'rechteck') === f), onclick: () => setze('form', f) }, f === 'kreis' ? 'Kreis' : 'Rechteck')))), num('ecken', 'Runde Ecken (%)', 1)));
   if (e.typ === 'qr') teile.push(farbWahl('Farbe der Punkte', e.farbe, k => setze('farbe', k)), farbWahl('Farbe des Grunds', e.fuell, k => setze('fuell', k)));
-  if (e.typ === 'bild') teile.push(h('div', { class: 'row' }, h('span', { class: 'btn sm' }, icon('upload'), e.bild ? 'Bild ersetzen' : 'Bild wählen', h('input', { type: 'file', accept: 'image/*', 'aria-label': 'Bild wählen', onchange: async (ev: any) => { const f = ev.target.files[0]; if (!f) return; setze('bild', await bildKlein(f, 1600)); } })),
-    h('div', { class: 'seg' }, (['cover', 'contain'] as const).map(p => h('button', { 'aria-pressed': String((e.passt || 'cover') === p), onclick: () => setze('passt', p) }, p === 'cover' ? 'Füllen' : 'Ganz zeigen')))), num('ecken', 'Runde Ecken (%)', 1));
+  // Bild hochladen: Ist noch nichts eingestellt, zeigt es sich erst einmal ganz, nichts wird abgeschnitten.
+  const bildLaden = async (ev: any) => {
+    const f = ev.target.files[0]; if (!f) return; const data = await bildKlein(f, 1600); merke();
+    beideListen().forEach(l => { const x = l.find(y => y.id === e.id); if (x) { x.bild = data; if (!x.passt) x.passt = 'contain'; } });
+    save(); renderEig(); renderListe(); renderZeit();
+  };
+  if (e.typ === 'bild') teile.push(h('span', { class: 'btn sm voll' }, icon('upload'), e.bild ? 'Bild ersetzen' : 'Bild wählen', h('input', { type: 'file', accept: 'image/*', 'aria-label': 'Bild wählen', onchange: bildLaden })),
+    anzeigeWahl(e), num('ecken', 'Runde Ecken (%)', 1));
   if (e.typ === 'video') teile.push(h('span', { class: 'small' }, 'Den fertigen Film wählt der Kunde im Panel aus seinen Medien (MP4 oder WebM). Er läuft stumm, und die Folie dauert so lange wie der Film. Darüber liegende Ebenen wie Logo, Preis oder Text bleiben stehen.'),
-    h('div', { class: 'row' }, h('span', { class: 'btn sm' }, icon('upload'), testFilme.has(e.id) ? 'Anderen Testfilm' : 'Testfilm wählen', h('input', { type: 'file', accept: 'video/mp4,video/webm', 'aria-label': 'Testfilm wählen', onchange: (ev: any) => { const f = ev.target.files[0]; if (!f) return; testFilmSetzen(e.id, f); renderEig(); } })),
-      h('div', { class: 'seg' }, (['cover', 'contain'] as const).map(p => h('button', { 'aria-pressed': String((e.passt || 'cover') === p), onclick: () => setze('passt', p) }, p === 'cover' ? 'Füllen' : 'Ganz zeigen')))),
+    h('span', { class: 'btn sm voll' }, icon('upload'), testFilme.has(e.id) ? 'Anderen Testfilm' : 'Testfilm wählen', h('input', { type: 'file', accept: 'video/mp4,video/webm', 'aria-label': 'Testfilm wählen', onchange: (ev: any) => { const f = ev.target.files[0]; if (!f) return; testFilmSetzen(e.id, f); renderEig(); } })),
+    anzeigeWahl(e),
     h('span', { class: 'small' }, 'Der Testfilm ist nur zum Ansehen hier und wird nicht gespeichert.'), num('ecken', 'Runde Ecken (%)', 1));
   if (e.typ === 'logo') teile.push(h('span', { class: 'small' }, 'Zeigt das Logo der Marke. Ohne Logo steht dort der Name.'), h('div', null, h('span', { class: 'label' }, 'Ausrichtung'), h('div', { class: 'seg' }, (['left', 'center', 'right'] as const).map(a => h('button', { 'aria-pressed': String((e.ausr || 'center') === a), onclick: () => setze('ausr', a) }, a === 'left' ? 'links' : a === 'center' ? 'Mitte' : 'rechts')))));
   fill(eigEl,
