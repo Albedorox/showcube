@@ -22,6 +22,7 @@ export interface El {
   text?: string;                                    // Text oder Link (QR). Platzhalter: {name}, {zeiten}, {datum}, {1.2} = Eintrag 1, Spalte 2
   rolle?: 'titel' | 'text'; gr?: number; gewicht?: number; ausr?: 'left' | 'center' | 'right'; vert?: 'oben' | 'mitte' | 'unten'; gross?: boolean;
   farbe?: Farbe; fuell?: Farbe; form?: 'rechteck' | 'kreis'; ecken?: number; deck?: number;
+  hinterlegt?: Farbe;                               // Text: Farbfläche hinter jeder Zeile (wie ein Textmarker), nur Rollen der Marke
   bild?: string; passt?: 'cover' | 'contain';
   anim?: Anim; start?: number; dauer?: number;
   frei?: string;                                    // Beschriftung, wenn der Kunde dieses Element im Panel ausfüllen darf
@@ -117,13 +118,25 @@ export function drawDesign(ctx: CanvasRenderingContext2D, w: number, h: number, 
       let txt = platzhalter(val ?? el.text ?? '', d); if (el.gross) txt = txt.toUpperCase();
       if (a === 'schreiben') txt = txt.slice(0, Math.round(txt.length * p));
       const fam = el.rolle === 'titel' ? DISP : BODY, wt = el.gewicht || (el.rolle === 'titel' ? 800 : 500);
+      // Hinterlegter Text: jede Zeile bekommt eine Farbfläche, so breit wie die Zeile plus etwas Rand.
+      // Die Zeilen liegen dann dichter beieinander, die Flächen schließen ohne Lücke aneinander an.
+      const hl = el.hinterlegt ? farbe(el.hinterlegt, d) : null, zh = hl ? 1.3 : 1.12, rand = (s: number) => hl ? s * .3 : 0;
       let size = (el.gr || 6) * u, lines: string[] = [];
       // Zu langer Text wird kleiner, nie abgeschnitten: das hält auch, wenn der Kunde viel einträgt.
-      for (let i = 0; i < 40; i++) { font(ctx, wt, size, fam); lines = txt.split('\n').flatMap(l => wrap(ctx, l, bw)); const widest = Math.max(0, ...lines.map(l => ctx.measureText(l).width)); if ((lines.length * size * 1.12 <= bh && widest <= bw) || size < u * 1.5) break; size *= .93; }
-      const lh = size * 1.12, total = lines.length * lh, top = el.vert === 'mitte' ? cy - total / 2 : el.vert === 'unten' ? y + bh - total : y;
+      for (let i = 0; i < 40; i++) { font(ctx, wt, size, fam); const bb = bw - 2 * rand(size); lines = txt.split('\n').flatMap(l => wrap(ctx, l, bb)); const widest = Math.max(0, ...lines.map(l => ctx.measureText(l).width)); if ((lines.length * size * zh <= bh && widest <= bb) || size < u * 1.5) break; size *= .93; }
+      const lh = size * zh, total = lines.length * lh, top = el.vert === 'mitte' ? cy - total / 2 : el.vert === 'unten' ? y + bh - total : y, pad = rand(size);
+      const tx = el.ausr === 'center' ? cx : el.ausr === 'right' ? x + bw - pad : x + pad;
+      if (hl) {
+        ctx.fillStyle = hl;
+        lines.forEach((l, i) => {
+          if (!l.trim()) return;
+          const lw = ctx.measureText(l).width, lx = el.ausr === 'center' ? tx - lw / 2 : el.ausr === 'right' ? tx - lw : tx;
+          const x0 = Math.round(lx - pad), y0 = Math.round(top + i * lh);
+          ctx.fillRect(x0, y0, Math.round(lx + lw + pad) - x0, Math.round(top + (i + 1) * lh) - y0);
+        });
+      }
       ctx.fillStyle = farbe(el.farbe, d); ctx.textBaseline = 'alphabetic'; ctx.textAlign = el.ausr || 'left';
-      const tx = el.ausr === 'center' ? cx : el.ausr === 'right' ? x + bw : x;
-      lines.forEach((l, i) => ctx.fillText(l, tx, top + i * lh + size * .9));
+      lines.forEach((l, i) => ctx.fillText(l, tx, top + i * lh + (hl ? size * 1.01 : size * .9)));
     }
     ctx.restore();
   }

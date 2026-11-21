@@ -178,7 +178,26 @@ header.top { position: sticky; top: 0; z-index: 20; display: flex; align-items: 
 .rollen { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
 .rollen button { width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(0,0,0,.15); padding: 0; }
 .rollen button[aria-pressed="true"] { outline: 2px solid var(--sel); outline-offset: 2px; }
-.rollen input[type=color] { width: 28px; height: 28px; padding: 1px; border-radius: 8px; }
+.rollen button.keine { background: linear-gradient(to top right, transparent calc(50% - 1px), var(--bad) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)), var(--surface); border-color: var(--line-strong); }
+.rollen .eigen { display: inline-flex; align-items: center; gap: 6px; height: 30px; margin: 0 0 0 4px; padding: 0 9px 0 3px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); color: var(--ink); font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.rollen .eigen:hover { background: var(--surface-2); }
+.rollen .eigen[aria-pressed="true"] { outline: 2px solid var(--sel); outline-offset: 2px; }
+.rollen .eigen input[type=color] { width: 22px; height: 22px; padding: 0; border: 1px solid rgba(0,0,0,.15); border-radius: 6px; cursor: pointer; }
+.rollen .eigen input[type=color]::-webkit-color-swatch-wrapper { padding: 0; } .rollen .eigen input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
+.label em, label em { font-style: normal; font-weight: 500; color: var(--faint); }
+.lage { display: flex; flex-direction: column; gap: 10px; }
+.pfeld { position: relative; display: flex; align-items: center; margin: 0; height: 36px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); padding-left: 9px; cursor: text; }
+.pfeld:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.pfeld b { font-size: 12px; font-weight: 700; color: var(--muted); flex: none; }
+.pfeld input[type=number] { border: 0; height: 34px; background: transparent; padding: 0 2px 0 7px; min-width: 0; text-align: right; outline: none; }
+.pfeld i { font-style: normal; font-size: 12px; color: var(--faint); padding-right: 9px; flex: none; }
+.sel.mit { box-shadow: 0 0 0 1px rgba(255,255,255,.55); }
+.gruppe-sel { position: absolute; border: 1.5px dashed var(--sel); pointer-events: none; margin: -5px; padding: 5px; box-sizing: content-box; }
+.gruppe-sel::after { content: attr(data-anzahl); position: absolute; left: -1.5px; top: -22px; background: var(--sel); color: #fff; font: 700 11px var(--font-body); padding: 2px 7px; border-radius: 6px 6px 6px 0; white-space: nowrap; }
+.lasso { position: absolute; border: 1px solid var(--sel); background: color-mix(in srgb, var(--sel) 12%, transparent); pointer-events: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { border: 1px solid var(--line-strong); background: var(--surface-2); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip:hover { border-color: var(--sel); }
 .seg { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 9px; }
 .seg button { flex: 1; border: 0; background: transparent; height: 26px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }

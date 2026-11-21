@@ -115,7 +115,9 @@ let tab: 'marke' | 'vorlagen' | 'partner' = 'marke';
 let vi = 0;                   // gewählte Vorlage
 let orient: 'quer' | 'hoch' = 'quer';
 let galOrient: 'quer' | 'hoch' = 'quer';
-let sel: string | null = null;
+let sel: string | null = null;  // Element, das rechts bearbeitet wird (zuletzt angeklickt)
+let mehr: string[] = [];        // Mehrfachauswahl (Umschalt oder Strg + Klick): alle gewählten Elemente, sonst leer
+function waehle(id: string | null) { sel = id; mehr = []; }
 let playAt = 0;               // Zeitpunkt "Abspielen" (0 = Endzustand zeigen)
 const undo: string[] = [];
 function merke() { undo.push(JSON.stringify(M())); if (undo.length > 60) undo.shift(); }
@@ -136,9 +138,9 @@ function daten(m: Marke, items = ITEMS.gastro) { return { name: m.name, accent: 
 // ---------- Kopf ----------
 function renderKopf() {
   const ks = $('kunde'); ks.replaceChildren(...S.kunden.map((k, i) => h('option', { value: i, selected: i === S.aktiv }, k.name || 'Ohne Namen')));
-  ks.onchange = () => { S.aktiv = +ks.value; vi = 0; sel = null; undo.length = 0; save(); useMarke(M()).then(render); render(); };
+  ks.onchange = () => { S.aktiv = +ks.value; vi = 0; waehle(null); undo.length = 0; save(); useMarke(M()).then(render); render(); };
   $('neuKunde').replaceChildren(icon('plus'), 'Kunde');
-  $('neuKunde').onclick = () => { S.kunden.push(neueMarke('Neuer Kunde')); S.aktiv = S.kunden.length - 1; vi = 0; sel = null; tab = 'marke'; save(); useMarke(M()); render(); setTimeout(() => { const n = $('mName'); if (n) { n.focus(); n.select(); } }, 50); };
+  $('neuKunde').onclick = () => { S.kunden.push(neueMarke('Neuer Kunde')); S.aktiv = S.kunden.length - 1; vi = 0; waehle(null); tab = 'marke'; save(); useMarke(M()); render(); setTimeout(() => { const n = $('mName'); if (n) { n.focus(); n.select(); } }, 50); };
   $('partnerBadge').hidden = S.kunden.length < 2;
   $('partnerBadge').textContent = 'Partner · ' + S.kunden.length + ' Kunden';
   const T: [typeof tab, string, string][] = [['marke', 'Marke', 'palette'], ['vorlagen', 'Vorlagen', 'layout'], ['partner', 'Für Agenturen', 'users']];
@@ -152,7 +154,7 @@ function renderKopf() {
 }
 $('laden').onchange = async (e: any) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  try { const m = markeAusDatei(await f.text()); S.kunden.push(m); S.aktiv = S.kunden.length - 1; vi = 0; sel = null; save(); await useMarke(m); render(); toast('Markenpaket „' + m.name + '“ geladen.'); }
+  try { const m = markeAusDatei(await f.text()); S.kunden.push(m); S.aktiv = S.kunden.length - 1; vi = 0; waehle(null); save(); await useMarke(m); render(); toast('Markenpaket „' + m.name + '“ geladen.'); }
   catch (err) { toast('Konnte die Datei nicht lesen: ' + (err as Error).message); }
 };
 $('speichern').onclick = () => {
@@ -279,6 +281,23 @@ const GEO = ['x', 'y', 'w', 'h', 'gr'];
 function els(v = V()): El[] { return orient === 'hoch' && v.hoch ? v.hoch : v.quer; }
 function elById(id: string, list = els()) { return list.find(e => e.id === id); }
 function beideListen(v = V()) { return [v.quer, ...(v.hoch ? [v.hoch] : [])]; }
+// Was gerade gewählt ist: mehrere Elemente oder eins. Gelöschte (z. B. nach Strg + Z) fallen heraus.
+function gewaehlt(): string[] { if (!V()) return []; return (mehr.length > 1 ? mehr : sel ? [sel] : []).filter(id => elById(id)); }
+// Umschalt- oder Strg-Klick: Element zur Auswahl dazunehmen oder wieder herausnehmen.
+function umschalten(id: string) {
+  const ids = gewaehlt(), neu = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id];
+  sel = neu.includes(id) ? id : neu[neu.length - 1] || null; mehr = neu.length > 1 ? neu : [];
+}
+const zusatzTaste = (ev: MouseEvent | KeyboardEvent) => ev.shiftKey || ev.ctrlKey || ev.metaKey;
+const elName = (e: El) => ({ text: 'Text', form: e.form === 'kreis' ? 'Kreis' : 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR', video: 'Video' } as any)[e.typ] + (e.typ === 'text' || e.typ === 'qr' ? ': ' + (e.text || '').slice(0, 18) : '');
+// Rahmen um alle gewählten Elemente (in % der Folie).
+function rahmenVon(list: El[]) { const x = Math.min(...list.map(e => e.x)), y = Math.min(...list.map(e => e.y)); return { x, y, w: Math.max(...list.map(e => e.x + e.w)) - x, h: Math.max(...list.map(e => e.y + e.h)) - y }; }
+// Alle gewählten Elemente gemeinsam verschieben (Pfeiltasten, Felder rechts).
+function gruppeVerschieben(dx: number, dy: number) {
+  const ids = gewaehlt(); if (!ids.length || (!dx && !dy)) return; merke(); hochAnlegen();
+  ids.forEach(id => { const e = elById(id); e.x = Math.round((e.x + dx) * 2) / 2; e.y = Math.round((e.y + dy) * 2) / 2; });
+  save(); renderSel(); renderEig();
+}
 function hochAnlegen() { const v = V(); if (orient === 'hoch' && !v.hoch) { v.hoch = clone(v.quer); toast('Eigene Hochkant-Fassung angelegt. Lage und Größe gelten jetzt nur hochkant.'); } }
 function setze(key: keyof El, val: any) {
   const v = V(); if (!v || !sel) return; merke();
@@ -290,10 +309,16 @@ function neuesEl(typ: ElTyp, extra: Partial<El> = {}) {
   const v = V(); if (!v) return; merke();
   const base: El = { id: neueId(), typ, x: 30, y: 30, w: 40, h: 22, anim: 'blende', start: 0, dauer: .8, ...(typ === 'text' ? { text: 'Neuer Text', rolle: 'text', gr: 6, farbe: v.hinter === 'hell' ? 'dunkel' : 'hell', ausr: 'left' } : {}),
     ...(typ === 'form' ? { fuell: 'primaer', ecken: 8 } : {}), ...(typ === 'logo' ? { x: 70, y: 6, w: 24, h: 14, ausr: 'right' } : {}), ...(typ === 'qr' ? { text: 'https://', frei: 'Link', x: 70, y: 30, w: 22, h: 40, farbe: 'dunkel', fuell: 'hell' } : {}), ...(typ === 'bild' ? { frei: 'Bild', anim: 'kenburns' } : {}), ...(typ === 'video' ? { frei: 'Video', x: 8, y: 12, w: 56, h: 76, ecken: 4 } : {}), ...extra } as El;
-  beideListen(v).forEach(l => l.push(clone(base))); sel = base.id; save(); renderVorlagen();
+  beideListen(v).forEach(l => l.push(clone(base))); waehle(base.id); save(); renderVorlagen();
 }
-function loeschen() { const v = V(); if (!v || !sel) return; merke(); beideListen(v).forEach(l => { const i = l.findIndex(e => e.id === sel); if (i >= 0) l.splice(i, 1); }); sel = null; save(); renderVorlagen(); }
-function verdoppeln() { const v = V(); if (!v || !sel) return; merke(); const nid = neueId(); beideListen(v).forEach(l => { const e = l.find(x => x.id === sel); if (e) l.push({ ...clone(e), id: nid, x: Math.min(95, e.x + 3), y: Math.min(95, e.y + 3) }); }); sel = nid; save(); renderVorlagen(); }
+function loeschen() { const v = V(), ids = gewaehlt(); if (!v || !ids.length) return; merke(); beideListen(v).forEach(l => { for (let i = l.length - 1; i >= 0; i--) if (ids.includes(l[i].id)) l.splice(i, 1); }); waehle(null); save(); renderVorlagen(); if (ids.length > 1) toast(ids.length + ' Elemente gelöscht. Strg + Z holt sie zurück.'); }
+// Verdoppelt alles Gewählte. Die Kopien liegen leicht versetzt und sind danach gewählt.
+function verdoppeln() {
+  const v = V(), ids = gewaehlt(); if (!v || !ids.length) return; merke();
+  const neu = new Map(ids.map(id => [id, neueId()]));
+  beideListen(v).forEach(l => l.filter(e => neu.has(e.id)).forEach(e => l.push({ ...clone(e), id: neu.get(e.id), x: Math.min(95, e.x + 3), y: Math.min(95, e.y + 3) })));
+  const nids = [...neu.values()]; sel = nids[nids.length - 1]; mehr = nids.length > 1 ? nids : []; save(); renderVorlagen();
+}
 // Ebenen: Die Liste läuft von hinten (Index 0) nach vorn. Neue Reihenfolge gilt in Quer- und Hochkant-Fassung.
 function ebenenOrdnen(ids: string[]) {
   const v = V(); if (!v) return; const pos = new Map(ids.map((id, i) => [id, i]));
@@ -315,51 +340,122 @@ function malBuehne(now: number) {
 }
 function renderSel() {
   if (!overlay) return; overlay.replaceChildren();
-  const e = sel && elById(sel); if (!e) return;
-  const b = h('div', { class: 'sel' + (e.frei ? ' frei' : ''), style: `left:${e.x}%;top:${e.y}%;width:${e.w}%;height:${e.h}%`, 'data-frei': e.frei ? 'Kunde füllt aus: ' + e.frei : null },
-    ['nw', 'ne', 'sw', 'se'].map(k => h('i', { 'data-h': k })));
-  overlay.append(b);
-}
-// Ziehen und Größe ändern. Rastet auf 0,5 % ein und an der Mitte der Folie.
-function ziehen(ev: PointerEvent) {
-  const r = rahmen.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * 100, py = (ev.clientY - r.top) / r.height * 100;
-  const handle = (ev.target as HTMLElement).dataset && (ev.target as HTMLElement).dataset.h;
-  let e = sel && elById(sel);
-  if (!handle) {
-    const hit = [...els()].reverse().find(x => px >= x.x && px <= x.x + x.w && py >= x.y && py <= x.y + x.h);
-    sel = hit ? hit.id : null; e = hit; renderSel(); renderEig(); renderZeit();
-    if (!hit) return;
+  const ids = gewaehlt(); if (!ids.length) return;
+  const lage = (e: { x: number; y: number; w: number; h: number }) => `left:${e.x}%;top:${e.y}%;width:${e.w}%;height:${e.h}%`;
+  if (ids.length === 1) {
+    const e = elById(ids[0]);
+    overlay.append(h('div', { class: 'sel' + (e.frei ? ' frei' : ''), style: lage(e), 'data-frei': e.frei ? 'Kunde füllt aus: ' + e.frei : null },
+      ['nw', 'ne', 'sw', 'se'].map(k => h('i', { 'data-h': k }))));
+    return;
   }
-  ev.preventDefault(); merke(); hochAnlegen(); e = elById(sel);
-  const st = { ...e }, sx = px, sy = py; let moved = false;
+  // Mehrfachauswahl: jedes Element mit eigenem Rahmen, darum ein gestrichelter Rahmen für die Gruppe (ohne Griffe).
+  const list = ids.map(id => elById(id));
+  list.forEach(e => overlay.append(h('div', { class: 'sel mit', style: lage(e) })));
+  overlay.append(h('div', { class: 'gruppe-sel', style: lage(rahmenVon(list)), 'data-anzahl': list.length + ' ausgewählt' }));
+}
+const renderAuswahl = () => { renderSel(); renderEig(); renderZeit(); };
+const trifft = (px: number, py: number) => [...els()].reverse().find(x => px >= x.x && px <= x.x + x.w && py >= x.y && py <= x.y + x.h);
+// Ziehen und Größe ändern. Rastet auf 0,5 % ein und an der Mitte der Folie.
+// Mehrere gewählte Elemente bewegen sich gemeinsam, eingerastet wird dann der Rahmen der Gruppe.
+// Ziehen auf freier Fläche zieht ein Auswahlrechteck auf: gewählt wird, was ganz darin liegt.
+function ziehen(ev: PointerEvent) {
+  if (ev.button) return;
+  const r = rahmen.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * 100, py = (ev.clientY - r.top) / r.height * 100;
+  const handle = (ev.target as HTMLElement).dataset && (ev.target as HTMLElement).dataset.h, zusatz = zusatzTaste(ev);
+  let nurDieses: string | null = null;  // Klick ohne Ziehen in eine Mehrfachauswahl: danach ist nur dieses Element gewählt
+  if (!handle) {
+    const hit = trifft(px, py);
+    if (!hit) { if (!zusatz) { waehle(null); renderAuswahl(); } auswahlRechteck(ev, r, px, py); return; }
+    if (zusatz) { umschalten(hit.id); renderAuswahl(); if (!gewaehlt().includes(hit.id)) return; }
+    else if (gewaehlt().length > 1 && gewaehlt().includes(hit.id)) { nurDieses = hit.id; sel = hit.id; renderEig(); }
+    else { waehle(hit.id); renderAuswahl(); }
+  }
+  ev.preventDefault(); merke(); hochAnlegen();
+  const list = (handle ? [sel] : gewaehlt()).map(id => elById(id)).filter(Boolean), e = list[0];
+  if (!e) { undo.pop(); return; }
+  const st = list.map(x => ({ ...x })), box = rahmenVon(st), sx = px, sy = py; let moved = false;
   const snap = (v: number) => Math.round(v * 2) / 2;
-  const guides = () => overlay.querySelectorAll('.hilfs').forEach(g => g.remove());
   const mv = (m: PointerEvent) => {
-    const dx = (m.clientX - r.left) / r.width * 100 - sx, dy = (m.clientY - r.top) / r.height * 100 - sy; moved = true;
+    const dx = (m.clientX - r.left) / r.width * 100 - sx, dy = (m.clientY - r.top) / r.height * 100 - sy;
+    if (!moved && Math.abs(dx) < .2 && Math.abs(dy) < .2) return; moved = true;
+    const hilfen: Kid[] = [];
     if (!handle) {
-      e.x = snap(st.x + dx); e.y = snap(st.y + dy); guides();
-      if (Math.abs(e.x + e.w / 2 - 50) < 1.2) { e.x = 50 - e.w / 2; overlay.append(h('div', { class: 'hilfs', style: 'left:50%;top:0;bottom:0;width:1px' })); }
-      if (Math.abs(e.y + e.h / 2 - 50) < 1.2) { e.y = 50 - e.h / 2; overlay.append(h('div', { class: 'hilfs', style: 'top:50%;left:0;right:0;height:1px' })); }
+      let nx = snap(box.x + dx), ny = snap(box.y + dy);
+      if (Math.abs(nx + box.w / 2 - 50) < 1.2) { nx = 50 - box.w / 2; hilfen.push(h('div', { class: 'hilfs', style: 'left:50%;top:0;bottom:0;width:1px' })); }
+      if (Math.abs(ny + box.h / 2 - 50) < 1.2) { ny = 50 - box.h / 2; hilfen.push(h('div', { class: 'hilfs', style: 'top:50%;left:0;right:0;height:1px' })); }
+      list.forEach((x, i) => { x.x = st[i].x + nx - box.x; x.y = st[i].y + ny - box.y; });
     } else {
-      if (handle.includes('e')) e.w = Math.max(2, snap(st.w + dx)); if (handle.includes('s')) e.h = Math.max(2, snap(st.h + dy));
-      if (handle.includes('w')) { e.x = snap(st.x + dx); e.w = Math.max(2, snap(st.w - dx)); } if (handle.includes('n')) { e.y = snap(st.y + dy); e.h = Math.max(2, snap(st.h - dy)); }
+      const s0 = st[0];
+      if (handle.includes('e')) e.w = Math.max(2, snap(s0.w + dx)); if (handle.includes('s')) e.h = Math.max(2, snap(s0.h + dy));
+      if (handle.includes('w')) { e.x = snap(s0.x + dx); e.w = Math.max(2, snap(s0.w - dx)); } if (handle.includes('n')) { e.y = snap(s0.y + dy); e.h = Math.max(2, snap(s0.h - dy)); }
     }
-    const sb = overlay.querySelector('.sel') as HTMLElement; if (sb) sb.style.cssText = `left:${e.x}%;top:${e.y}%;width:${e.w}%;height:${e.h}%`;
+    renderSel(); overlay.append(...(hilfen as Node[]));
   };
-  const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); guides(); if (!moved) undo.pop(); else { save(); renderEig(); renderListe(); } };
+  const up = () => {
+    removeEventListener('pointermove', mv); removeEventListener('pointerup', up); renderSel();
+    if (!moved) { undo.pop(); if (nurDieses) { waehle(nurDieses); renderAuswahl(); } }
+    else { save(); renderEig(); renderListe(); }
+  };
   addEventListener('pointermove', mv); addEventListener('pointerup', up);
 }
-function farbWahl(label: string, wert: string | undefined, set: (v: string) => void) {
-  const m = M(), istRolle = !wert || FARBROLLEN.some(r => r[0] === wert);
-  return h('div', null, h('span', { class: 'label' }, label), h('div', { class: 'rollen' },
-    FARBROLLEN.map(([k, l]) => h('button', { style: 'background:' + farbe(k, daten(m)), title: l, 'aria-label': l, 'aria-pressed': String(wert === k), onclick: () => set(k) })),
-    h('input', { type: 'color', value: istRolle ? '#888888' : wert, title: 'Eigene Farbe (nicht aus der Marke)', 'aria-label': 'Eigene Farbe', onchange: (e: any) => set(e.target.value) }),
-    !istRolle ? h('span', { class: 'small' }, 'eigene Farbe') : null));
+function auswahlRechteck(ev: PointerEvent, r: DOMRect, sx: number, sy: number) {
+  ev.preventDefault();
+  const basis = gewaehlt(), feld = h('div', { class: 'lasso' }); let moved = false;
+  const mv = (m: PointerEvent) => {
+    const px = (m.clientX - r.left) / r.width * 100, py = (m.clientY - r.top) / r.height * 100;
+    if (!moved && Math.abs(px - sx) < .5 && Math.abs(py - sy) < .5) return; moved = true;
+    const x0 = Math.min(sx, px), y0 = Math.min(sy, py), x1 = Math.max(sx, px), y1 = Math.max(sy, py);
+    const drin = els().filter(e => e.x >= x0 - .01 && e.y >= y0 - .01 && e.x + e.w <= x1 + .01 && e.y + e.h <= y1 + .01).map(e => e.id);
+    const ids = [...basis, ...drin.filter(id => !basis.includes(id))];
+    sel = ids[ids.length - 1] || null; mehr = ids.length > 1 ? ids : [];
+    feld.style.cssText = `left:${x0}%;top:${y0}%;width:${x1 - x0}%;height:${y1 - y0}%`;
+    renderSel(); overlay.append(feld);
+  };
+  const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); feld.remove(); if (moved) { renderEig(); renderZeit(); } };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+}
+// Farbwahl: die vier Farben der Marke als Felder, daneben ein beschrifteter Knopf für eine ganz eigene Farbe.
+// Über dem Feld steht, was gerade gilt („Hauptfarbe“ oder „Eigene Farbe #…“).
+function farbWahl(label: string, wert: string | undefined, set: (v: string) => void, opt: { keine?: string; nurMarke?: boolean } = {}) {
+  const m = M(), istRolle = !wert || FARBROLLEN.some(r => r[0] === wert), rolle = FARBROLLEN.find(r => r[0] === wert);
+  const jetzt = !wert ? (opt.keine || '') : rolle ? rolle[1] : 'Eigene Farbe ' + wert;
+  return h('div', { class: 'farbwahl' }, h('span', { class: 'label' }, label, jetzt ? h('em', null, ': ' + jetzt) : null), h('div', { class: 'rollen' },
+    opt.keine ? h('button', { class: 'keine', title: opt.keine, 'aria-label': label + ': ' + opt.keine, 'aria-pressed': String(!wert), onclick: () => set(undefined) }) : null,
+    FARBROLLEN.map(([k, l]) => h('button', { style: 'background:' + farbe(k, daten(m)), title: l + ' der Marke', 'aria-label': label + ': ' + l, 'aria-pressed': String(wert === k), onclick: () => set(k) })),
+    opt.nurMarke ? null : h('label', { class: 'eigen', 'aria-pressed': String(!istRolle), title: 'Beliebige Farbe wählen, die nicht zur Marke gehört' },
+      h('input', { type: 'color', value: istRolle ? '#888888' : wert, 'aria-label': label + ': eigene Farbe wählen', onchange: (e: any) => set(e.target.value) }), 'Eigene Farbe')));
 }
 let eigEl: HTMLElement = null, listeEl: HTMLElement = null, zeitEl: HTMLElement = null, werkEl: HTMLElement = null;
+// Lage und Größe, klar getrennt: X/Y = Abstand der oberen linken Ecke vom Rand, Breite/Höhe = Größe. Alles in % der Folie.
+type Lage = { x: number; y: number; w?: number; h?: number };
+function lageFelder(e: Lage, set: (k: 'x' | 'y' | 'w' | 'h', wert: number) => void, titel = 'Position') {
+  const feld = (k: 'x' | 'y' | 'w' | 'h', kurz: string, lang: string, hilfe: string) => h('label', { class: 'pfeld', title: hilfe },
+    h('b', { 'aria-hidden': 'true' }, kurz), h('input', { type: 'number', step: .5, value: Math.round(e[k] * 10) / 10, 'aria-label': lang, onchange: (ev: any) => set(k, +ev.target.value) }), h('i', { 'aria-hidden': 'true' }, '%'));
+  const hoch = orient === 'hoch' ? ' (hochkant)' : '';
+  return h('div', { class: 'lage' },
+    h('div', null, h('span', { class: 'label' }, titel + hoch, h('em', null, ' · obere linke Ecke')), h('div', { class: 'grid2' },
+      feld('x', 'X', 'X (Abstand von links in %)', 'X: Abstand vom linken Rand der Folie, in Prozent der Breite'),
+      feld('y', 'Y', 'Y (Abstand von oben in %)', 'Y: Abstand vom oberen Rand der Folie, in Prozent der Höhe'))),
+    e.w == null ? null : h('div', null, h('span', { class: 'label' }, 'Größe' + hoch, h('em', null, ' · in % der Folie')), h('div', { class: 'grid2' },
+      feld('w', 'Breite', 'Breite in %', 'Breite in Prozent der Folienbreite'),
+      feld('h', 'Höhe', 'Höhe in %', 'Höhe in Prozent der Folienhöhe'))));
+}
+// Rechte Spalte bei Mehrfachauswahl: was gewählt ist, gemeinsame Position, Verdoppeln und Löschen für alle.
+function renderEigMehr(ids: string[]) {
+  const list = ids.map(id => elById(id)), b = rahmenVon(list);
+  fill(eigEl, h('div', { class: 'box mehrfach' },
+    h('div', { class: 'row' }, h('h3', null, ids.length + ' Elemente ausgewählt'), h('span', { class: 'grow' }),
+      h('button', { class: 'btn sm ghost', title: 'Alle verdoppeln (Strg + D)', 'aria-label': 'Alle verdoppeln', onclick: verdoppeln }, icon('copy')),
+      h('button', { class: 'btn sm ghost danger', title: 'Alle löschen (Entf)', 'aria-label': 'Alle löschen', onclick: loeschen }, icon('trash'))),
+    h('div', { class: 'chips' }, list.map(e => h('button', { class: 'chip', title: 'Nur dieses Element wählen', onclick: () => { waehle(e.id); renderAuswahl(); } }, elName(e)))),
+    lageFelder({ x: b.x, y: b.y }, (k, wert) => gruppeVerschieben(k === 'x' ? wert - b.x : 0, k === 'y' ? wert - b.y : 0), 'Position der Gruppe'),
+    h('span', { class: 'small' }, 'Auf der Folie ziehen bewegt alle zusammen, die Pfeiltasten auch (mit Umschalt in großen Schritten). Umschalt oder Strg + Klick nimmt ein Element dazu oder heraus, Esc hebt die Auswahl auf. Ein Klick in der Liste oben wählt nur dieses Element zum Bearbeiten.')));
+}
 function renderEig() {
   if (!eigEl) return; const v = V(); if (!v) { eigEl.replaceChildren(); return; }
-  const e = sel && elById(sel);
+  const ids = gewaehlt();
+  if (ids.length > 1) { renderEigMehr(ids); return; }
+  const e = ids.length ? elById(ids[0]) : null;
   if (!e) {
     eigEl.replaceChildren(h('div', { class: 'box' }, h('h3', null, 'Vorlage'),
       h('div', null, h('label', { for: 'vName' }, 'Name'), h('input', { type: 'text', id: 'vName', value: v.name, oninput: (ev: any) => { v.name = ev.target.value; save(); renderListeSoon(); } })),
@@ -369,40 +465,48 @@ function renderEig() {
       h('div', null, h('span', { class: 'label' }, 'Hochkant'), v.hoch ? h('div', { class: 'row' }, h('span', { class: 'small' }, 'Eigene Fassung für hochkant.'), h('button', { class: 'btn sm ghost', onclick: () => { merke(); v.hoch = null; save(); renderVorlagen(); } }, 'Zurücksetzen'))
         : h('span', { class: 'small' }, 'Hochkant nutzt die Querfassung. Oben auf „Hochkant“ stellen und verschieben, dann entsteht eine eigene Fassung.')),
       h('div', { class: 'row' }, h('button', { class: 'btn sm', onclick: () => { merke(); const c = { ...clone(v), id: neueId(), name: v.name + ' (Kopie)' }; M().vorlagen.splice(vi + 1, 0, c); vi++; save(); renderVorlagen(); } }, icon('copy'), 'Duplizieren'),
-        h('button', { class: 'btn sm ghost danger', onclick: () => { merke(); M().vorlagen.splice(vi, 1); vi = Math.max(0, vi - 1); sel = null; save(); renderVorlagen(); toast('Vorlage gelöscht. Strg + Z holt sie zurück.'); } }, icon('trash'), 'Löschen'))),
-      h('div', { class: 'box' }, h('h3', null, 'So geht’s'), h('span', { class: 'small' }, 'Element anklicken, ziehen, an den Ecken die Größe ändern. Pfeiltasten schieben, Entf löscht, Strg + D verdoppelt, Strg + Z macht rückgängig. Farben und Schriften sind Rollen der Marke: ändert sich die Marke, ändert sich die Vorlage mit.')));
+        h('button', { class: 'btn sm ghost danger', onclick: () => { merke(); M().vorlagen.splice(vi, 1); vi = Math.max(0, vi - 1); waehle(null); save(); renderVorlagen(); toast('Vorlage gelöscht. Strg + Z holt sie zurück.'); } }, icon('trash'), 'Löschen'))),
+      h('div', { class: 'box' }, h('h3', null, 'So geht’s'), h('span', { class: 'small' }, 'Element anklicken, ziehen, an den Ecken die Größe ändern. Mit Umschalt oder Strg + Klick wählst du mehrere Elemente und schiebst sie zusammen, ebenso mit einem Rahmen, den du auf freier Fläche aufziehst. Pfeiltasten schieben, Entf löscht, Strg + D verdoppelt, Strg + A wählt alles, Strg + Z macht rückgängig. Farben und Schriften sind Rollen der Marke: ändert sich die Marke, ändert sich die Vorlage mit.')));
     return;
   }
-  const num = (k: keyof El, label: string, step = .5) => h('div', null, h('label', null, label), h('input', { type: 'number', step, value: Math.round(((e as any)[k] ?? 0) * 10) / 10, onchange: (ev: any) => setze(k, +ev.target.value) }));
+  const num = (k: keyof El, label: string, step = .5) => { const id = 'n' + k; return h('div', null, h('label', { for: id }, label), h('input', { type: 'number', id, step, value: Math.round(((e as any)[k] ?? 0) * 10) / 10, onchange: (ev: any) => setze(k, +ev.target.value) })); };
   const typName = { text: 'Text', form: 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR-Code', video: 'Video' }[e.typ];
   const teile: Kid[] = [];
   if (e.typ === 'text' || e.typ === 'qr') teile.push(h('div', null, h('label', { for: 'eText' }, e.typ === 'qr' ? 'Link' : 'Text'), h('textarea', { id: 'eText', rows: e.typ === 'qr' ? 1 : 3, oninput: (ev: any) => { beideListen().forEach(l => { const x = l.find(y => y.id === e.id); if (x) x.text = ev.target.value; }); save(); } , onfocus: () => merke() }, e.text || '')),
     e.typ === 'text' ? h('span', { class: 'small' }, 'Platzhalter: {name}, {zeiten}, {datum}, {1.2} = Eintrag 1, Spalte 2 aus der Preisliste.') : null);
   if (e.typ === 'text') teile.push(
     h('div', { class: 'grid2' }, h('div', null, h('span', { class: 'label' }, 'Schrift'), h('div', { class: 'seg' }, (['titel', 'text'] as const).map(r => h('button', { 'aria-pressed': String((e.rolle || 'text') === r), onclick: () => setze('rolle', r) }, r === 'titel' ? 'Titel' : 'Text')))),
-      num('gr', 'Größe', .5)),
+      num('gr', 'Schriftgröße', .5)),
     h('div', { class: 'grid2' }, h('div', null, h('label', null, 'Stärke'), h('select', { onchange: (ev: any) => setze('gewicht', +ev.target.value) }, [[400, 'Normal'], [500, 'Mittel'], [600, 'Halbfett'], [700, 'Fett'], [800, 'Extrafett']].map(([w, l]) => h('option', { value: w, selected: (e.gewicht || (e.rolle === 'titel' ? 800 : 500)) === w }, l)))),
       h('div', null, h('span', { class: 'label' }, 'Ausrichtung'), h('div', { class: 'seg' }, (['left', 'center', 'right'] as const).map(a => h('button', { 'aria-pressed': String((e.ausr || 'left') === a), onclick: () => setze('ausr', a) }, a === 'left' ? 'links' : a === 'center' ? 'Mitte' : 'rechts'))))),
     h('div', { class: 'grid2' }, h('div', null, h('span', { class: 'label' }, 'Senkrecht'), h('div', { class: 'seg' }, (['oben', 'mitte', 'unten'] as const).map(a => h('button', { 'aria-pressed': String((e.vert || 'oben') === a), onclick: () => setze('vert', a) }, a)))),
       h('label', { class: 'check', style: 'align-self:end;height:30px' }, h('input', { type: 'checkbox', checked: !!e.gross, onchange: (ev: any) => setze('gross', ev.target.checked || undefined) }), 'Versalien')),
-    farbWahl('Farbe', e.farbe, k => setze('farbe', k)));
-  if (e.typ === 'form') teile.push(farbWahl('Füllung', e.fuell, k => setze('fuell', k)),
-    h('div', { class: 'grid2' }, h('div', null, h('span', { class: 'label' }, 'Form'), h('div', { class: 'seg' }, (['rechteck', 'kreis'] as const).map(f => h('button', { 'aria-pressed': String((e.form || 'rechteck') === f), onclick: () => setze('form', f) }, f === 'kreis' ? 'Kreis' : 'Rechteck')))), num('ecken', 'Ecken (%)', 1)));
-  if (e.typ === 'qr') teile.push(farbWahl('Punkte', e.farbe, k => setze('farbe', k)), farbWahl('Grund', e.fuell, k => setze('fuell', k)));
+    farbWahl('Schriftfarbe', e.farbe, k => setze('farbe', k)),
+    // Hinterlegt: Farbfläche hinter jeder Zeile, nur in den Farben der Marke. Passt die Schrift nicht dazu, wird sie lesbar gemacht.
+    farbWahl('Hinterlegt', e.hinterlegt, k => {
+      const dm = daten(M()), lesbar = (f: string) => kontrast(farbe('hell', dm), farbe(f, dm)) >= kontrast(farbe('dunkel', dm), farbe(f, dm)) ? 'hell' : 'dunkel';
+      merke(); beideListen().forEach(l => { const x = l.find(y => y.id === e.id); if (!x) return; if (!k) { delete x.hinterlegt; return; } x.hinterlegt = k; if ((x.farbe || 'tinte') === k) x.farbe = lesbar(k); });
+      save(); renderEig(); renderListe(); renderZeit();
+    }, { keine: 'ohne Farbfläche', nurMarke: true }),
+    e.hinterlegt ? null : h('span', { class: 'small' }, 'Hinterlegt legt eine Farbfläche hinter jede Zeile, wie ein Textmarker. Zum Beispiel weiße Schrift auf der Hauptfarbe.'));
+  if (e.typ === 'form') teile.push(farbWahl('Füllfarbe', e.fuell, k => setze('fuell', k)),
+    h('div', { class: 'grid2' }, h('div', null, h('span', { class: 'label' }, 'Form'), h('div', { class: 'seg' }, (['rechteck', 'kreis'] as const).map(f => h('button', { 'aria-pressed': String((e.form || 'rechteck') === f), onclick: () => setze('form', f) }, f === 'kreis' ? 'Kreis' : 'Rechteck')))), num('ecken', 'Runde Ecken (%)', 1)));
+  if (e.typ === 'qr') teile.push(farbWahl('Farbe der Punkte', e.farbe, k => setze('farbe', k)), farbWahl('Farbe des Grunds', e.fuell, k => setze('fuell', k)));
   if (e.typ === 'bild') teile.push(h('div', { class: 'row' }, h('span', { class: 'btn sm' }, icon('upload'), e.bild ? 'Bild ersetzen' : 'Bild wählen', h('input', { type: 'file', accept: 'image/*', 'aria-label': 'Bild wählen', onchange: async (ev: any) => { const f = ev.target.files[0]; if (!f) return; setze('bild', await bildKlein(f, 1600)); } })),
-    h('div', { class: 'seg' }, (['cover', 'contain'] as const).map(p => h('button', { 'aria-pressed': String((e.passt || 'cover') === p), onclick: () => setze('passt', p) }, p === 'cover' ? 'Füllen' : 'Ganz zeigen')))), num('ecken', 'Ecken (%)', 1));
+    h('div', { class: 'seg' }, (['cover', 'contain'] as const).map(p => h('button', { 'aria-pressed': String((e.passt || 'cover') === p), onclick: () => setze('passt', p) }, p === 'cover' ? 'Füllen' : 'Ganz zeigen')))), num('ecken', 'Runde Ecken (%)', 1));
   if (e.typ === 'video') teile.push(h('span', { class: 'small' }, 'Den fertigen Film wählt der Kunde im Panel aus seinen Medien (MP4 oder WebM). Er läuft stumm, und die Folie dauert so lange wie der Film. Darüber liegende Ebenen wie Logo, Preis oder Text bleiben stehen.'),
     h('div', { class: 'row' }, h('span', { class: 'btn sm' }, icon('upload'), testFilme.has(e.id) ? 'Anderen Testfilm' : 'Testfilm wählen', h('input', { type: 'file', accept: 'video/mp4,video/webm', 'aria-label': 'Testfilm wählen', onchange: (ev: any) => { const f = ev.target.files[0]; if (!f) return; testFilmSetzen(e.id, f); renderEig(); } })),
       h('div', { class: 'seg' }, (['cover', 'contain'] as const).map(p => h('button', { 'aria-pressed': String((e.passt || 'cover') === p), onclick: () => setze('passt', p) }, p === 'cover' ? 'Füllen' : 'Ganz zeigen')))),
-    h('span', { class: 'small' }, 'Der Testfilm ist nur zum Ansehen hier und wird nicht gespeichert.'), num('ecken', 'Ecken (%)', 1));
+    h('span', { class: 'small' }, 'Der Testfilm ist nur zum Ansehen hier und wird nicht gespeichert.'), num('ecken', 'Runde Ecken (%)', 1));
   if (e.typ === 'logo') teile.push(h('span', { class: 'small' }, 'Zeigt das Logo der Marke. Ohne Logo steht dort der Name.'), h('div', null, h('span', { class: 'label' }, 'Ausrichtung'), h('div', { class: 'seg' }, (['left', 'center', 'right'] as const).map(a => h('button', { 'aria-pressed': String((e.ausr || 'center') === a), onclick: () => setze('ausr', a) }, a === 'left' ? 'links' : a === 'center' ? 'Mitte' : 'rechts')))));
   fill(eigEl,
     h('div', { class: 'box' }, h('div', { class: 'row' }, h('h3', null, typName), h('span', { class: 'grow' }),
       h('button', { class: 'btn sm ghost', title: 'Nach vorn', 'aria-label': 'Nach vorn', onclick: () => ebene(1) }, icon('up')), h('button', { class: 'btn sm ghost', title: 'Nach hinten', 'aria-label': 'Nach hinten', onclick: () => ebene(-1) }, icon('down')),
       h('button', { class: 'btn sm ghost', title: 'Verdoppeln (Strg + D)', 'aria-label': 'Verdoppeln', onclick: verdoppeln }, icon('copy')), h('button', { class: 'btn sm ghost danger', title: 'Löschen (Entf)', 'aria-label': 'Löschen', onclick: loeschen }, icon('trash'))),
       teile,
-      h('div', null, h('span', { class: 'label' }, 'Lage und Größe in %' + (orient === 'hoch' ? ' (hochkant)' : '')), h('div', { class: 'grid4' }, (['x', 'y', 'w', 'h'] as const).map(k => h('input', { type: 'number', step: .5, value: Math.round(e[k] * 10) / 10, 'aria-label': { x: 'Links', y: 'Oben', w: 'Breite', h: 'Höhe' }[k], title: { x: 'Links', y: 'Oben', w: 'Breite', h: 'Höhe' }[k], onchange: (ev: any) => { setze(k, +ev.target.value); renderSel(); } })))),
-      h('div', null, h('label', null, 'Deckkraft'), h('input', { type: 'range', min: .05, max: 1, step: .05, value: e.deck ?? 1, onchange: (ev: any) => setze('deck', +ev.target.value === 1 ? undefined : +ev.target.value) }))),
+      lageFelder(e, (k, wert) => { setze(k, wert); renderSel(); }),
+      h('div', null, h('label', { for: 'eDeck' }, 'Deckkraft ', h('em', null, Math.round((e.deck ?? 1) * 100) + ' %')), h('input', { type: 'range', id: 'eDeck', min: .05, max: 1, step: .05, value: e.deck ?? 1,
+        oninput: (ev: any) => { ev.target.previousSibling.lastChild.textContent = Math.round(ev.target.value * 100) + ' %'; }, onchange: (ev: any) => setze('deck', +ev.target.value === 1 ? undefined : +ev.target.value) }))),
     h('div', { class: 'box' }, h('h3', null, 'Animation'),
       h('select', { 'aria-label': 'Animation', onchange: (ev: any) => { setze('anim', ev.target.value); playAt = performance.now(); renderWerkzeuge(); } }, ANIMS.filter(([a]) => a !== 'kenburns' || e.typ === 'bild').map(([a, l]) => h('option', { value: a, selected: (e.anim || 'keine') === a }, l))),
       (e.anim || 'keine') !== 'keine' ? h('div', { class: 'grid2 zeitfelder' }, num('start', 'Start nach (s)', .1), e.anim !== 'puls' && e.anim !== 'kenburns' ? num('dauer', 'Dauer (s)', .1) : null) : null),
@@ -416,11 +520,11 @@ function renderListe() {
   if (!listeEl) return; const m = M();
   fill(listeEl, h('section', { class: 'gruppe', 'aria-label': 'Vorlagen von ' + (m.name || 'Kunde') },
       h('div', { class: 'gkopf' }, h('h3', null, 'Vorlagen von ' + (m.name || 'Kunde')), h('span', { class: 'small' }, m.vorlagen.length ? m.vorlagen.length + (m.vorlagen.length === 1 ? ' Vorlage · zum Bearbeiten wählen' : ' Vorlagen · zum Bearbeiten wählen') : 'Noch keine. Unten einen Startpunkt wählen.')),
-      m.vorlagen.length ? h('div', { class: 'reihe' }, m.vorlagen.map((v, i) => h('button', { class: 'vitem', 'aria-current': String(i === vi), onclick: () => { vi = i; sel = null; renderVorlagen(); } }, leinwand((x, w, hh) => { useMarke(m); drawDesign(x, w, hh, daten(m), 99, v); }), h('b', null, v.name)))) : null),
+      m.vorlagen.length ? h('div', { class: 'reihe' }, m.vorlagen.map((v, i) => h('button', { class: 'vitem', 'aria-current': String(i === vi), onclick: () => { vi = i; waehle(null); renderVorlagen(); } }, leinwand((x, w, hh) => { useMarke(m); drawDesign(x, w, hh, daten(m), 99, v); }), h('b', null, v.name)))) : null),
     h('section', { class: 'gruppe', 'aria-label': 'Neue Vorlage anlegen' },
     h('div', { class: 'gkopf' }, h('h3', null, 'Neue Vorlage anlegen'), h('span', { class: 'small' }, 'Startpunkt wählen, er bekommt sofort die Farben und Schriften der Marke.')),
-    h('div', { class: 'starter reihe' }, STARTER.map(s => h('button', { onclick: () => { merke(); m.vorlagen.push(s.make()); vi = m.vorlagen.length - 1; sel = null; playAt = performance.now(); save(); renderVorlagen(); } }, h('b', null, s.name), h('span', null, s.desc))),
-      h('button', { onclick: () => { merke(); m.vorlagen.push(leereVorlage()); vi = m.vorlagen.length - 1; sel = null; save(); renderVorlagen(); } }, h('b', null, 'Leere Vorlage'), h('span', null, 'Nur eine Überschrift, alles andere baust du selbst.')))));
+    h('div', { class: 'starter reihe' }, STARTER.map(s => h('button', { onclick: () => { merke(); m.vorlagen.push(s.make()); vi = m.vorlagen.length - 1; waehle(null); playAt = performance.now(); save(); renderVorlagen(); } }, h('b', null, s.name), h('span', null, s.desc))),
+      h('button', { onclick: () => { merke(); m.vorlagen.push(leereVorlage()); vi = m.vorlagen.length - 1; waehle(null); save(); renderVorlagen(); } }, h('b', null, 'Leere Vorlage'), h('span', null, 'Nur eine Überschrift, alles andere baust du selbst.')))));
 }
 // Länge der Zeitleiste in Sekunden: etwas Luft hinter der letzten Animation, damit man Balken weiter nach rechts ziehen kann.
 const skala = (v: DesignVorlage) => Math.max(4, Math.ceil(animEnde(v) + 1.5));
@@ -437,7 +541,7 @@ function balkenZiehen(ev: PointerEvent, e: El, b: HTMLElement, ende: number) {
   if (ev.button) return; ev.preventDefault(); ev.stopPropagation();
   const bahn = b.parentElement, br = bahn.getBoundingClientRect(), r = b.getBoundingClientRect(), pps = br.width / ende;
   const modus = endlos(e) ? 'mitte' : ev.clientX - r.left < 8 ? 'links' : r.right - ev.clientX < 8 ? 'rechts' : 'mitte';
-  if (sel !== e.id) { sel = e.id; renderSel(); renderEig(); zeitEl.querySelectorAll('.zr').forEach(z => z.setAttribute('aria-current', String(z === b.closest('.zr')))); }
+  if (!gewaehlt().includes(e.id)) { waehle(e.id); renderSel(); renderEig(); zeitEl.querySelectorAll('.zr').forEach(z => z.setAttribute('aria-current', String(z === b.closest('.zr')))); }
   merke(); const s0 = e.start || 0, d0 = e.dauer || .8, x0 = ev.clientX; let moved = false;
   const r1 = (n: number) => Math.round(n * 10) / 10;
   b.classList.add('zieht'); b.setPointerCapture?.(ev.pointerId);
@@ -461,7 +565,7 @@ function balkenZiehen(ev: PointerEvent, e: El, b: HTMLElement, ende: number) {
 // Tastatur: Pfeile verschieben, mit Umschalt ändern sie die Dauer.
 function balkenTaste(ev: KeyboardEvent, e: El) {
   const d = ev.key === 'ArrowRight' ? .1 : ev.key === 'ArrowLeft' ? -.1 : 0; if (!d) return; ev.preventDefault(); ev.stopPropagation();
-  merke(); sel = e.id;
+  merke(); waehle(e.id);
   if (ev.shiftKey && !endlos(e)) setzeZeit(e.id, e.start || 0, Math.max(.1, Math.round(((e.dauer || .8) + d) * 10) / 10));
   else setzeZeit(e.id, Math.max(0, Math.round(((e.start || 0) + d) * 10) / 10));
   save(); renderSel(); renderEig(); renderZeit();
@@ -484,22 +588,22 @@ function zeilenZiehen(ev: PointerEvent, id: string, griff: HTMLElement) {
   const up = () => {
     griff.removeEventListener('pointermove', mv); griff.removeEventListener('pointerup', up); griff.removeEventListener('pointercancel', up);
     zeitEl.classList.remove('sortiert'); zeilen.forEach(z => { z.style.transform = ''; z.classList.remove('zieht'); });
-    if (!moved) { if (sel !== id) { sel = id; renderSel(); renderEig(); renderZeit(); } return; }
+    if (!moved) { if (sel !== id) { waehle(id); renderSel(); renderEig(); renderZeit(); } return; }
     if (ziel === von) return;
     const ids = zeilen.map(z => z.dataset.ebene); ids.splice(ziel, 0, ids.splice(von, 1)[0]);
-    merke(); sel = id; ebenenOrdnen(ids.reverse()); save(); renderVorlagen();
+    merke(); waehle(id); ebenenOrdnen(ids.reverse()); save(); renderVorlagen();
     toast(`Ebene ${von + 1} liegt jetzt auf Position ${ziel + 1}.`);
   };
   griff.addEventListener('pointermove', mv); griff.addEventListener('pointerup', up); griff.addEventListener('pointercancel', up);
 }
 function griffTaste(ev: KeyboardEvent, id: string) {
   const d = ev.key === 'ArrowUp' ? 1 : ev.key === 'ArrowDown' ? -1 : 0; if (!d) return; ev.preventDefault(); ev.stopPropagation();
-  sel = id; ebene(d); (zeitEl.querySelector(`.zr[data-ebene="${id}"] .griff`) as HTMLElement)?.focus();
+  waehle(id); ebene(d); (zeitEl.querySelector(`.zr[data-ebene="${id}"] .griff`) as HTMLElement)?.focus();
 }
 function renderZeit() {
   if (!zeitEl) return; const v = V(); if (!v) return;
   const alle = els().slice().reverse(), an = alle.filter(e => e.anim && e.anim !== 'keine'), ende = skala(v), schritt = ende > 12 ? 2 : 1;
-  const typN = (e: El) => ({ text: 'Text', form: 'Fläche', bild: 'Bild', logo: 'Logo', qr: 'QR', video: 'Video' } as any)[e.typ] + (e.typ === 'text' || e.typ === 'qr' ? ': ' + (e.text || '').slice(0, 18) : '');
+  const typN = elName, ids = gewaehlt();
   kopfEl = h('div', { class: 'kopf', hidden: true });
   fill(zeitEl, h('div', { class: 'row' }, h('h3', null, 'Zeitleiste und Ebenen'), h('span', { class: 'small' }, alle.length < 2 ? (an.length ? 'Balken ziehen verschiebt den Start, an den Kanten ziehen ändert die Dauer.' : 'Noch keine Animation. Element wählen, rechts unter „Animation“ einstellen.')
     : 'Oben liegt vorn. Am Griff links ziehen ändert die Reihenfolge der Ebenen. Balken ziehen verschiebt den Start, an den Kanten ziehen ändert die Dauer.')),
@@ -509,7 +613,7 @@ function renderZeit() {
       const griff: HTMLElement = h('button', { class: 'griff', title: 'Ziehen ändert die Reihenfolge der Ebenen (Pfeil hoch/runter mit der Tastatur)', 'aria-label': `Ebene ${i + 1} von ${alle.length}: ${typN(e)}. Pfeil hoch bringt sie nach vorn, Pfeil runter nach hinten.`,
         onclick: (ev: Event) => ev.stopPropagation(), onkeydown: (ev: KeyboardEvent) => griffTaste(ev, e.id) }, icon('grip'));
       griff.onpointerdown = (ev: PointerEvent) => zeilenZiehen(ev, e.id, griff);
-      return h('div', { class: 'zr', 'data-ebene': e.id, 'aria-current': String(e.id === sel), onclick: () => { sel = e.id; renderSel(); renderEig(); renderZeit(); } },
+      return h('div', { class: 'zr', 'data-ebene': e.id, 'aria-current': String(ids.includes(e.id)), onclick: (ev: MouseEvent) => { if (zusatzTaste(ev)) umschalten(e.id); else waehle(e.id); renderAuswahl(); } },
         griff, h('span', null, h('em', null, String(i + 1)), typN(e) + (animiert ? ' · ' + ANIMS.find(a => a[0] === e.anim)[1] : '')),
         h('div', { class: 'bahn' + (animiert ? '' : ' still') }, animiert ? (() => {
           const b: HTMLElement = h('b', { class: endlos(e) ? 'endlos' : null, style: balkenStil(e, ende), tabindex: 0, role: 'slider', 'data-id': e.id, 'data-zeit': balkenTitel(e), title: balkenTitel(e),
@@ -553,13 +657,14 @@ function renderVorlagen() {
 addEventListener('keydown', (e: KeyboardEvent) => {
   const tag = (e.target as HTMLElement).tagName, typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); zurueck(); return; }
-  if (tab !== 'vorlagen' || typing || !sel) return;
-  const el = elById(sel); if (!el) return;
+  if (tab !== 'vorlagen' || typing || !V() || !buehne) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); const alle = els().map(x => x.id); sel = alle[alle.length - 1] || null; mehr = alle.length > 1 ? alle : []; renderAuswahl(); return; }
+  if (!gewaehlt().length) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); loeschen(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); verdoppeln(); return; }
-  if (e.key === 'Escape') { sel = null; renderSel(); renderEig(); return; }
-  const d = e.shiftKey ? 5 : .5, mv: any = { ArrowLeft: ['x', -d], ArrowRight: ['x', d], ArrowUp: ['y', -d], ArrowDown: ['y', d] }[e.key];
-  if (mv) { e.preventDefault(); merke(); hochAnlegen(); const x = elById(sel); x[mv[0]] = Math.round((x[mv[0]] + mv[1]) * 2) / 2; save(); renderSel(); }
+  if (e.key === 'Escape') { waehle(null); renderAuswahl(); return; }
+  const d = e.shiftKey ? 5 : .5, mv: any = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
+  if (mv) { e.preventDefault(); gruppeVerschieben(mv[0], mv[1]); }
 });
 
 // ---------- Reiter: Für Agenturen ----------
