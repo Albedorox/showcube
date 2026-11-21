@@ -20,9 +20,27 @@ ein langsam drehendes Muster aus abgerundeten Quadraten in den Markenfarben. So 
 
 Freie Gestaltung mit Text, Fläche, Kreis, Bild, Video, Logo und QR-Code. Pro Element:
 
-- Lage und Größe, eigene Fassung für hochkant möglich.
-- Farbe als **Rolle der Marke** (Hauptfarbe, Zweitfarbe, Dunkel, Hell) oder als feste Farbe.
+- Lage und Größe, eigene Fassung für hochkant möglich. Rechts steht beides klar getrennt: **Position** mit X
+  (Abstand vom linken Rand) und Y (Abstand vom oberen Rand) der oberen linken Ecke, darunter **Größe** mit Breite
+  und Höhe. Alles in Prozent der Folie, so passt die Vorlage auf jeden Bildschirm.
+- Farbe als **Rolle der Marke** (Hauptfarbe, Zweitfarbe, Dunkel, Hell) oder als ganz eigene Farbe: Dafür gibt es
+  neben den vier Markenfarben den beschrifteten Knopf **„Eigene Farbe“**, der den Farbwähler öffnet. Über den Feldern
+  steht, was gerade gilt, z. B. „Schriftfarbe: Hell“ oder „Füllfarbe: Eigene Farbe #00aa44“. Das gilt bei Text,
+  Fläche, Kreis, QR-Code und beim Hintergrund der Vorlage.
 - Schrift als Rolle (Titel, Text). Zu langer Text wird kleiner, nie abgeschnitten.
+- **Hinterlegter Text** (bei Text unter „Hinterlegt“): Jede Zeile bekommt eine Farbfläche, so breit wie die Zeile,
+  wie ein Textmarker oder Störer, zum Beispiel weiße Schrift auf der Hauptfarbe. Zur Wahl stehen bewusst nur die
+  vier Farben der Marke, keine freie Farbe, damit es im CI bleibt. Die Flächen schließen ohne Lücke aneinander an
+  und folgen der Ausrichtung (links, Mitte, rechts). Hat die Schrift dieselbe Farbe wie die Fläche, stellt der Designer
+  sie auf Hell oder Dunkel um, je nachdem was besser lesbar ist. Gilt auch für Text, den der Kunde im Panel einträgt,
+  und läuft so auf der Box.
+- **Mehrere Elemente auf einmal**: Element anklicken, dann mit Umschalt oder Strg (Mac: Cmd) + Klick weitere dazu
+  nehmen, z. B. den Kreis und den Preis darauf. Oder auf freier Fläche einen Rahmen aufziehen, gewählt wird, was ganz
+  darin liegt. Auch in der Zeitleiste geht Umschalt/Strg + Klick, praktisch für Elemente, die ganz verdeckt sind.
+  Die Gruppe hat einen gestrichelten Rahmen, Ziehen bewegt alle zusammen (eingerastet wird die Mitte der Gruppe),
+  ebenso die Pfeiltasten. Rechts stehen die gewählten Elemente, die Position der Gruppe, Verdoppeln und Löschen für
+  alle. Umschalt/Strg + Klick auf ein gewähltes Element nimmt es wieder heraus, ein normaler Klick darauf wählt nur
+  noch dieses, Esc hebt die Auswahl auf, Strg + A wählt alles.
 - Animation mit Start und Dauer: Einblenden, von unten/links/rechts, Heranzoomen, Aufploppen,
   Schreibmaschine, Pulsieren, langsamer Zoom fürs Foto. Zeitleiste und „Abspielen“ im Designer.
 - Zeitleiste zum Arrangieren: Jedes animierte Element hat einen Balken mit Sekunden-Skala. Balken ziehen
