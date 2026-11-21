@@ -72,6 +72,9 @@ Freie Gestaltung mit Text, Fläche, Kreis, Bild, Video, Logo und QR-Code. Pro El
   Auf der Box läuft der Film stumm, die Folie startet ihn von vorn und dauert so lange wie der Film.
 
 Startpunkte unter „Neue Vorlage anlegen“: Angebot groß, Foto mit Botschaft, Termin und QR, Willkommen.
+Ganz oben steht **„Aus Bild erzeugen“ (Pro)**: ein vorhandenes Plakat, einen Flyer oder eine alte Folie hochladen und
+daraus eine Vorlage mit Ebenen machen lassen. SVG-Dateien gehen ohne KI, Bilder (PNG, JPEG, WebP) liest die KI.
+Alles dazu in [vorlage-aus-bild.md](vorlage-aus-bild.md).
 Darüber stehen die „Vorlagen von …“ des gewählten Kunden. Auf schmalen Bildschirmen (Tablet, Handy) sind beide
 Gruppen eigene Kästen mit Überschrift und kurzer Erklärung, die Vorlagen wischst du darin seitlich durch.
 
@@ -92,7 +95,7 @@ designer.html  ──Markenpaket (showcube-marke.json)──►  panel.html (Vor
 - Im Editor einer Slideshow: unter „Bausteine“ eigene Vorlagen einfügen, dort nur die freien Felder.
   Die Marke lässt sich pro Slideshow abschalten.
 - Code: `shared/marke.ts` (Marke, Schriften, Farben aus dem Logo), `shared/design.ts` (Elemente,
-  Zeichnen, Animationen, Startpunkte), `designer/` (App).
+  Zeichnen, Animationen, Startpunkte), `designer/` (App), `designer/aus-bild.ts` (Vorlage aus Bild).
 
 ## Agenturen als Partner
 

@@ -4,6 +4,7 @@ import { fontsReady, TEMPLATES } from '../shared/templates';
 import { BAUSTEINE, bausteinSlide, type Baustein } from '../shared/bausteine';
 import { neueMarke, markeAusDatei, markeAlsDatei, useMarke, logoBild, farbenAusBild, kontrast, SCHRIFTEN, UEBERGAENGE, type Marke } from '../shared/marke';
 import { bildKlein } from '../shared/bild';
+import { quelleLaden, erkennungAusSvg, vorlageAusErkennung, zusammenfassung, kiStand, kiErkennen, kiMoeglich, KiFehler, STANDARD, type Quelle, type Erkennung, type Optionen, type KiStand } from './aus-bild';
 import { drawDesign, STARTER, ANIMS, FARBROLLEN, leereVorlage, neueId, animEnde, farbe, type DesignVorlage, type El, type ElTyp } from '../shared/design';
 
 // Vorlagen-Designer: hier entsteht die Marke eines Betriebs (Logo, Farben, Schriften, Übergänge)
@@ -530,7 +531,9 @@ function renderListe() {
       m.vorlagen.length ? h('div', { class: 'reihe' }, m.vorlagen.map((v, i) => h('button', { class: 'vitem', 'aria-current': String(i === vi), onclick: () => { vi = i; waehle(null); renderVorlagen(); } }, leinwand((x, w, hh) => { useMarke(m); drawDesign(x, w, hh, daten(m), 99, v); }), h('b', null, v.name)))) : null),
     h('section', { class: 'gruppe', 'aria-label': 'Neue Vorlage anlegen' },
     h('div', { class: 'gkopf' }, h('h3', null, 'Neue Vorlage anlegen'), h('span', { class: 'small' }, 'Startpunkt wählen, er bekommt sofort die Farben und Schriften der Marke.')),
-    h('div', { class: 'starter reihe' }, STARTER.map(s => h('button', { onclick: () => { merke(); m.vorlagen.push(s.make()); vi = m.vorlagen.length - 1; waehle(null); playAt = performance.now(); save(); renderVorlagen(); } }, h('b', null, s.name), h('span', null, s.desc))),
+    h('div', { class: 'starter reihe' },
+      h('button', { class: 'ausbild', onclick: () => ausBildOeffnen() }, h('b', null, 'Aus Bild erzeugen ', h('span', { class: 'badge pro' }, 'Pro')), h('span', null, 'Plakat, Flyer oder alte Folie hochladen. Die KI baut daraus Ebenen, SVG geht auch ohne KI.')),
+      STARTER.map(s => h('button', { onclick: () => { merke(); m.vorlagen.push(s.make()); vi = m.vorlagen.length - 1; waehle(null); playAt = performance.now(); save(); renderVorlagen(); } }, h('b', null, s.name), h('span', null, s.desc))),
       h('button', { onclick: () => { merke(); m.vorlagen.push(leereVorlage()); vi = m.vorlagen.length - 1; waehle(null); save(); renderVorlagen(); } }, h('b', null, 'Leere Vorlage'), h('span', null, 'Nur eine Überschrift, alles andere baust du selbst.')))));
 }
 // Länge der Zeitleiste in Sekunden: etwas Luft hinter der letzten Animation, damit man Balken weiter nach rechts ziehen kann.
@@ -663,6 +666,7 @@ function renderVorlagen() {
 }
 addEventListener('keydown', (e: KeyboardEvent) => {
   const tag = (e.target as HTMLElement).tagName, typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (document.querySelector('dialog[open]')) return;   // „Vorlage aus Bild“ ist offen: Tasten gehören dem Fenster
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); zurueck(); return; }
   if (tab !== 'vorlagen' || typing || !V() || !buehne) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); const alle = els().map(x => x.id); sel = alle[alle.length - 1] || null; mehr = alle.length > 1 ? alle : []; renderAuswahl(); return; }
@@ -673,6 +677,95 @@ addEventListener('keydown', (e: KeyboardEvent) => {
   const d = e.shiftKey ? 5 : .5, mv: any = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
   if (mv) { e.preventDefault(); gruppeVerschieben(mv[0], mv[1]); }
 });
+
+// ---------- Vorlage aus Bild (Pro) ----------
+// Bild oder SVG hochladen, Ebenen erkennen lassen, Ergebnis neben dem Original prüfen, übernehmen.
+// Logik und KI-Aufruf: designer/aus-bild.ts. Die Optionen wirken sofort auf das Ergebnis, ohne neue Analyse.
+function ausBildOeffnen() {
+  const dlg: HTMLDialogElement = h('dialog', { class: 'dlg', 'aria-labelledby': 'abTitel' });
+  let q: Quelle | null = null, erk: Erkennung | null = null, opt: Optionen = { ...STANDARD }, laeuft = false, fehler: { code: string; text: string } | null = null;
+  let stand: KiStand | null = null, rest: number | null = null, quelleUrl = '';
+  const ergebnis = () => erk && q ? vorlageAusErkennung(erk, q, M(), opt) : null;
+  const zu = () => { dlg.close(); };
+  dlg.addEventListener('close', () => dlg.remove());
+  const kiLaden = () => { if (!kiMoeglich) return; kiStand().then(s => { stand = s; zeichne(); }, () => {}); };
+  const waehleDatei = async (f: File | undefined) => {
+    if (!f) return; fehler = null; erk = null;
+    try { q = await quelleLaden(f); quelleUrl = q.cv.toDataURL('image/png'); }
+    catch (e) { q = null; fehler = { code: 'DATEI', text: (e as Error).message || 'Die Datei konnte nicht gelesen werden.' }; }
+    zeichne();
+  };
+  const ohneKi = async () => {
+    if (!q?.svg) return; laeuft = true; fehler = null; zeichne();
+    try { erk = await erkennungAusSvg(q); } catch (e) { fehler = { code: 'SVG', text: 'Die SVG-Datei ließ sich nicht zerlegen: ' + (e as Error).message }; }
+    laeuft = false; zeichne();
+  };
+  const mitKi = async () => {
+    if (!q) return; laeuft = true; fehler = null; zeichne();
+    try { const r = await kiErkennen(q); erk = r.erkennung; rest = r.rest; if (stand && r.rest != null) stand = { ...stand, genutzt: (stand.grenze ?? 0) - r.rest }; }
+    catch (e) { fehler = e instanceof KiFehler ? { code: e.code, text: e.message } : { code: 'KI_FEHLER', text: 'Die KI ist gerade nicht erreichbar.' }; }
+    laeuft = false; zeichne();
+  };
+  const uebernehmen = () => {
+    const r = ergebnis(); if (!r) return; const m = M();
+    merke(); m.vorlagen.push(r.vorlage); vi = m.vorlagen.length - 1; orient = r.hoch ? 'hoch' : 'quer'; waehle(null); playAt = performance.now(); save();
+    zu(); tab = 'vorlagen'; render();
+    toast(`„${r.vorlage.name}“ angelegt. ${zusammenfassung(r.vorlage)}. Prüf Texte und Lage, dann passt sie.`);
+  };
+  const check = (k: keyof Optionen, label: string, an: boolean, setzen: (v: boolean) => void) =>
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: an, onchange: (ev: any) => { setzen(ev.target.checked); zeichne(); } }), label);
+  function kiZeile() {
+    if (!kiMoeglich) return h('p', { class: 'small' }, 'Die KI braucht die ShowCube Cloud. In dieser Fassung gibt es keinen Server.');
+    if (!stand) return h('p', { class: 'small' }, 'Anmeldung wird geprüft …');
+    if (!stand.angemeldet) return h('p', { class: 'ab-hinweis' }, 'Für die KI melde dich im Panel mit deinem ShowCube-Konto an (Pro-Plan), dann hier noch einmal versuchen. ', h('a', { href: PANEL_URL, target: '_blank', rel: 'noopener' }, 'Panel öffnen'));
+    if (stand.pro === false) return h('p', { class: 'ab-hinweis' }, `Angemeldet als ${stand.email || 'Nutzer'}. Die KI gehört zum Pro-Plan. SVG-Dateien kannst du auch so übernehmen.`);
+    if (stand.pro) return h('p', { class: 'small' }, stand.grenze == null ? `Pro · angemeldet als ${stand.email || 'Admin'} · ohne Grenze` : `Pro · noch ${Math.max(0, stand.grenze - (stand.genutzt || 0))} von ${stand.grenze} Analysen in diesem Monat`);
+    return h('p', { class: 'small' }, `Angemeldet als ${stand.email || 'Nutzer'}.`);
+  }
+  function zeichne() {
+    const r = ergebnis();
+    const kopf = h('div', { class: 'dlg-kopf' }, h('h2', { id: 'abTitel' }, 'Vorlage aus Bild ', h('span', { class: 'badge pro' }, 'Pro')), h('span', { class: 'grow' }),
+      h('button', { class: 'btn sm ghost', 'aria-label': 'Schließen', onclick: zu }, '✕'));
+    const datei = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg', 'aria-label': 'Bild oder SVG wählen', onchange: (ev: any) => waehleDatei(ev.target.files[0]) });
+    let inhalt: any;
+    if (!q) {
+      const zone: HTMLElement = h('label', { class: 'ab-zone' }, datei, icon('upload'), h('b', null, 'Bild oder SVG hierher ziehen oder wählen'),
+        h('span', { class: 'small' }, 'Plakat, Flyer, Screenshot oder eine alte Folie. PNG, JPEG oder WebP liest die KI (Pro), SVG-Dateien mit Ebenen gehen auch ohne KI.'));
+      zone.ondragover = (ev: DragEvent) => { ev.preventDefault(); zone.classList.add('drueber'); };
+      zone.ondragleave = () => zone.classList.remove('drueber');
+      zone.ondrop = (ev: DragEvent) => { ev.preventDefault(); waehleDatei(ev.dataTransfer?.files?.[0]); };
+      inhalt = h('div', { class: 'ab-start' }, zone, kiZeile(), fehler ? h('p', { class: 'ab-fehler', role: 'alert' }, fehler.text) : null);
+    } else {
+      const svg = q.art === 'svg';
+      const knoepfe = h('div', { class: 'row' },
+        svg ? h('button', { class: 'btn primary', disabled: laeuft, onclick: ohneKi }, icon('layout'), 'Ebenen übernehmen (ohne KI)') : null,
+        h('button', { class: 'btn' + (svg ? '' : ' primary'), disabled: laeuft || !kiMoeglich || stand?.pro === false || stand?.angemeldet === false, onclick: mitKi }, icon('wand'), erk && !svg ? 'Noch einmal erkennen' : 'Mit KI erkennen', h('span', { class: 'badge pro' }, 'Pro')));
+      const rechts = laeuft ? h('div', { class: 'ab-platz', role: 'status' }, h('span', { class: 'ab-spinner', 'aria-hidden': 'true' }), svg && !stand?.pro ? 'Ebenen werden gelesen …' : 'Die KI liest das Bild. Das dauert meist 20 bis 60 Sekunden.')
+        : r ? leinwand((x, w, hh, t) => { useMarke(M()); drawDesign(x, w, hh, daten(M()), opt.animieren ? t : 99, r.vorlage, {}, { platz: true }); }, 5)
+        : h('div', { class: 'ab-platz' }, svg ? 'SVG erkannt. Die Ebenen lassen sich direkt lesen.' : 'Noch nicht erkannt.', knoepfe);
+      if (r && !laeuft && rechts.tagName === 'CANVAS') { rechts.classList.add('ab-bild'); rechts.setAttribute('aria-label', 'Ergebnis: ' + zusammenfassung(r.vorlage)); rechts.style.aspectRatio = r.hoch ? '9 / 16' : '16 / 9'; }
+      inhalt = h('div', { class: 'ab-inhalt' },
+        h('div', { class: 'ab-vergleich' },
+          h('figure', null, h('figcaption', null, 'Original'), h('img', { class: 'ab-bild', src: quelleUrl, alt: 'Original: ' + q.name })),
+          h('figure', null, h('figcaption', null, r ? 'Ergebnis in deiner Marke' : 'Ergebnis'), rechts)),
+        r ? h('p', { class: 'ab-ergebnis' }, h('b', null, r.vorlage.name), ' · ', zusammenfassung(r.vorlage), rest != null ? ` · noch ${rest} Analysen diesen Monat` : '') : null,
+        fehler ? h('p', { class: 'ab-fehler', role: 'alert' }, fehler.text, fehler.code === 'KI_NICHT_ANGEMELDET' ? [' ', h('a', { href: PANEL_URL, target: '_blank', rel: 'noopener' }, 'Panel öffnen')] : null) : null,
+        h('div', { class: 'ab-optionen' },
+          h('div', { class: 'seg', role: 'group', 'aria-label': 'Farben' }, ([['bild', 'Farben wie im Bild'], ['marke', 'In Markenfarben']] as const).map(([k, l]) => h('button', { 'aria-pressed': String(opt.farben === k), onclick: () => { opt.farben = k; zeichne(); } }, l))),
+          check('felder', 'Preise, Überschriften und Fotos als Felder freigeben', opt.felder, v => opt.felder = v),
+          check('animieren', 'Animationen vorschlagen', opt.animieren, v => opt.animieren = v),
+          check('textWeg', 'Texte und Formen aus ausgeschnittenen Fotos entfernen', opt.textWeg, v => opt.textWeg = v)),
+        r ? knoepfe : null,
+        q.art === 'bild' || erk ? kiZeile() : null);
+    }
+    const fuss = h('div', { class: 'dlg-fuss' },
+      q ? h('span', { class: 'btn ghost' }, datei, 'Andere Datei') : null, h('span', { class: 'grow' }),
+      h('button', { class: 'btn', onclick: zu }, 'Abbrechen'),
+      h('button', { class: 'btn primary', disabled: !r || laeuft, onclick: uebernehmen }, icon('plus'), 'Als Vorlage übernehmen'));
+    dlg.replaceChildren(kopf, inhalt, fuss);
+  }
+  zeichne(); document.body.append(dlg); dlg.showModal(); kiLaden();
+}
 
 // ---------- Reiter: Für Agenturen ----------
 function renderPartner() {

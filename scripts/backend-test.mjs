@@ -192,4 +192,25 @@ await check('Bestehende Testbox ohne Kennung bekommt sie und bleibt gekoppelt', 
   assert.equal(j.id, i.id); assert.equal(j.gekoppelt, true); assert.equal(j.kennung, k2);
 });
 
+await check('KI (Vorlage aus Bild): nur Pro, mit Kontingent, Stufe nicht selbst setzbar', async () => {
+  const sql = q => execSync(`docker exec supabase_db_showcube psql -U postgres -qc "${q}"`);
+  const k0 = ok(await a.rpc('ki_kontingent'), 'kontingent ohne Abo');
+  assert.equal(k0.pro, false); assert.equal(k0.genutzt, 0);
+  let r = await a.rpc('ki_analyse_buchen'); assert.ok(r.error && /KI_NUR_PRO/.test(r.error.message), 'ohne Pro gesperrt');
+  r = await a.from('abos').insert({ betrieb_id: betriebA, stufe: 'pro' }); assert.ok(r.error, 'Stufe nicht selbst setzbar');
+  r = await box.rpc('ki_analyse_buchen'); assert.ok(r.error, 'Box darf nicht');
+  sql(`insert into public.abos (betrieb_id, stufe, ki_grenze) values ('${betriebA}', 'pro', 2)`);
+  const g1 = ok(await a.rpc('ki_analyse_buchen'), 'buchen 1'); assert.equal(g1.rest, 1);
+  ok(await a.rpc('ki_analyse_buchen'), 'buchen 2');
+  r = await a.rpc('ki_analyse_buchen'); assert.ok(r.error && /KI_KONTINGENT/.test(r.error.message), 'Kontingent erschöpft');
+  const k1 = ok(await a.rpc('ki_kontingent'), 'kontingent mit Abo');
+  assert.equal(k1.pro, true); assert.equal(k1.grenze, 2); assert.equal(k1.genutzt, 2);
+  assert.equal(ok(await a.from('ki_analysen').select('id'), 'eigene').length, 2);
+  assert.equal(ok(await b.from('ki_analysen').select('id'), 'fremde').length, 0, 'fremde Analysen unsichtbar');
+  r = await a.from('ki_analysen').delete().eq('id', g1.id).select(); assert.equal((r.data || []).length, 0, 'Kunde kann Analysen nicht löschen');
+  // Abgelaufenes Pro zählt nicht mehr.
+  sql(`update public.abos set bis = now() - interval '1 day' where betrieb_id = '${betriebA}'`);
+  assert.equal(ok(await a.rpc('ki_kontingent'), 'abgelaufen').pro, false);
+});
+
 console.log(process.exitCode ? '\nFehler gefunden.' : `\nAlle ${n} Prüfungen bestanden.`);
