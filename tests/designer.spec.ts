@@ -196,6 +196,37 @@ test.describe('Vorlagen-Designer', () => {
     await expect(page.locator('.eig h3', { hasText: 'Vorlage' })).toBeVisible();
   });
 
+  test('Bild: hochgeladenes Bild wird erst einmal ganz gezeigt, „Ganz zeigen“ bricht nicht um', async ({ page }) => {
+    await vorlagen(page);
+    await page.locator('.starter button', { hasText: 'Leere Vorlage' }).click();
+    await page.locator('.werkzeuge').getByRole('button', { name: 'Bild', exact: true }).click();
+    const anzeige = page.getByRole('group', { name: 'Anzeige' });
+    await expect(anzeige.getByRole('button', { name: 'Ganz zeigen' })).toHaveAttribute('aria-pressed', 'true');
+    // Beide Knöpfe stehen auf einer Zeile (ein Umbruch machte den Knopf doppelt so hoch).
+    for (const k of ['Ganz zeigen', 'Füllen']) expect((await anzeige.getByRole('button', { name: k }).boundingBox()).height, k).toBeLessThan(30);
+    // Breites rotes Bild (4:1) in der Fläche bei X 30, Y 30, 40 × 22 %: ganz gezeigt bleibt oben ein Streifen frei.
+    await page.getByLabel('Bild wählen').setInputFiles('tests/dateien/bild-breit-rot.png');
+    await expect(page.locator('.eig').getByText('Bild ersetzen')).toBeVisible();
+    await expect.poll(async () => nahAn(await bildpunkt(page, 50, 41), '#dc1e1e'), { message: 'Bild ist zu sehen' }).toBe(true);
+    expect(nahAn(await bildpunkt(page, 50, 30.6), '#dc1e1e'), 'oben nicht abgeschnitten, also frei').toBe(false);
+    await expect(anzeige.getByRole('button', { name: 'Ganz zeigen' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.eig')).toContainText('Das ganze Bild ist zu sehen');
+    // Füllen: jetzt reicht das Bild bis an den oberen Rand der Fläche.
+    await anzeige.getByRole('button', { name: 'Füllen' }).click();
+    await expect.poll(async () => nahAn(await bildpunkt(page, 50, 30.6), '#dc1e1e'), { message: 'Fläche ganz gefüllt' }).toBe(true);
+    await expect(page.locator('.eig')).toContainText('überstehende Ränder werden abgeschnitten');
+  });
+
+  test('Bild im Startpunkt „Foto mit Botschaft“: neues Foto wird ganz gezeigt', async ({ page }) => {
+    await vorlagen(page);
+    await page.locator('.vitem', { hasText: 'Foto mit Botschaft' }).click();
+    await klickAufFolie(page, 50, 20);
+    await expect(page.locator('.eig h3', { hasText: 'Bild' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Anzeige' }).getByRole('button', { name: 'Füllen' })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByLabel('Bild wählen').setInputFiles('tests/dateien/bild-breit-rot.png');
+    await expect(page.getByRole('group', { name: 'Anzeige' }).getByRole('button', { name: 'Ganz zeigen' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   test('neue Vorlage aus einem Startpunkt anlegen', async ({ page }) => {
     await vorlagen(page);
     const liste = page.locator('.vitem');
