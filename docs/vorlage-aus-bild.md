@@ -78,6 +78,17 @@ Datenbank und Funktion kommen nach dem Merge von selbst auf den Server (Workflow
    Name `ANTHROPIC_API_KEY`, Wert = der Schlüssel, **Save**. Neu ausrollen ist nicht nötig.
 4. Testen: Im Panel anmelden (als Admin), Designer öffnen, „Aus Bild erzeugen“, ein Plakat hochladen.
 
+Klappt etwas nicht, steht der Grund im Ergebnisfeld des Fensters. Als Admin siehst du ihn genau:
+
+| Meldung | Bedeutung |
+| --- | --- |
+| „Die KI ist auf dem Server noch nicht eingerichtet.“ | `ANTHROPIC_API_KEY` fehlt in den Secrets. |
+| „Das Guthaben im Anthropic-Konto ist aufgebraucht.“ | Unter **Plans & Billing** in der Anthropic Console aufladen. |
+| „Anthropic lehnt den Schlüssel ab.“ | Schlüssel falsch kopiert oder gelöscht: neuen anlegen und das Secret ersetzen. |
+
+Kunden sehen in diesen Fällen nur „Die KI ist gerade nicht erreichbar“. Fehlgeschlagene Versuche kosten nichts und zählen
+nicht fürs Kontingent. Den genauen Fehler gibt es auch in Supabase unter **Edge Functions** → `vorlage-aus-bild` → **Logs**.
+
 Optional, ebenfalls als Secret:
 
 | Name | Standard | Wofür |
