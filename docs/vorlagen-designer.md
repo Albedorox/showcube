@@ -31,7 +31,9 @@ Freie Gestaltung mit Text, Fläche, Kreis, Bild, Video, Logo und QR-Code. Pro El
 - **Bild**: Unter „Anzeige“ wählst du „Ganz zeigen“ (das ganze Bild ist zu sehen, freie Ränder bleiben leer) oder
   „Füllen“ (füllt die Fläche, überstehende Ränder werden abgeschnitten). Ein neues Bild-Element und jedes Bild, das du
   in ein Element ohne eigene Einstellung hochlädst, starten mit „Ganz zeigen“, damit nichts überraschend abgeschnitten
-  ist. Für ein Foto über die ganze Folie stellst du danach auf „Füllen“.
+  ist. Für ein Foto über die ganze Folie stellst du danach auf „Füllen“. Freigestellte Bilder (PNG, WebP, GIF oder SVG
+  mit durchsichtigem Hintergrund) bleiben durchsichtig und liegen frei auf der Folie. Fotos ohne durchsichtige Stellen
+  werden als JPEG gespeichert, das hält das Markenpaket klein (`shared/bild.ts`, gilt auch für Bilder im Panel).
 - **Hinterlegter Text** (bei Text unter „Hinterlegt“): Jede Zeile bekommt eine Farbfläche, so breit wie die Zeile,
   wie ein Textmarker oder Störer, zum Beispiel weiße Schrift auf der Hauptfarbe. Zur Wahl stehen bewusst nur die
   vier Farben der Marke, keine freie Farbe, damit es im CI bleibt. Die Flächen schließen ohne Lücke aneinander an
