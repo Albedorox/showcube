@@ -227,6 +227,24 @@ test.describe('Vorlagen-Designer', () => {
     await expect(page.getByRole('group', { name: 'Anzeige' }).getByRole('button', { name: 'Ganz zeigen' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  test('Bild: freigestelltes PNG bleibt durchsichtig, Fotos werden JPEG', async ({ page }) => {
+    await vorlagen(page);
+    await page.locator('.starter button', { hasText: 'Leere Vorlage' }).click();
+    await page.getByRole('button', { name: 'Hintergrund: Hell' }).click();
+    await page.locator('.werkzeuge').getByRole('button', { name: 'Bild', exact: true }).click();
+    // Roter Kreis auf durchsichtigem Grund, 200 × 200. In der Fläche (X 30, Y 30, 40 × 22 %) liegt das Quadrat bei X 43,8 bis 56,2 %.
+    await page.getByLabel('Bild wählen').setInputFiles('tests/dateien/bild-freigestellt.png');
+    await expect(page.locator('.eig').getByText('Bild ersetzen')).toBeVisible();
+    await expect.poll(async () => nahAn(await bildpunkt(page, 50, 41), '#dc1e1e'), { message: 'Kreis ist zu sehen' }).toBe(true);
+    // In der Ecke des Bildes ist der helle Hintergrund der Folie zu sehen, kein schwarzer Kasten.
+    expect(nahAn(await bildpunkt(page, 45, 31.5), '#fff7ed'), 'Ecke des Bildes zeigt den Hintergrund').toBe(true);
+    const gespeichert = () => page.evaluate(() => { const s = JSON.parse(localStorage.getItem('showcube-designer-v1') || 'null'); const v = s && s.kunden[s.aktiv].vorlagen.at(-1); const e = v && v.quer.find((x: any) => x.typ === 'bild'); return e && e.bild ? e.bild.slice(0, 15) : ''; });
+    await expect.poll(gespeichert).toBe('data:image/png;');
+    // Ein Bild ohne durchsichtige Stellen wird JPEG, das hält das Markenpaket klein.
+    await page.getByLabel('Bild wählen').setInputFiles('tests/dateien/bild-breit-rot.png');
+    await expect.poll(gespeichert).toBe('data:image/jpeg');
+  });
+
   test('neue Vorlage aus einem Startpunkt anlegen', async ({ page }) => {
     await vorlagen(page);
     const liste = page.locator('.vitem');

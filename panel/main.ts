@@ -1,3 +1,4 @@
+import { bildKlein as bildKleinGemeinsam } from '../shared/bild';
 import '../shared/fonts.css';
 import '../shared/fonts-marke.css';
 import { fontsReady, TEMPLATES, SWATCHES, drawNotice } from '../shared/templates';
@@ -863,13 +864,8 @@ function zeitraumFields(z: Zeitraum & { when?: When }, idp: string, repaint: (f?
     h('div', { class: 'days', role: 'group', 'aria-label': 'Nur an diesen Tagen' }, [1, 2, 3, 4, 5, 6, 0].map(d => h('button', { 'aria-pressed': String(days.includes(d)), title: 'Nur an diesen Tagen zeigen. Keiner gewählt = jeden Tag.', onclick: () => { z.days = days.includes(d) ? days.filter(x => x !== d) : [...days, d]; if (!z.days.length) delete z.days; repaint(); } }, DAYS[d]))));
 }
 // Bild aus einer Datei verkleinern (höchstens 1600 Pixel), damit Vorlagen und Pakete klein bleiben.
-function bildKlein(f: File, max = 1600): Promise<string> {
-  return new Promise((res, rej) => {
-    const i = new Image(); i.onerror = rej;
-    i.onload = () => { const s = Math.min(1, max / Math.max(i.naturalWidth, i.naturalHeight)), cv = h('canvas'); cv.width = Math.round(i.naturalWidth * s); cv.height = Math.round(i.naturalHeight * s); cv.getContext('2d').drawImage(i, 0, 0, cv.width, cv.height); URL.revokeObjectURL(i.src); res(cv.toDataURL(f.type === 'image/png' ? 'image/png' : 'image/jpeg', .86)); };
-    i.src = URL.createObjectURL(f);
-  });
-}
+// Bilder für freie Felder: verkleinert, freigestellte Bilder behalten ihre Transparenz (shared/bild.ts).
+const bildKlein = (f: File, max = 1600) => bildKleinGemeinsam(f, max);
 const vorlageVon = (b: Baustein) => S.marke && S.marke.vorlagen.find(v => v.id === b.f.vorlage);
 // Eigene Vorlage: der Kunde füllt nur die Felder aus, die beim Gestalten freigegeben wurden.
 function designFelder(b: Baustein, mitVideo = true) {

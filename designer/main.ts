@@ -3,6 +3,7 @@ import '../shared/fonts-marke.css';
 import { fontsReady, TEMPLATES } from '../shared/templates';
 import { BAUSTEINE, bausteinSlide, type Baustein } from '../shared/bausteine';
 import { neueMarke, markeAusDatei, markeAlsDatei, useMarke, logoBild, farbenAusBild, kontrast, SCHRIFTEN, UEBERGAENGE, type Marke } from '../shared/marke';
+import { bildKlein } from '../shared/bild';
 import { drawDesign, STARTER, ANIMS, FARBROLLEN, leereVorlage, neueId, animEnde, farbe, type DesignVorlage, type El, type ElTyp } from '../shared/design';
 
 // Vorlagen-Designer: hier entsteht die Marke eines Betriebs (Logo, Farben, Schriften, Übergänge)
@@ -50,13 +51,6 @@ const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 let toastT: any;
 function toast(t: string) { const el = $('toast'); el.textContent = t; el.classList.remove('gone'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.add('gone'), 4200); }
 const fileToDataURL = (f: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(f); });
-function bildKlein(f: File, max: number, png = false): Promise<string> {
-  return new Promise((res, rej) => {
-    const i = new Image(); i.onerror = rej;
-    i.onload = () => { const s = Math.min(1, max / Math.max(i.naturalWidth, i.naturalHeight)), cv = h('canvas'); cv.width = Math.round(i.naturalWidth * s); cv.height = Math.round(i.naturalHeight * s); cv.getContext('2d').drawImage(i, 0, 0, cv.width, cv.height); URL.revokeObjectURL(i.src); res(cv.toDataURL(png ? 'image/png' : 'image/jpeg', .86)); };
-    i.src = URL.createObjectURL(f);
-  });
-}
 const REL = /\.html$/.test(location.pathname);
 const PANEL_URL = REL ? 'panel.html' : '../panel/';
 const UEBERGABE = 'showcube-marke-uebergabe', BEARBEITEN = 'showcube-marke-bearbeiten', KEY = 'showcube-designer-v1';
