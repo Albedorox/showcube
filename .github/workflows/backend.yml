@@ -45,3 +45,5 @@ jobs:
         run: npx supabase db push --remote --password "$SUPABASE_DB_PASSWORD"
       - name: Anmelde-Einstellungen übernehmen (anonyme Boxen an, E-Mail-Bestätigung aus)
         run: npx supabase config push --yes
+      - name: Edge Functions ausrollen (Vorlage aus Bild, Pro)
+        run: npx supabase functions deploy vorlage-aus-bild --use-api --project-ref "${{ vars.SUPABASE_PROJECT_ID }}"

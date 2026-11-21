@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <!-- Beispielplakat für „Vorlage aus Bild“: Hintergrund, Foto (aus Verläufen), Texte, Preis im Kreis. -->
+  <defs>
+    <clipPath id="foto"><rect x="1040" y="90" width="800" height="900" rx="40"/></clipPath>
+    <radialGradient id="teller" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#f6d7a7"/><stop offset=".7" stop-color="#d9893d"/><stop offset="1" stop-color="#7a3514"/></radialGradient>
+    <radialGradient id="licht" cx="30%" cy="20%" r="70%"><stop offset="0" stop-color="#5b3a1e"/><stop offset="1" stop-color="#1c120b"/></radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="#17342a"/>
+  <g clip-path="url(#foto)">
+    <rect x="1040" y="90" width="800" height="900" fill="url(#licht)"/>
+    <ellipse cx="1460" cy="600" rx="330" ry="250" fill="#efe6d8"/>
+    <ellipse cx="1460" cy="585" rx="250" ry="180" fill="url(#teller)"/>
+    <circle cx="1390" cy="540" r="34" fill="#b8321f"/><circle cx="1510" cy="610" r="28" fill="#b8321f"/><circle cx="1450" cy="500" r="18" fill="#4f7d2c"/>
+  </g>
+  <text x="120" y="230" font-family="Figtree, Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="6" fill="#f2b441">MITTAGSTISCH</text>
+  <text font-family="Figtree, Arial, sans-serif" font-size="120" font-weight="800" fill="#fbf8f1"><tspan x="120" y="370">Hausgemachte</tspan><tspan x="120" y="490">Lasagne</tspan></text>
+  <text x="120" y="575" font-family="Figtree, Arial, sans-serif" font-size="48" fill="#fbf8f1" opacity=".85">mit Salat vom Markt</text>
+  <circle cx="1040" cy="760" r="150" fill="#e4572e"/>
+  <text x="1040" y="787" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="76" font-weight="800" fill="#ffffff">8,90 €</text>
+  <text x="120" y="905" font-family="Figtree, Arial, sans-serif" font-size="40" font-weight="600" fill="#fbf8f1">Mo bis Fr · 11:30 bis 14:30 Uhr</text>
+</svg>

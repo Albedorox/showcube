@@ -1,5 +1,5 @@
 // Vorlagen-Designer (release/designer.html): Marke und eigene animierte Vorlagen.
-import { test, expect, nurLinux, erwarteAufLeinwand, slideshowOeffnen, uhrAnhalten, uhrVor } from './hilfen';
+import { test, expect, nurLinux, erwarteAufLeinwand, slideshowOeffnen, uhrAnhalten, uhrVor, JETZT } from './hilfen';
 import type { Page } from '@playwright/test';
 
 const vorlagen = async (page: Page) => {
@@ -325,5 +325,148 @@ test.describe('Vorlagen-Designer auf dem Handy', () => {
     await expect(page.getByText('Zeitleiste und Ebenen')).toBeVisible();
     const breite = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
     expect(breite[0], 'keine waagerechte Scrollleiste').toBeLessThanOrEqual(breite[1]);
+  });
+});
+
+// ---------- Vorlage aus Bild (Pro) ----------
+// Die KI läuft nie echt: Anmeldung und Antwort der Edge Function sind nachgestellt (tests/dateien/ki-antwort.json,
+// passend zu tests/dateien/plakat.jpg). Geprüft wird, was der Designer schickt und was er aus der Antwort macht.
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' };
+const FUNKTION = '**/functions/v1/vorlage-aus-bild';
+/** Wie im Panel angemeldet (gleiche Sitzung im Browser), Abo-Stand nachgestellt. */
+async function angemeldet(page: Page, stand: { pro: boolean; grenze?: number | null; genutzt?: number }) {
+  const ablauf = Math.floor(JETZT.getTime() / 1000) + 36_000;
+  await page.addInitScript(([exp]) => {
+    const b64 = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+    const user = { id: '00000000-0000-4000-8000-000000000001', aud: 'authenticated', role: 'authenticated', email: 'pro@example.com', is_anonymous: false, app_metadata: {}, user_metadata: {}, created_at: '2026-11-01T00:00:00Z' };
+    const token = b64({ alg: 'HS256', typ: 'JWT' }) + '.' + b64({ sub: user.id, role: 'authenticated', aud: 'authenticated', email: user.email, exp }) + '.test';
+    localStorage.setItem('showcube-panel', JSON.stringify({ access_token: token, token_type: 'bearer', expires_in: 36_000, expires_at: exp, refresh_token: 'test', user }));
+  }, [ablauf]);
+  await page.route('**/rest/v1/rpc/ki_kontingent', r => r.fulfill({ json: { admin: false, grenze: 50, genutzt: 0, ...stand }, headers: CORS }));
+}
+const ausBildDialog = async (page: Page) => {
+  await vorlagen(page);
+  await page.getByRole('button', { name: /^Aus Bild erzeugen/ }).click();
+  const dlg = page.getByRole('dialog', { name: /Vorlage aus Bild/ });
+  await expect(dlg).toBeVisible();
+  return dlg;
+};
+// Zuletzt angelegte Vorlage, sobald sie gespeichert ist (der Designer speichert kurz verzögert).
+async function letzteVorlage(page: Page, name: string) {
+  const lesen = () => page.evaluate(() => { const s = JSON.parse(localStorage.getItem('showcube-designer-v1') || 'null'); const v = s && s.kunden[s.aktiv].vorlagen; return v ? v[v.length - 1] : null; });
+  await expect.poll(async () => (await lesen())?.name, { message: `Vorlage „${name}“ ist gespeichert` }).toBe(name);
+  return lesen();
+}
+
+test.describe('Vorlagen-Designer: Vorlage aus Bild', () => {
+  test('SVG ohne KI: Texte, Kreis und Grafik werden zu Ebenen, Preis wird Feld', async ({ page }) => {
+    let kiAufrufe = 0;
+    await page.route(FUNKTION, r => { kiAufrufe++; return r.abort(); });
+    const dlg = await ausBildDialog(page);
+    await dlg.getByLabel('Bild oder SVG wählen').setInputFiles('tests/dateien/plakat.svg');
+    await expect(dlg.getByRole('img', { name: 'Original: Plakat' })).toBeVisible();
+    await dlg.getByRole('button', { name: 'Ebenen übernehmen (ohne KI)' }).click();
+    await expect(dlg.locator('.ab-ergebnis')).toContainText('5 Texte');
+    await expect(dlg.locator('.ab-ergebnis')).toContainText('1 Kreis');
+    await dlg.getByRole('button', { name: 'Als Vorlage übernehmen' }).click();
+    await expect(dlg).toBeHidden();
+    const v = await letzteVorlage(page, 'Plakat');
+    expect(v.hinter).toBe('#17342a');
+    const texte = v.quer.filter((e: any) => e.typ === 'text');
+    expect(texte.map((e: any) => e.text)).toEqual(['MITTAGSTISCH', 'Hausgemachte\nLasagne', 'mit Salat vom Markt', '8,90 €', 'Mo bis Fr · 11:30 bis 14:30 Uhr']);
+    expect(texte.find((e: any) => e.text === '8,90 €')).toMatchObject({ frei: 'Preis', ausr: 'center' });
+    expect(texte.find((e: any) => e.text.startsWith('Hausgemachte'))).toMatchObject({ frei: 'Überschrift', rolle: 'titel' });
+    // Der Kreis bekommt seine Farbe, das beschnittene Foto aus Verläufen kommt als ein Bild ganz nach hinten.
+    expect(v.quer.find((e: any) => e.form === 'kreis').fuell).toBe('#e4572e');
+    expect(v.quer[0]).toMatchObject({ typ: 'bild' });
+    expect(v.quer[0].bild).toMatch(/^data:image\/(png|jpeg)/);
+    await expect(page.locator('.zr[data-ebene]')).toHaveCount(7);
+    await erwarteAufLeinwand(page, '8,90 €');
+    expect(kiAufrufe, 'SVG braucht keine KI').toBe(0);
+  });
+
+  test('Bild mit KI (Pro): schickt das Bild verkleinert und baut die Vorlage aus der Antwort', async ({ page }) => {
+    await angemeldet(page, { pro: true, grenze: 50, genutzt: 9 });
+    let anfrage: any = null, kopf = '', aufrufe = 0;
+    await page.route(FUNKTION, async r => {
+      if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: CORS });
+      aufrufe++; anfrage = r.request().postDataJSON(); kopf = r.request().headers()['authorization'] || '';
+      await r.fulfill({ path: 'tests/dateien/ki-antwort.json', headers: { ...CORS, 'content-type': 'application/json' } });
+    });
+    const dlg = await ausBildDialog(page);
+    await dlg.getByLabel('Bild oder SVG wählen').setInputFiles('tests/dateien/plakat.jpg');
+    await expect(dlg.getByText('Pro · noch 41 von 50 Analysen in diesem Monat')).toBeVisible();
+    await expect(dlg.getByRole('button', { name: 'Ebenen übernehmen (ohne KI)' })).toHaveCount(0);
+    await dlg.getByRole('button', { name: /^Mit KI erkennen/ }).click();
+    await expect(dlg.locator('.ab-ergebnis')).toContainText('Mittagstisch · 7 Ebenen: 1 Bild, 5 Texte, 1 Kreis · noch 40 Analysen diesen Monat');
+    // Gesendet: angemeldet, Bild als JPEG, höchstens 1568 px, kein Schlüssel im Browser.
+    expect(kopf).toMatch(/^Bearer ey/);
+    expect(anfrage).toMatchObject({ medientyp: 'image/jpeg', breite: 1568, hoehe: 882 });
+    expect(anfrage.bild.length).toBeGreaterThan(10_000);
+    expect(JSON.stringify(anfrage)).not.toMatch(/sk-ant|anthropic/i);
+    // Farben in die Marke übersetzen geht ohne neue Analyse.
+    await dlg.getByRole('button', { name: 'In Markenfarben' }).click();
+    await dlg.getByRole('button', { name: 'Als Vorlage übernehmen' }).click();
+    const v = await letzteVorlage(page, 'Mittagstisch');
+    expect(v.quer.map((e: any) => e.typ)).toEqual(['bild', 'text', 'text', 'text', 'form', 'text', 'text']);
+    expect(v.quer.every((e: any) => !e.fuell || ['primaer', 'zweit', 'dunkel', 'hell'].includes(e.fuell))).toBe(true);
+    expect(['primaer', 'zweit', 'dunkel', 'hell']).toContain(v.hinter);
+    const foto = v.quer[0];
+    expect(foto).toMatchObject({ frei: 'Foto', passt: 'contain', x: 54.2, w: 41.7 });
+    expect(foto.bild).toMatch(/^data:image\/jpeg/);
+    expect(v.quer.find((e: any) => e.text === '8,90 €')).toMatchObject({ frei: 'Preis', vert: 'mitte', ausr: 'center', rolle: 'titel' });
+    expect(v.quer.find((e: any) => e.text === 'MITTAGSTISCH')).toMatchObject({ gross: true, farbe: 'zweit' });
+    expect(v.quer.filter((e: any) => e.anim && e.anim !== 'keine').length).toBe(7);
+    await expect(page.locator('.zr[data-ebene]')).toHaveCount(7);
+    await erwarteAufLeinwand(page, 'Hausgemachte');
+    expect(aufrufe, 'Optionen ändern ruft die KI nicht noch einmal').toBe(1);
+  });
+
+  test('Ohne Anmeldung: Hinweis aufs Panel, KI-Knopf gesperrt', async ({ page }) => {
+    const dlg = await ausBildDialog(page);
+    await expect(dlg.getByText(/melde dich im Panel mit deinem ShowCube-Konto an/)).toBeVisible();
+    await dlg.getByLabel('Bild oder SVG wählen').setInputFiles('tests/dateien/plakat.jpg');
+    await expect(dlg.getByRole('button', { name: /^Mit KI erkennen/ })).toBeDisabled();
+    await expect(dlg.getByRole('link', { name: 'Panel öffnen' })).toHaveAttribute('href', 'panel.html');
+    await expect(dlg.getByRole('button', { name: 'Als Vorlage übernehmen' })).toBeDisabled();
+    await dlg.getByRole('button', { name: 'Abbrechen' }).click();
+    await expect(dlg).toBeHidden();
+  });
+
+  test('Ohne Pro: Hinweis auf den Pro-Plan, SVG geht trotzdem', async ({ page }) => {
+    await angemeldet(page, { pro: false });
+    const dlg = await ausBildDialog(page);
+    await expect(dlg.getByText(/Die KI gehört zum Pro-Plan/)).toBeVisible();
+    await dlg.getByLabel('Bild oder SVG wählen').setInputFiles('tests/dateien/plakat.svg');
+    await expect(dlg.getByRole('button', { name: /^Mit KI erkennen/ })).toBeDisabled();
+    await expect(dlg.getByRole('button', { name: 'Ebenen übernehmen (ohne KI)' })).toBeEnabled();
+  });
+
+  test('Kontingent aufgebraucht: klare Meldung statt Vorlage', async ({ page }) => {
+    await angemeldet(page, { pro: true, grenze: 50, genutzt: 49 });
+    await page.route(FUNKTION, r => r.request().method() === 'OPTIONS' ? r.fulfill({ status: 204, headers: CORS })
+      : r.fulfill({ status: 429, json: { fehler: 'KI_KONTINGENT', text: 'KI_KONTINGENT' }, headers: CORS }));
+    const dlg = await ausBildDialog(page);
+    await dlg.getByLabel('Bild oder SVG wählen').setInputFiles('tests/dateien/plakat.jpg');
+    await dlg.getByRole('button', { name: /^Mit KI erkennen/ }).click();
+    await expect(dlg.getByRole('alert')).toHaveText('Das Kontingent für diesen Monat ist aufgebraucht. Am 1. geht es weiter.');
+    await expect(dlg.getByRole('button', { name: 'Als Vorlage übernehmen' })).toBeDisabled();
+  });
+});
+
+test.describe('Vorlage aus Bild auf dem Handy', () => {
+  test('Fenster passt aufs Handy, SVG übernehmen geht @handy', async ({ page }) => {
+    await page.goto('release/designer.html');
+    await page.getByRole('tab', { name: 'Vorlagen' }).click();
+    await page.getByRole('button', { name: /^Aus Bild erzeugen/ }).click();
+    const dlg = page.getByRole('dialog', { name: /Vorlage aus Bild/ });
+    await dlg.getByLabel('Bild oder SVG wählen').setInputFiles('tests/dateien/plakat.svg');
+    await dlg.getByRole('button', { name: 'Ebenen übernehmen (ohne KI)' }).click();
+    await expect(dlg.locator('.ab-ergebnis')).toContainText('Ebenen');
+    const breite = await dlg.evaluate(d => [d.scrollWidth, d.clientWidth, innerWidth, d.getBoundingClientRect().width]);
+    expect(breite[0], 'nichts ragt seitlich heraus').toBeLessThanOrEqual(breite[1]);
+    expect(breite[3]).toBeLessThanOrEqual(breite[2]);
+    await dlg.getByRole('button', { name: 'Als Vorlage übernehmen' }).click();
+    await expect(page.locator('.zr[data-ebene]')).toHaveCount(7);
   });
 });

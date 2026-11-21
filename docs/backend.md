@@ -131,13 +131,23 @@ bei der Einrichtung einmal online starten. Später lässt sich das mit einer Wer
 - **Das Paket-Format** ist dasselbe wie auf dem USB-Stick. Nur die Dateien sind Verweise
   (`speicher:<betrieb>/<datei>`) statt eingebetteter Daten.
 
+## Pro-Stufe und KI (Vorlage aus Bild)
+
+- **Tabelle `abos`**: Stufe pro Betrieb (`cloud` oder `pro`, optional `bis`) und das KI-Kontingent `ki_grenze`
+  (Standard 50 Analysen im Monat). Betriebe dürfen ihre Zeile nur lesen. Gesetzt wird per SQL, später vom Zahlungsanbieter.
+  Ohne Zeile gilt `cloud`. Admins dürfen alles Pro-mäßige immer.
+- **Tabelle `ki_analysen`**: jede Analyse mit Betrieb, Nutzer, Modell und Tokens (für Kontingent und Kosten).
+- **Edge Function `vorlage-aus-bild`** (`supabase/functions/`): rollt der Workflow „Backend“ auf `main` mit aus
+  (`supabase functions deploy --use-api`, kein Docker nötig). Sie braucht das Secret `ANTHROPIC_API_KEY`, gesetzt unter
+  **Edge Functions → Secrets** im Dashboard. Anleitung, Kosten und Optionen: [vorlage-aus-bild.md](vorlage-aus-bild.md).
+
 ## Lokal entwickeln
 
 Braucht Docker.
 
 ```
 npm run backend:start     # lokaler Supabase-Server, zeigt URL und Publishable key
-npm run backend:test      # 12 Prüfungen: Koppeln, Veröffentlichen, Befehle, fremde Daten gesperrt
+npm run backend:test      # 16 Prüfungen: Koppeln, Veröffentlichen, Befehle, fremde Daten gesperrt, KI-Kontingent
 VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_KEY=<publishable key> npm run dev
 ```
 
@@ -147,7 +157,7 @@ Dann `/panel/` und in einem zweiten Fenster `/player/?cloud` öffnen.
 
 - **Ausfall-Meldung und Push** (Schritt 2): `bildschirme.zuletzt` ist schon da. Fehlt ein Job, der
   regelmäßig nachsieht, und der Versand per E-Mail und Web-Push.
-- **Abrechnung** (Schritt 3): Stripe, erst wenn Piloten zahlen.
+- **Abrechnung** (Schritt 3): Stripe, erst wenn Piloten zahlen. Der Zahlungsanbieter setzt dann `abos.stufe`.
 - **E-Mails**: Bestätigungs- und Passwort-vergessen-Mails brauchen einen eigenen Mailversand (z.B. Brevo
   oder Resend, im Free-Plan kostenlos). Bis dahin ist die E-Mail-Bestätigung aus, und ein vergessenes
   Passwort setzt man im Supabase-Dashboard zurück.
