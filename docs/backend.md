@@ -65,6 +65,29 @@ Kunden koppeln. So wird ein Konto zum Admin:
 Admin werden geht bewusst nur über das Dashboard, nie über die Website. Wieder entfernen:
 `delete from public.admins where user_id = (select id from auth.users where email = 'deine@email.de');`
 
+## Benutzerverwaltung (nur Admins)
+
+Admins haben im Panel links den Bereich **Benutzer** (auch über Strg + K „Benutzer verwalten“). Dort stehen alle Konten
+mit Betrieb, Abo, letzter Anmeldung, Zwei-Faktor, bestätigter E-Mail und Boxen (wie viele davon online). Oben suchst du nach
+E-Mail oder Betrieb und filterst nach Pro, Cloud, Gesperrt oder Unbestätigt. Ein Klick auf ein Konto öffnet die Details:
+
+- **Abo:** Cloud oder Pro, bei Pro ein Enddatum (leer = unbefristet) und die KI-Analysen pro Monat. „Abo speichern“
+  schreibt in die Tabelle `abos`. Ein Testkonto auf Pro stellen geht also mit zwei Klicks, ohne SQL.
+- **Boxen:** jede gekoppelte Box mit Standort, online oder seit wann offline, Version.
+- **Betrieb öffnen:** zeigt das Panel so, wie der Kunde es sieht.
+- **Sperren / Freigeben:** gesperrt heißt, das Konto wird sofort abgemeldet, kann sich nicht mehr anmelden und kommt auch
+  mit einer noch offenen Sitzung nicht mehr an Daten. Die Boxen zeigen weiter den letzten Stand.
+- **E-Mail bestätigen:** falls die Bestätigungsmail nicht ankommt.
+- **Konto löschen:** löscht Konto, Betrieb, Slideshows, Abo und Dateien und trennt die Boxen. Erst wenn du die E-Mail
+  zur Bestätigung eintippst. Lässt sich nicht rückgängig machen.
+- **Protokoll:** jede Änderung durch einen Admin (wer, wann, was) steht in der Tabelle `admin_protokoll`.
+
+Sicherheit: Alles läuft über Datenbank-Funktionen (`admin_benutzer`, `admin_abo_setzen`, `admin_sperren`,
+`admin_bestaetigen`, `admin_loeschen`, `admin_protokoll_lesen` in `supabase/migrations/20261122180000_benutzerverwaltung.sql`).
+Jede prüft auf dem Server zuerst `ist_admin()` (mit Zwei-Faktor-Code, falls eingerichtet) und lehnt sonst mit
+„Nur für Admins.“ ab. Admin-Konten, auch das eigene, lassen sich dort weder sperren noch löschen, und Admin-Rechte
+vergibt man weiter nur per SQL. Kein Secret Key im Browser nötig.
+
 ## Eine Box koppeln
 
 1. Auf der Box `player.html?cloud` öffnen (in der Testbox-Anleitung statt `player.html`),
@@ -158,7 +181,7 @@ bei der Einrichtung einmal online starten. Später lässt sich das mit einer Wer
 ## Pro-Stufe und KI (Vorlage aus Bild)
 
 - **Tabelle `abos`**: Stufe pro Betrieb (`cloud` oder `pro`, optional `bis`) und das KI-Kontingent `ki_grenze`
-  (Standard 50 Analysen im Monat). Betriebe dürfen ihre Zeile nur lesen. Gesetzt wird per SQL, später vom Zahlungsanbieter.
+  (Standard 50 Analysen im Monat). Betriebe dürfen ihre Zeile nur lesen. Gesetzt wird von Admins im Panel unter „Benutzer“, später vom Zahlungsanbieter.
   Ohne Zeile gilt `cloud`. Admins dürfen alles Pro-mäßige immer.
 - **Tabelle `ki_analysen`**: jede Analyse mit Betrieb, Nutzer, Modell und Tokens (für Kontingent und Kosten).
 - **Edge Function `vorlage-aus-bild`** (`supabase/functions/`): rollt der Workflow „Backend“ auf `main` mit aus

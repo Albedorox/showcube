@@ -266,4 +266,59 @@ await check('Zwei-Faktor: mit Passwort allein keine Daten, mit Code aus der App 
   assert.equal(ok(await a.from('betriebe').select('name'), 'a').length, 1);
 });
 
+await check('Benutzerverwaltung: nur Admins sehen und ändern Konten', async () => {
+  const admin = neu(); ok(await admin.auth.signInWithPassword({ email: `admin-${stamp}@example.com`, password: 'geheim-123' }), 'admin login');
+  const adminId = (await admin.auth.getUser()).data.user.id;
+  // Normale Konten und Boxen: alles abgelehnt, auch mit gültiger Sitzung.
+  for (const [wer, c] of [['Kunde', b], ['Box', box]]) {
+    for (const [fn, args] of [['admin_benutzer', {}], ['admin_abo_setzen', { p_betrieb: betriebA, p_stufe: 'pro' }], ['admin_sperren', { p_user: adminId, p_sperren: true }],
+      ['admin_bestaetigen', { p_user: adminId }], ['admin_loeschen', { p_user: adminId }], ['admin_protokoll_lesen', {}]]) {
+      const r = await c.rpc(fn, args); assert.ok(r.error && /Nur für Admins/.test(r.error.message), wer + ' darf ' + fn + ' nicht');
+    }
+  }
+  assert.ok((await b.from('admin_protokoll').select('*')).error, 'Protokoll nicht direkt lesbar');
+  // Liste: echte Konten mit Betrieb, Abo und Boxen, keine Boxen-Konten.
+  const liste = ok(await admin.rpc('admin_benutzer'), 'liste');
+  const ua = liste.find(x => x.email === `a-${stamp}@example.com`);
+  assert.ok(ua, 'Kunde A in der Liste'); assert.equal(ua.betrieb_id, betriebA); assert.equal(ua.betrieb, 'Pizzeria Da Marco');
+  assert.ok(ua.bildschirme >= 1, 'Boxen gezählt'); assert.ok(ua.zuletzt, 'letzte Anmeldung');
+  assert.ok(liste.find(x => x.id === adminId).admin, 'Admin markiert');
+  assert.ok(!liste.some(x => !x.email), 'keine anonymen Box-Konten');
+  // Abo: Pro mit Datum und Kontingent, danach zurück auf Cloud. Ungültige Werte abgelehnt.
+  const bis = new Date(Date.now() + 30 * 864e5).toISOString();
+  const abo = ok(await admin.rpc('admin_abo_setzen', { p_betrieb: betriebA, p_stufe: 'pro', p_bis: bis, p_ki_grenze: 80 }), 'pro');
+  assert.equal(abo.stufe, 'pro'); assert.equal(abo.ki_grenze, 80);
+  const k = ok(await a.rpc('ki_kontingent'), 'kontingent'); assert.equal(k.pro, true); assert.equal(k.grenze, 80);
+  assert.ok((await admin.rpc('admin_abo_setzen', { p_betrieb: betriebA, p_stufe: 'gold' })).error, 'unbekannte Stufe');
+  assert.ok((await admin.rpc('admin_abo_setzen', { p_betrieb: betriebA, p_stufe: 'pro', p_ki_grenze: -1 })).error, 'negatives Kontingent');
+  ok(await admin.rpc('admin_abo_setzen', { p_betrieb: betriebA, p_stufe: 'cloud' }), 'cloud');
+  assert.equal(ok(await a.rpc('ki_kontingent'), 'kontingent 2').pro, false);
+  assert.equal(ok(await a.from('abos').select('ki_grenze'), 'abo')[0].ki_grenze, 80, 'Kontingent bleibt ohne Angabe');
+  // Admin-Konten sind geschützt, auch das eigene.
+  let r = await admin.rpc('admin_sperren', { p_user: adminId, p_sperren: true }); assert.ok(r.error && /Admin-Konten/.test(r.error.message), 'Admin nicht sperrbar');
+  r = await admin.rpc('admin_loeschen', { p_user: adminId }); assert.ok(r.error, 'Admin nicht löschbar');
+  // Sperren: laufende Sitzung sieht sofort nichts mehr, Anmelden geht nicht. Freigeben: wieder alles da.
+  const mail = `sperre-${stamp}@example.com`;
+  const s = neu(); ok(await s.auth.signUp({ email: mail, password: 'geheim-123', options: { data: { betrieb: 'Gesperrt GmbH' } } }), 'signup');
+  const sid = (await s.auth.getUser()).data.user.id;
+  assert.equal(ok(await s.from('betriebe').select('name'), 'vorher').length, 1);
+  ok(await admin.rpc('admin_sperren', { p_user: sid, p_sperren: true }), 'sperren');
+  assert.equal(ok(await s.from('betriebe').select('name'), 'gesperrt, alte Sitzung').length, 0, 'alte Sitzung ohne Daten');
+  assert.ok((await neu().auth.signInWithPassword({ email: mail, password: 'geheim-123' })).error, 'gesperrt: Anmeldung abgelehnt');
+  assert.ok(ok(await admin.rpc('admin_benutzer'), 'liste').find(x => x.id === sid).gesperrt);
+  ok(await admin.rpc('admin_sperren', { p_user: sid, p_sperren: false }), 'freigeben');
+  const s2 = neu(); ok(await s2.auth.signInWithPassword({ email: mail, password: 'geheim-123' }), 'wieder anmelden');
+  assert.equal(ok(await s2.from('betriebe').select('name'), 'nachher')[0].name, 'Gesperrt GmbH');
+  ok(await admin.rpc('admin_bestaetigen', { p_user: sid }), 'bestätigen');
+  // Löschen: Konto und Betrieb weg, Protokoll hält fest, wer es war.
+  const sb2 = ok(await s2.rpc('mein_betrieb'), 'betrieb');
+  const weg = ok(await admin.rpc('admin_loeschen', { p_user: sid }), 'löschen');
+  assert.deepEqual(weg, [sb2]);
+  assert.equal(+psql(`select count(*) from public.betriebe where id = '${sb2}'`), 0, 'Betrieb gelöscht');
+  assert.equal(+psql(`select count(*) from auth.users where id = '${sid}'`), 0, 'Konto gelöscht');
+  const prot = ok(await admin.rpc('admin_protokoll_lesen', { p_user: sid }), 'protokoll');
+  assert.deepEqual(prot.map(p => p.aktion), ['gelöscht', 'bestätigt', 'freigegeben', 'gesperrt']);
+  assert.equal(prot[0].ziel_email, mail); assert.equal(prot[0].admin_email, `admin-${stamp}@example.com`);
+});
+
 console.log(process.exitCode ? '\nFehler gefunden.' : `\nAlle ${n} Prüfungen bestanden.`);

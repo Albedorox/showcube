@@ -60,6 +60,7 @@ const ICONS: Record<string, string> = {
   star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>', timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2h5"/>',
   ticker: '<rect x="2" y="15" width="20" height="6" rx="1.5"/><path d="M6 18h8M3 5h18M3 10h12"/>', chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',
   brush: '<path d="M14.5 4.5l5 5L10 19l-5 1 1-5z"/><path d="M13 6l5 5"/>', palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.6 1.7-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="7.5" r="1.2"/>',
   coins: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v4c0 1.7 2.7 3 6 3s6-1.3 6-3V7M3 11v4c0 1.7 2.7 3 6 3 1 0 2-.1 2.8-.4"/><circle cx="17" cy="16" r="4.5"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
@@ -360,7 +361,8 @@ function undoable(text: string, change: () => void) {
 // ---------- Navigation ----------
 const VIEWS_BASIS = [['screens', 'Bildschirme', 'screens'], ['shows', 'Inhalte', 'slides'], ['media', 'Medien', 'media'], ['templates', 'Vorlagen', 'templates']];
 // „Partner“ erscheint nur, wenn Partner-Slots in den Einstellungen eingeschaltet sind.
-const views = () => S.werbung && S.werbung.on ? [...VIEWS_BASIS, ['werbung', 'Partner', 'coins']] : VIEWS_BASIS;
+// „Benutzer“ (alle Konten verwalten) sehen nur Admins. Was dort geht, prüft der Server bei jedem Aufruf selbst.
+const views = () => [...VIEWS_BASIS, ...(S.werbung && S.werbung.on ? [['werbung', 'Partner', 'coins']] : []), ...(konto && konto.admin ? [['benutzer', 'Benutzer', 'users']] : [])];
 let view = 'screens', cur: string = null, tab = 'content', placeFilter = '';
 let ticks: (() => void)[] = [];
 const runTicks = () => ticks.forEach(f => f());
@@ -377,7 +379,7 @@ function renderNav() {
   const drafts = S.shows.filter(isDirty).length, off = S.screens.filter(s => !isOn(s)).length;
   const count = { screens: off ? h('span', { class: 'n alert', title: off + ' offline' }, String(off)) : h('span', { class: 'n' }, String(S.screens.length)),
     shows: drafts ? h('span', { class: 'n alert', title: 'Unveröffentlichte Änderungen' }, String(drafts)) : h('span', { class: 'n' }, String(S.shows.length)),
-    media: S.assets.length ? h('span', { class: 'n' }, String(S.assets.length)) : null, templates: null, werbung: null };
+    media: S.assets.length ? h('span', { class: 'n' }, String(S.assets.length)) : null, templates: null, werbung: null, benutzer: null };
   const mk = (withCount: boolean) => views().map(([k, label, ic]) => h('button', { 'aria-current': view === k ? 'page' : null, onclick: () => go(k) }, icon(ic), label, withCount ? count[k] : null));
   fill($('nav'), ...mk(true)); fill($('tabbar'), ...mk(false));
   $('planName').textContent = 'Cloud · ' + plural(S.screens.length, 'Bildschirm', 'Bildschirme');
@@ -389,7 +391,7 @@ function render() {
   ticks = []; renderNav();
   const v = $('view'); v.replaceChildren();
   v.style.animation = 'none'; void v.offsetWidth; v.style.animation = '';
-  ({ screens: renderScreens, shows: renderShows, media: renderMedia, templates: renderTemplates, werbung: renderWerbung })[view](v);
+  ({ screens: renderScreens, shows: renderShows, media: renderMedia, templates: renderTemplates, werbung: renderWerbung, benutzer: renderBenutzer })[view](v);
   renderPubbar();
 }
 
@@ -1303,7 +1305,7 @@ function openCmd() {
     { label: 'Einstellungen', hint: 'Partner-Slots und mehr', ic: 'gear', run: openSettings },
     { label: 'Sofort-Hinweis senden', hint: 'Befehl', ic: 'bolt', run: openNotice }, { label: 'Bildschirm koppeln', hint: 'Befehl', ic: 'plus', run: openPair },
     { label: 'Neue Slideshow', hint: 'Befehl', ic: 'plus', run: () => go('templates') }, { label: 'Vorlagen-Designer öffnen', hint: 'Marke und eigene Vorlagen', ic: 'brush', run: openDesigner }, { label: 'Hell oder dunkel umschalten', hint: 'Befehl', ic: 'moon', run: toggleTheme },
-    ...(konto && konto.admin ? [{ label: 'Betrieb öffnen', hint: 'Admin', ic: 'shop', run: openBetriebe }] : []),
+    ...(konto && konto.admin ? [{ label: 'Betrieb öffnen', hint: 'Admin', ic: 'shop', run: openBetriebe }, { label: 'Benutzer verwalten', hint: 'Admin · Konten, Abos, Sperren', ic: 'users', run: () => go('benutzer') }] : []),
     ...(sb ? [konto ? { label: 'Abmelden', hint: 'Konto · ' + konto.email, ic: 'user', run: abmelden } : { label: 'Anmelden', hint: 'Konto', ic: 'user', run: () => openLogin() }] : []),
     ...S.screens.map(sc => ({ label: sc.name, hint: 'Bildschirm · ' + sc.place, ic: 'screens', run: () => { go('screens'); openScreen(sc.id); } })),
     ...S.shows.map(sh => ({ label: sh.name, hint: 'Slideshow', ic: 'slides', run: () => go('shows', sh.id) })),
@@ -1573,6 +1575,7 @@ function openLogin(neu = false, hinweis = '') {
 }
 const anmeldeFehler = (e: any) => { const m = (e && e.message) || ''; return /Invalid login/i.test(m) ? 'E-Mail oder Passwort stimmt nicht.' : /already registered/i.test(m) ? 'Zu dieser E-Mail gibt es schon ein Konto.'
   : /not confirmed/i.test(m) ? 'Bitte zuerst den Link in der Bestätigungsmail anklicken.' : e && e.code === 'weak_password' || /Password should/i.test(m) ? 'Das Passwort ist zu schwach: mindestens 8 Zeichen, mit Buchstaben und Ziffern.'
+  : /banned/i.test(m) ? 'Dieses Konto ist gesperrt. Schreib uns an info@showcube.de, wenn das ein Versehen ist.'
   : /rate limit|too many/i.test(m) ? 'Zu viele Versuche. Bitte in ein paar Minuten nochmal.' : fehlerText(e); };
 async function angemeldet(email: string, neu: boolean, err: HTMLElement) {
   try { await cloudStart(email); } catch (x) { err.textContent = fehlerText(x); return; }
@@ -1672,7 +1675,8 @@ async function openBetriebe() {
   const list = h('div', { class: 'targets' }, h('span', { class: 'small' }, 'Lade …'));
   fill($('loginForm'),
     h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, 'Betrieb öffnen'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
-    h('p', { class: 'small' }, 'Admin-Ansicht: alle Kunden. Du siehst und änderst, was der Kunde sieht, und kannst Boxen für ihn koppeln.'), list,
+    h('p', { class: 'small' }, 'Admin-Ansicht: alle Kunden. Du siehst und änderst, was der Kunde sieht, und kannst Boxen für ihn koppeln.'),
+    h('button', { class: 'btn sm', type: 'button', onclick: () => { $('dlgLogin').close(); go('benutzer'); } }, icon('users'), 'Benutzer verwalten: Abos, Sperren, Löschen'), list,
     h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', { class: 'small', style: 'min-width:0;flex:1 1 180px;overflow-wrap:anywhere' }, 'Angemeldet als ' + konto.email), h('button', { class: 'btn ghost sm', type: 'button', onclick: abmelden }, 'Abmelden')));
   $('loginForm').onsubmit = null;
   if (!$('dlgLogin').open) $('dlgLogin').showModal();
@@ -1688,6 +1692,143 @@ async function wechsleBetrieb(id: string) {
   try { localStorage.setItem(AKEY, id); localStorage.removeItem(CKEY); } catch (e) {}
   location.reload();
 }
+// ---------- Admin: Benutzerverwaltung ----------
+// Alle Konten mit Abo, letzter Anmeldung, Zwei-Faktor und Boxen. Abo ändern, sperren, bestätigen, löschen.
+// Jede Funktion dahinter (admin_* in supabase/migrations) prüft auf dem Server, ob ein Admin fragt.
+type Benutzer = { id: string; email: string; erstellt: string; zuletzt: string | null; bestaetigt: boolean; gesperrt: boolean; zwei_faktor: boolean; admin: boolean;
+  betrieb_id: string | null; betrieb: string | null; rolle: string | null; stufe: string; bis: string | null; ki_grenze: number; ki_genutzt: number; bildschirme: number; online: number };
+let benutzer: Benutzer[] | null = null, benutzerFehler = '', uSuche = '', uFilter = 'alle', uOffen = '';
+const proAktiv = (u: Benutzer) => u.stufe === 'pro' && (!u.bis || Date.parse(u.bis) > Date.now());
+const datum = (t: string | null) => t ? new Date(t).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+const zuletztText = (t: string | null) => !t ? 'noch nie angemeldet' : Date.now() - Date.parse(t) < 60000 ? 'gerade eben' : 'vor ' + since(Date.parse(t));
+const U_FILTER: [string, string, (u: Benutzer) => boolean][] = [
+  ['alle', 'Alle', () => true], ['pro', 'Pro', proAktiv], ['cloud', 'Cloud', u => !proAktiv(u)],
+  ['gesperrt', 'Gesperrt', u => u.gesperrt], ['offen', 'Unbestätigt', u => !u.bestaetigt]];
+function stufeBadges(u: Benutzer) {
+  return [
+    proAktiv(u) ? h('span', { class: 'badge ok' }, u.bis ? 'Pro bis ' + datum(u.bis) : 'Pro') : u.stufe === 'pro' ? h('span', { class: 'badge warn' }, 'Pro abgelaufen') : h('span', { class: 'badge' }, 'Cloud'),
+    u.admin ? h('span', { class: 'badge ok' }, 'Admin') : null,
+    u.gesperrt ? h('span', { class: 'badge bad' }, 'Gesperrt') : null,
+    !u.bestaetigt ? h('span', { class: 'badge warn' }, 'Unbestätigt') : null,
+    u.zwei_faktor ? h('span', { class: 'badge' }, 'Zwei-Faktor') : null];
+}
+async function ladeBenutzer() {
+  const r = await sb.rpc('admin_benutzer');
+  benutzerFehler = r.error ? fehlerText(r.error) : ''; if (!r.error) benutzer = r.data as Benutzer[];
+  if (view === 'benutzer') render();
+  if (uOffen && $('dlgUser').open) drawBenutzer();
+}
+function renderBenutzer(v: HTMLElement) {
+  v.append(h('div', { class: 'head' }, h('div', null, h('h1', null, 'Benutzer'),
+    h('p', null, 'Alle Konten bei ShowCube, nur für Admins sichtbar. Hier stellst du das Abo um, sperrst ein Konto oder löschst es. Jede Änderung wird mit deinem Namen protokolliert.')),
+    h('button', { class: 'btn', onclick: () => { benutzer = null; render(); ladeBenutzer(); } }, icon('restart'), 'Neu laden')));
+  if (!benutzer) {
+    v.append(benutzerFehler ? h('div', { class: 'empty' }, h('b', null, 'Die Liste ließ sich nicht laden.'), h('span', null, benutzerFehler)) : h('div', { class: 'empty' }, 'Lade alle Konten …'));
+    if (!benutzerFehler) ladeBenutzer();
+    return;
+  }
+  const alle = benutzer;
+  v.append(h('div', { class: 'wstats' },
+    h('div', { class: 'card' }, h('span', { class: 'small' }, 'Konten'), h('b', null, String(alle.length))),
+    h('div', { class: 'card' }, h('span', { class: 'small' }, 'Pro'), h('b', null, String(alle.filter(proAktiv).length))),
+    h('div', { class: 'card' }, h('span', { class: 'small' }, 'Boxen online'), h('b', null, alle.reduce((a, u) => a + +u.online, 0) + ' / ' + alle.reduce((a, u) => a + +u.bildschirme, 0)))));
+  const list = h('div', { class: 'ulist', role: 'list', 'aria-label': 'Konten' });
+  const zeichne = () => {
+    const q = uSuche.trim().toLowerCase(), f = U_FILTER.find(x => x[0] === uFilter)[2];
+    const treffer = alle.filter(u => f(u) && (!q || (u.email + ' ' + (u.betrieb || '')).toLowerCase().includes(q)));
+    fill(list, ...(treffer.length ? treffer.map(u => h('button', { class: 'urow card', role: 'listitem', type: 'button', onclick: () => openBenutzer(u.id) },
+      h('span', { class: 'u-wer' }, h('b', null, u.email), h('span', { class: 'small' }, (u.betrieb || 'Betrieb ohne Namen') + ' · seit ' + datum(u.erstellt))),
+      h('span', { class: 'u-badges' }, stufeBadges(u)),
+      h('span', { class: 'u-zahlen small' }, h('span', null, +u.bildschirme ? u.online + ' / ' + plural(+u.bildschirme, 'Box', 'Boxen') + ' online' : 'keine Box'), h('span', null, zuletztText(u.zuletzt)))))
+      : [h('div', { class: 'empty' }, 'Kein Konto passt zur Suche.')]));
+  };
+  v.append(h('div', { class: 'ufilter' },
+    h('input', { type: 'search', id: 'uSuche', placeholder: 'E-Mail oder Betrieb suchen', 'aria-label': 'Konten suchen', value: uSuche, oninput: (e: any) => { uSuche = e.target.value; zeichne(); } }),
+    h('div', { class: 'seg wrap', role: 'group', 'aria-label': 'Filter' }, U_FILTER.map(([k, l, f]) => h('button', { type: 'button', 'aria-pressed': String(uFilter === k), onclick: () => { uFilter = k; render(); } }, l + ' ' + alle.filter(f).length)))));
+  v.append(list); zeichne();
+}
+function openBenutzer(id: string) { uOffen = id; drawBenutzer(); const d = $('dlgUser'); if (!d.open) d.showModal(); }
+function drawBenutzer() {
+  const u = benutzer && benutzer.find(x => x.id === uOffen), b = $('duBody');
+  if (!u) { $('dlgUser').close(); return; }
+  const zu = () => $('dlgUser').close();
+  // Abo-Formular
+  let stufe = u.stufe;
+  const bis = h('input', { type: 'date', id: 'uBis', value: u.bis ? u.bis.slice(0, 10) : '' });
+  const ki = h('input', { type: 'number', id: 'uKi', min: '0', max: '10000', step: '1', value: String(u.ki_grenze) });
+  const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Abo-Stufe' });
+  const proTeil = h('div', { class: 'u-pro' },
+    h('div', null, h('label', { for: 'uBis' }, 'Pro bis (leer = unbefristet)'), bis),
+    h('div', null, h('label', { for: 'uKi' }, 'KI-Analysen pro Monat'), ki),
+    h('span', { class: 'small' }, 'Diesen Monat genutzt: ' + u.ki_genutzt + ' von ' + u.ki_grenze + '.'));
+  const segMalen = () => { fill(seg, ...[['cloud', 'Cloud'], ['pro', 'Pro']].map(([k, l]) => h('button', { type: 'button', 'aria-pressed': String(stufe === k), onclick: () => { stufe = k; segMalen(); } }, l))); proTeil.hidden = stufe !== 'pro'; };
+  segMalen();
+  const aboSpeichern = async (e: any) => {
+    const btn = e.currentTarget; btn.disabled = true;
+    const n = Math.round(+ki.value);
+    const r = await sb.rpc('admin_abo_setzen', { p_betrieb: u.betrieb_id, p_stufe: stufe, p_bis: stufe === 'pro' && bis.value ? new Date(bis.value + 'T23:59:59').toISOString() : null, p_ki_grenze: Number.isFinite(n) && ki.value !== '' ? n : null });
+    btn.disabled = false;
+    if (r.error) { toast('Abo nicht gespeichert: ' + fehlerText(r.error)); return; }
+    toast(u.email + ' ist jetzt auf ' + (stufe === 'pro' ? 'Pro' : 'Cloud') + '.'); ladeBenutzer();
+  };
+  // Aktionen (für Admin-Konten gesperrt, das prüft auch der Server)
+  const aufruf = async (fn: string, args: any, ok: string) => {
+    const r = await sb.rpc(fn, args);
+    if (r.error) { toast('Ging nicht: ' + fehlerText(r.error)); return false; }
+    toast(ok); await ladeBenutzer(); return true;
+  };
+  const loeschen = h('div', { class: 'u-loeschen', hidden: true },
+    h('p', { class: 'small' }, 'Löscht das Konto, seinen Betrieb mit allen Slideshows und Dateien und trennt seine Boxen. Das lässt sich nicht rückgängig machen. Tippe zur Bestätigung die E-Mail ein.'),
+    h('input', { type: 'email', id: 'uLoeschMail', 'aria-label': 'E-Mail zur Bestätigung', autocomplete: 'off', oninput: (e: any) => { (loeschen.querySelector('.danger') as HTMLButtonElement).disabled = e.target.value.trim().toLowerCase() !== u.email.toLowerCase(); } }),
+    h('button', { class: 'btn danger', type: 'button', disabled: true, onclick: async (e: any) => {
+      e.currentTarget.disabled = true;
+      const r = await sb.rpc('admin_loeschen', { p_user: u.id });
+      if (r.error) { toast('Löschen ging nicht: ' + fehlerText(r.error)); e.currentTarget.disabled = false; return; }
+      // Dateien der gelöschten Betriebe aus dem Speicher räumen.
+      for (const bid of (r.data || []) as string[]) {
+        const l = await sb.storage.from('medien').list(bid, { limit: 1000 });
+        if (l.data && l.data.length) await sb.storage.from('medien').remove(l.data.map((f: any) => bid + '/' + f.name));
+      }
+      zu(); toast(u.email + ' ist gelöscht.'); uOffen = ''; ladeBenutzer();
+    } }, 'Endgültig löschen'));
+  const aktionen = u.admin ? h('p', { class: 'small' }, 'Admin-Konto: lässt sich hier nicht sperren oder löschen. Admin-Rechte vergibt und entzieht man nur direkt in der Datenbank.')
+    : h('div', { class: 'row' },
+      !u.bestaetigt ? h('button', { class: 'btn sm', type: 'button', onclick: () => aufruf('admin_bestaetigen', { p_user: u.id }, 'E-Mail von ' + u.email + ' ist bestätigt.') }, icon('check'), 'E-Mail bestätigen') : null,
+      u.gesperrt
+        ? h('button', { class: 'btn sm', type: 'button', onclick: () => aufruf('admin_sperren', { p_user: u.id, p_sperren: false }, u.email + ' ist wieder freigegeben.') }, 'Freigeben')
+        : h('button', { class: 'btn sm danger', type: 'button', onclick: () => { if (confirm(u.email + ' sperren? Das Konto wird sofort abgemeldet und kommt nicht mehr ins Panel. Die Boxen zeigen weiter den letzten Stand.')) aufruf('admin_sperren', { p_user: u.id, p_sperren: true }, u.email + ' ist gesperrt.'); } }, 'Sperren'),
+      h('button', { class: 'btn sm danger', type: 'button', onclick: () => { loeschen.hidden = false; $('uLoeschMail').focus(); } }, 'Konto löschen …'));
+  const boxen = h('div', { class: 'targets' }, h('span', { class: 'small' }, u.betrieb_id && +u.bildschirme ? 'Lade …' : 'Noch keine Box gekoppelt.'));
+  const prot = h('div', { class: 'targets' }, h('span', { class: 'small' }, 'Lade …'));
+  fill(b,
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'duTitle', style: 'overflow-wrap:anywhere' }, u.email), h('button', { class: 'btn icon ghost', 'aria-label': 'Schließen', onclick: zu }, icon('x'))),
+    h('div', { class: 'row' }, stufeBadges(u)),
+    h('dl', { class: 'kv' },
+      h('dt', null, 'Betrieb'), h('dd', null, u.betrieb || 'ohne Namen'),
+      h('dt', null, 'Konto seit'), h('dd', null, datum(u.erstellt)),
+      h('dt', null, 'Letzte Anmeldung'), h('dd', null, u.zuletzt ? datum(u.zuletzt) + ', ' + new Date(u.zuletzt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'noch nie'),
+      h('dt', null, 'E-Mail bestätigt'), h('dd', null, u.bestaetigt ? 'ja' : 'nein'),
+      h('dt', null, 'Zwei-Faktor'), h('dd', null, u.zwei_faktor ? 'an' : 'aus')),
+    u.betrieb_id ? h('button', { class: 'btn sm', type: 'button', onclick: () => wechsleBetrieb(u.betrieb_id) }, icon('shop'), 'Betrieb öffnen') : null,
+    h('h3', null, 'Abo'),
+    u.betrieb_id ? [seg, proTeil, h('button', { class: 'btn primary', type: 'button', onclick: aboSpeichern }, 'Abo speichern')] : h('p', { class: 'small' }, 'Zu diesem Konto gibt es keinen Betrieb.'),
+    h('h3', null, 'Boxen'), boxen,
+    h('h3', null, 'Konto'), aktionen, loeschen,
+    h('h3', null, 'Protokoll'), prot);
+  if (u.betrieb_id && +u.bildschirme) sb.from('bildschirme_panel').select('id,name,standort,zuletzt,her,version').eq('betrieb_id', u.betrieb_id).then((r: any) => {
+    if (r.error) { fill(boxen, h('span', { class: 'small' }, fehlerText(r.error))); return; }
+    fill(boxen, (r.data as any[]).map(x => { const on = x.zuletzt && x.her != null && x.her < 35;
+      return h('div', { class: 'u-box' }, h('span', { class: 'dot ' + (on ? 'on' : 'off') }), h('b', null, x.name || 'Bildschirm'),
+        h('span', { class: 'small' }, [x.standort, on ? 'online' : x.zuletzt ? 'offline seit ' + since(Date.now() - (x.her || 0) * 1000) : 'noch nie verbunden', x.version ? 'Version ' + x.version : ''].filter(Boolean).join(' · '))); }));
+  });
+  sb.rpc('admin_protokoll_lesen', { p_user: u.id }).then((r: any) => {
+    if (r.error) { fill(prot, h('span', { class: 'small' }, fehlerText(r.error))); return; }
+    const text = (p: any) => p.aktion === 'abo' ? 'Abo: ' + (p.details.vorher.stufe === 'pro' ? 'Pro' : 'Cloud') + ' → ' + (p.details.nachher.stufe === 'pro' ? 'Pro' : 'Cloud') + (p.details.nachher.stufe === 'pro' && p.details.nachher.bis ? ' bis ' + datum(p.details.nachher.bis) : '') : p.aktion.charAt(0).toUpperCase() + p.aktion.slice(1);
+    fill(prot, (r.data as any[]).length ? (r.data as any[]).map(p => h('span', { class: 'small' }, datum(p.zeit) + ' · ' + text(p) + ' · ' + (p.admin_email || 'Admin'))) : [h('span', { class: 'small' }, 'Noch keine Änderung durch Admins.')]);
+  });
+}
+$('dlgUser').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgUser')) $('dlgUser').close(); });
+
 // ---------- Start, Demo oder Konto ----------
 function demoStart() { demo = true; S = seed(); normalize(S); cur = null; save(); paintModus(); go('screens'); render(); }
 function demoEnde() { try { sessionStorage.removeItem(DKEY); } catch (e) {} location.reload(); }

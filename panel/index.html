@@ -491,6 +491,19 @@ label.opt > span { display: flex; flex-direction: column; gap: 4px; }
 @media (max-width: 860px) { .wfrei { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .wstats { grid-template-columns: 1fr 1fr 1fr; gap: 8px; } .wstats .card { padding: 10px 12px; } .wstats b { font-size: 18px; } .wlist { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .bst-f, .zr { grid-template-columns: 1fr; } .zr .days { grid-column: auto; } .mlist input[type=date] { width: 128px; } }
+/* ---------- Admin: Benutzer ---------- */
+.ufilter { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+.ufilter input[type=search] { flex: 1 1 240px; width: auto; height: 38px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--surface); }
+.ulist { display: flex; flex-direction: column; gap: 8px; }
+.urow { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-1); }
+.urow:hover { border-color: var(--line-strong); } .urow:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.u-wer { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .u-wer b { overflow-wrap: anywhere; }
+.u-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.u-zahlen { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.u-pro { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; } .u-pro .small { grid-column: 1 / -1; }
+.u-box { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; align-items: center; } .u-box .small { grid-column: 2; }
+.u-loeschen { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--bad); border-radius: 10px; }
+@media (max-width: 640px) { .urow { grid-template-columns: minmax(0, 1fr); } .u-zahlen { align-items: flex-start; text-align: left; flex-direction: row; flex-wrap: wrap; gap: 2px 12px; } .u-pro { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -535,6 +548,7 @@ label.opt > span { display: flex; flex-direction: column; gap: 4px; }
 <dialog class="modal" id="dlgLogin" aria-labelledby="dlTitle"><form class="dlg" method="dialog" id="loginForm"></form></dialog>
 <dialog class="modal" id="dlgPartner" aria-labelledby="dpaTitle"><form class="dlg" method="dialog" id="partnerForm"></form></dialog>
 <dialog class="sheet" id="dlgWerbung" aria-labelledby="dwTitle"><div class="dlg" id="dwBody"></div></dialog>
+<dialog class="sheet" id="dlgUser" aria-labelledby="duTitle"><div class="dlg" id="duBody"></div></dialog>
 <dialog class="modal" id="dlgSettings" aria-labelledby="dsetTitle"><form class="dlg" method="dialog" id="settingsForm"></form></dialog>
 <dialog class="modal" id="dlgNotice" aria-labelledby="dnTitle"><form class="dlg" method="dialog" id="noticeForm"></form></dialog>
 <dialog class="cmd" id="dlgCmd" aria-label="Suchen oder Befehl ausführen">
