@@ -43,7 +43,15 @@ jobs:
         run: npx supabase link --project-ref "${{ vars.SUPABASE_PROJECT_ID }}"
       - name: Datenbank auf den neuesten Stand bringen
         run: npx supabase db push --remote --password "$SUPABASE_DB_PASSWORD"
-      - name: Anmelde-Einstellungen übernehmen (anonyme Boxen an, E-Mail-Bestätigung aus)
-        run: npx supabase config push --yes
+      - name: Anmelde-Einstellungen übernehmen (anonyme Boxen, Zwei-Faktor, E-Mail-Bestätigung über SMTP)
+        env:
+          SUPABASE_SMTP_PASSWORT: ${{ secrets.SUPABASE_SMTP_PASSWORT }}
+        run: |
+          if [ -z "$SUPABASE_SMTP_PASSWORT" ]; then
+            # Ohne SMTP-Passwort keine Bestätigungsmails, sonst könnte sich niemand mehr registrieren.
+            echo "::warning::Secret SUPABASE_SMTP_PASSWORT fehlt: E-Mail-Bestätigung bleibt aus. Anleitung: docs/backend.md"
+            sed -i '/^# SMTP-ANFANG/,/^# SMTP-ENDE/d' supabase/config.toml
+          fi
+          npx supabase config push --yes
       - name: Edge Functions ausrollen (Vorlage aus Bild, Pro)
         run: npx supabase functions deploy vorlage-aus-bild --use-api --project-ref "${{ vars.SUPABASE_PROJECT_ID }}"

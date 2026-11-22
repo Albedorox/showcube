@@ -75,6 +75,29 @@ Admin werden geht bewusst nur über das Dashboard, nie über die Website. Wieder
 
 Fällt das Internet aus, spielt die Box den letzten Stand weiter, auch nach einem Neustart.
 
+Der Code gilt eine Stunde. Danach zeigt der Fernseher von selbst einen neuen. Gegen Durchprobieren gibt es zwei
+Sperren: 10 falsche Codes pro Konto und Stunde, und 100 falsche Codes in 10 Minuten über alle Konten zusammen.
+
+## Sicherheit beim Anmelden
+
+- **E-Mail-Bestätigung:** Ein neues Konto bekommt eine Mail mit „E-Mail bestätigen“ (Vorlage
+  `supabase/templates/bestaetigen.html`). Der Link führt zurück ins Panel (`panel.html?bestaetigt`), dort meldet
+  man sich mit dem Passwort an. Die Mails gehen über das Hostinger-Postfach **noreply@showcube.de** raus.
+  Einmalig einrichten:
+  1. In hPanel unter **E-Mails** das Postfach `noreply@showcube.de` anlegen und ein langes Passwort vergeben.
+  2. Auf GitHub unter **Settings → Secrets and variables → Actions → New repository secret** das Secret
+     `SUPABASE_SMTP_PASSWORT` mit diesem Passwort anlegen.
+  3. Workflow **Backend** einmal von Hand starten (Actions → Backend → Run workflow).
+  Solange das Secret fehlt, bleibt die Bestätigung aus und der Workflow zeigt eine Warnung. Die Einstellungen
+  stehen in `supabase/config.toml` im Block `[remotes.frankfurt]`, lokal bleibt alles ohne Mail.
+- **Passwörter:** mindestens 8 Zeichen, mit Buchstaben und Ziffern. Der Abgleich mit geleakten Passwörtern
+  (HaveIBeenPwned) geht bei Supabase erst ab dem Pro-Plan, dann unter Authentication → Passwords einschalten.
+- **Zwei-Faktor (Authenticator-App):** Im Panel oben auf das Konto, dann „Zwei-Faktor-Schutz“ → „Einrichten“,
+  QR-Code scannen, Code eingeben. Danach fragt das Panel bei jeder Anmeldung nach dem Code. Das prüft auch der
+  Server: `aal_ok()` lässt Konten mit zweitem Faktor nur mit einer Sitzung der Stufe `aal2` an Daten
+  (`ist_mitglied()`, `ist_admin()`). Für Admin-Konten dringend empfohlen. Wer sein Handy verliert, dem löscht
+  ein Admin den Faktor im Supabase-Dashboard (Authentication → Users → Nutzer → MFA).
+
 ## Box-Kennung (an den Pi gebunden)
 
 Eine echte Box wird mit `scripts/box-einrichten.sh` eingerichtet (siehe [testbox-einrichten.md](testbox-einrichten.md)).
@@ -158,9 +181,8 @@ Dann `/panel/` und in einem zweiten Fenster `/player/?cloud` öffnen.
 - **Ausfall-Meldung und Push** (Schritt 2): `bildschirme.zuletzt` ist schon da. Fehlt ein Job, der
   regelmäßig nachsieht, und der Versand per E-Mail und Web-Push.
 - **Abrechnung** (Schritt 3): Stripe, erst wenn Piloten zahlen. Der Zahlungsanbieter setzt dann `abos.stufe`.
-- **E-Mails**: Bestätigungs- und Passwort-vergessen-Mails brauchen einen eigenen Mailversand (z.B. Brevo
-  oder Resend, im Free-Plan kostenlos). Bis dahin ist die E-Mail-Bestätigung aus, und ein vergessenes
-  Passwort setzt man im Supabase-Dashboard zurück.
+- **Passwort vergessen**: Die Mail-Vorlage liegt schon bereit (`supabase/templates/passwort.html`), im Panel
+  fehlt noch der Knopf. Bis dahin setzt man ein vergessenes Passwort im Supabase-Dashboard zurück.
 - **Aufräumen**: gelöschte Medien bleiben im Speicher liegen. Für die Piloten egal.
 - **Sofort statt alle 10 Sekunden**: Supabase Realtime könnte Befehle in unter einer Sekunde zustellen.
   Für den Anfang reicht das regelmäßige Nachfragen, es ist robuster.

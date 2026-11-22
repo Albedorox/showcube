@@ -184,7 +184,7 @@ enable_manual_linking = false
 minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
-password_requirements = ""
+password_requirements = "letters_digits"
 
 # Configure passkey sign-ins.
 # [auth.passkey]
@@ -249,6 +249,15 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Deutsche Mails für Bestätigung und neues Passwort (gelten lokal und auf dem Server).
+[auth.email.template.confirmation]
+subject = "Bitte bestätige deine E-Mail für ShowCube"
+content_path = "./supabase/templates/bestaetigen.html"
+
+[auth.email.template.recovery]
+subject = "Neues Passwort für ShowCube"
+content_path = "./supabase/templates/passwort.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"
@@ -308,8 +317,9 @@ max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+# Zwei-Faktor-Anmeldung mit einer Authenticator-App, im Panel unter „Konto“ einzurichten.
+enroll_enabled = true
+verify_enabled = true
 
 # Configure MFA via Phone Messaging
 [auth.mfa.phone]
@@ -429,3 +439,30 @@ enabled = true
 # weil die eingebaute JWT-Prüfung die neuen Schlüssel (sb_publishable) nicht kennt.
 [functions.vorlage-aus-bild]
 verify_jwt = false
+
+# ---------- Nur auf dem echten Projekt (Frankfurt) ----------
+# Lokal (npx supabase start, Tests) bleibt alles wie oben: keine Bestätigungsmail, kein SMTP.
+# Auf dem Server gehen Mails über das Postfach noreply@showcube.de bei Hostinger. Das Passwort steht nie hier,
+# sondern als GitHub-Secret SUPABASE_SMTP_PASSWORT. Fehlt es, nimmt .github/workflows/backend.yml den Block
+# zwischen SMTP-ANFANG und SMTP-ENDE vor dem Hochladen heraus (sonst könnte sich niemand mehr registrieren).
+# Anleitung: docs/backend.md, Abschnitt „E-Mail-Bestätigung“.
+[remotes.frankfurt]
+project_id = "imrrbyeywegpmqxuinji"
+
+# SMTP-ANFANG
+[remotes.frankfurt.auth.email]
+enable_confirmations = true
+max_frequency = "60s"
+
+[remotes.frankfurt.auth.email.smtp]
+enabled = true
+host = "smtp.hostinger.com"
+port = 465
+user = "noreply@showcube.de"
+pass = "env(SUPABASE_SMTP_PASSWORT)"
+admin_email = "noreply@showcube.de"
+sender_name = "ShowCube"
+
+[remotes.frankfurt.auth.rate_limit]
+email_sent = 30
+# SMTP-ENDE

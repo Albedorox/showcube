@@ -213,4 +213,57 @@ await check('KI (Vorlage aus Bild): nur Pro, mit Kontingent, Stufe nicht selbst 
   assert.equal(ok(await a.rpc('ki_kontingent'), 'abgelaufen').pro, false);
 });
 
+const psql = q => execSync(`docker exec supabase_db_showcube psql -U postgres -At -c "${q}"`, { encoding: 'utf8' }).trim();
+
+await check('Koppel-Code gilt höchstens eine Stunde', async () => {
+  const c = neu(); ok(await c.auth.signInAnonymously(), 'anon');
+  const i = ok(await c.rpc('box_anmelden'), 'box_anmelden');
+  const min = +psql(`select round(extract(epoch from code_bis - now()) / 60) from public.bildschirme where id = '${i.id}'`);
+  assert.ok(min > 55 && min <= 60, 'gültig für ' + min + ' Minuten');
+  // Abgelaufen: box_stand liefert keinen Code mehr, die nächste Anmeldung würfelt einen neuen.
+  psql(`update public.bildschirme set code_bis = now() - interval '1 minute' where id = '${i.id}'`);
+  const st = ok(await c.rpc('box_stand', {}), 'box_stand'); assert.equal(st.code, null);
+  const j = ok(await c.rpc('box_anmelden'), 'neu anmelden'); assert.match(j.code, /^\d{6}$/);
+});
+
+await check('Koppeln: Sperre über alle Konten gegen Durchprobieren', async () => {
+  const c = neu(); ok(await c.auth.signUp({ email: `c-${stamp}@example.com`, password: 'geheim-123' }), 'signup c');
+  psql(`insert into public.koppel_versuche (user_id) select gen_random_uuid() from generate_series(1, 100)`);
+  const r = await c.rpc('bildschirm_koppeln', { p_code: '000000', p_name: 'x', p_standort: '', p_ausrichtung: 'land', p_show_id: null });
+  assert.ok(r.error && /zu viele falsche Codes/i.test(r.error.message), 'gesperrt: ' + (r.error && r.error.message));
+  psql(`delete from public.koppel_versuche`);
+  const r2 = await c.rpc('bildschirm_koppeln', { p_code: '000000', p_name: 'x', p_standort: '', p_ausrichtung: 'land', p_show_id: null });
+  assert.match(r2.error.message, /kennen wir nicht/);
+});
+
+// Einmal-Code wie eine Authenticator-App (RFC 6238, 30 s, 6 Ziffern).
+const { createHmac } = await import('node:crypto');
+function totp(secret, t = Date.now()) {
+  const abc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = '';
+  for (const ch of secret.replace(/=+$/, '').toUpperCase()) bits += abc.indexOf(ch).toString(2).padStart(5, '0');
+  const key = Buffer.from(bits.match(/.{8}/g).map(b => parseInt(b, 2)));
+  const msg = Buffer.alloc(8); msg.writeBigUInt64BE(BigInt(Math.floor(t / 30000)));
+  const h = createHmac('sha1', key).update(msg).digest(), o = h[19] & 15;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1e6).padStart(6, '0');
+}
+
+await check('Zwei-Faktor: mit Passwort allein keine Daten, mit Code aus der App wieder alles', async () => {
+  const mail = `mfa-${stamp}@example.com`;
+  const d = neu(); ok(await d.auth.signUp({ email: mail, password: 'geheim-123', options: { data: { betrieb: 'Zwei Faktor' } } }), 'signup');
+  const f = ok(await d.auth.mfa.enroll({ factorType: 'totp' }), 'enroll');
+  ok(await d.auth.mfa.challengeAndVerify({ factorId: f.id, code: totp(f.totp.secret) }), 'verify');
+  assert.equal(ok(await d.from('betriebe').select('name'), 'nach verify').length, 1);
+  // Neue Anmeldung nur mit Passwort: Stufe aal1, die Zugriffsregeln lassen nichts durch.
+  const e = neu(); ok(await e.auth.signInWithPassword({ email: mail, password: 'geheim-123' }), 'login');
+  const aal = ok(await e.auth.mfa.getAuthenticatorAssuranceLevel(), 'aal');
+  assert.equal(aal.currentLevel, 'aal1'); assert.equal(aal.nextLevel, 'aal2');
+  assert.equal(ok(await e.from('betriebe').select('name'), 'nur Passwort').length, 0, 'ohne Code nichts lesbar');
+  const r = await e.rpc('bildschirm_koppeln', { p_code: '000000', p_name: 'x', p_standort: '', p_ausrichtung: 'land', p_show_id: null });
+  assert.ok(r.error && /Kein Betrieb/.test(r.error.message), 'ohne Code kein Koppeln');
+  ok(await e.auth.mfa.challengeAndVerify({ factorId: f.id, code: totp(f.totp.secret) }), 'verify 2');
+  assert.equal(ok(await e.from('betriebe').select('name'), 'mit Code')[0].name, 'Zwei Faktor');
+  // Konto ohne zweiten Faktor merkt nichts davon.
+  assert.equal(ok(await a.from('betriebe').select('name'), 'a').length, 1);
+});
+
 console.log(process.exitCode ? '\nFehler gefunden.' : `\nAlle ${n} Prüfungen bestanden.`);
