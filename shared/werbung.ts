@@ -61,6 +61,26 @@ export interface Bericht {
 const b64 = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64 = (s: string) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)));
 export const berichtKodieren = (b: Bericht) => b64(JSON.stringify(b));
+// Der Link kann von jedem stammen. Darum wird jedes Feld auf seinen Typ gebracht: Texte bleiben Texte,
+// Zahlen werden Zahlen, Datumsangaben müssen JJJJ-MM-TT sein und das Bild ein echtes JPEG/PNG/WebP als data:-URL.
+const TAG = /^\d{4}-\d{2}-\d{2}$/;
+const BILD = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+const text = (x: unknown) => typeof x === 'string' ? x.slice(0, 200) : '';
+const zahl = (x: unknown, min = 0) => { const n = Number(x); return Number.isFinite(n) ? Math.max(min, Math.min(n, 1e9)) : min; };
+const tag = (x: unknown) => typeof x === 'string' && TAG.test(x) ? x : undefined;
 export function berichtLesen(s: string): Bericht | null {
-  try { const b = JSON.parse(unb64(s)); return b && b.v === 1 && Array.isArray(b.tage) ? b : null; } catch (e) { return null; }
+  try {
+    const b = JSON.parse(unb64(s));
+    if (!b || b.v !== 1 || !Array.isArray(b.tage)) return null;
+    const stand = new Date(typeof b.stand === 'string' ? b.stand : NaN);
+    return {
+      v: 1, partner: text(b.partner), betrieb: text(b.betrieb), von: tag(b.von), bis: tag(b.bis),
+      takt: Math.round(zahl(b.takt, 1)), sek: zahl(b.sek, 1),
+      stand: isNaN(+stand) ? new Date(0).toISOString() : stand.toISOString(), echt: b.echt === true,
+      tage: b.tage.filter((t: unknown) => Array.isArray(t) && tag(t[0])).slice(0, 400).map((t: unknown[]) => [t[0] as string, zahl(t[1])]),
+      bildschirme: (Array.isArray(b.bildschirme) ? b.bildschirme : []).filter(Array.isArray).slice(0, 200)
+        .map((x: unknown[]) => [text(x[0]), text(x[1]), zahl(x[2])]),
+      bild: typeof b.bild === 'string' && BILD.test(b.bild) ? b.bild : undefined,
+    };
+  } catch (e) { return null; }
 }

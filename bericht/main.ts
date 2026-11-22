@@ -6,10 +6,10 @@ import { berichtLesen, type Bericht } from '../shared/werbung';
 
 const app = document.getElementById('app')!;
 const STARTSEITE = '../'; // release/bericht.html und /bericht/ liegen beide eine Ebene unter der Startseite
-const esc = (s: string) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const zahl = (n: number) => Math.round(n).toLocaleString('de-DE');
-const datum = (s: string) => { const [y, m, d] = s.split('-'); return +d + '.' + +m + '.' + y; };
-const kurz = (s: string) => { const [, m, d] = s.split('-'); return +d + '.' + +m + '.'; };
+const datum = (s: string) => { const [y, m, d] = s.split('-'); return esc(+d + '.' + +m + '.' + y); };
+const kurz = (s: string) => { const [, m, d] = s.split('-'); return esc(+d + '.' + +m + '.'); };
 function dauer(sek: number) { const h = Math.floor(sek / 3600), m = Math.round(sek % 3600 / 60); return h ? h + ' h ' + m + ' min' : m + ' min'; }
 
 function leer() {
@@ -43,10 +43,10 @@ function zeigen(b: Bericht) {
   <div><h1>${esc(b.partner)}</h1><p class="sub">Deine Anzeige auf den Bildschirmen von ${esc(b.betrieb)}.</p></div>
   ${b.echt ? '' : '<div class="demo" role="note">Beispielwerte: Diese Zahlen sind aus dem Zeitplan hochgerechnet, nicht von einer Box gezählt.</div>'}
   <section class="card top">
-    ${b.bild ? `<img src="${b.bild}" alt="So sieht deine Anzeige auf dem Bildschirm aus">` : ''}
+    ${b.bild ? `<img src="${esc(b.bild)}" alt="So sieht deine Anzeige auf dem Bildschirm aus">` : ''}
     <dl class="facts">
       <dt>Laufzeit</dt><dd>${lauf}</dd>
-      <dt>Wie oft</dt><dd>jede ${b.takt}. Folie, je ${b.sek} Sekunden</dd>
+      <dt>Wie oft</dt><dd>jede ${esc(b.takt)}. Folie, je ${esc(b.sek)} Sekunden</dd>
       <dt>Bildschirme</dt><dd>${b.bildschirme.length}</dd>
       <dt>Stand</dt><dd>${stand.toLocaleDateString('de-DE')}, ${stand.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</dd>
     </dl>
@@ -88,7 +88,7 @@ function zeigen(b: Bericht) {
   }
   document.getElementById('csv')!.onclick = () => {
     const rows = [['Partner', 'Betrieb', 'Tag', 'Einblendungen'], ...b.tage.map(t => [b.partner, b.betrieb, datum(t[0]), String(t[1])])];
-    const csv = rows.map(r => r.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    const csv = rows.map(r => r.map(x => '"' + String(x).replace(/^[=+\-@\t\r]/, "'$&").replace(/"/g, '""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = 'werbebericht-' + b.partner.toLowerCase().replace(/[^a-z0-9äöüß]+/g, '-') + '.csv';
     document.body.append(a); a.click(); a.remove();
   };
