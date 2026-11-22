@@ -149,3 +149,101 @@ test.describe('Panel auf dem Handy', () => {
     await expect(page.getByLabel('Preis, Zeile 2')).toBeVisible();
   });
 });
+
+// ---------- Konto: Bestätigungsmail und Zwei-Faktor ----------
+// Supabase wird hier nachgestellt (page.route), das echte Backend bleibt aus dem Spiel.
+// Was der Server dabei wirklich prüft (aal2, Sperren), testet scripts/backend-test.mjs gegen einen lokalen Supabase.
+const SUPA = 'https://imrrbyeywegpmqxuinji.supabase.co';
+const b64u = (o: object) => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function nachgestellt(page: Page, { mfa = false } = {}) {
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  const faktor = { id: 'f-1', factor_type: 'totp', status: 'verified', friendly_name: 'ShowCube' };
+  const user = { id: 'u-1', aud: 'authenticated', role: 'authenticated', email: 'pia@example.com', factors: mfa ? [faktor] : [], app_metadata: {}, user_metadata: {}, created_at: '2026-11-01T00:00:00Z' };
+  const jwt = (aal: string) => b64u({ alg: 'HS256', typ: 'JWT' }) + '.' + b64u({ sub: 'u-1', role: 'authenticated', aal, amr: [{ method: 'password', timestamp: exp - 3600 }], exp, session_id: 's-1' }) + '.sig';
+  const sitzung = (aal: string) => ({ access_token: jwt(aal), token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + aal, user });
+  const log: string[] = [];
+  const json = (route: any, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+  return page.route(SUPA + '/**', route => {
+    const u = new URL(route.request().url()), m = route.request().method(); log.push(m + ' ' + u.pathname);
+    if (u.pathname === '/auth/v1/signup') return json(route, { ...user, factors: [], identities: [{}] });
+    if (u.pathname === '/auth/v1/token') return json(route, sitzung('aal1'));
+    if (u.pathname === '/auth/v1/user') return json(route, user);
+    if (u.pathname === '/auth/v1/factors/f-1/challenge') return json(route, { id: 'c-1', type: 'totp', expires_at: exp });
+    if (u.pathname === '/auth/v1/factors/f-1/verify') {
+      const code = JSON.parse(route.request().postData() || '{}').code;
+      return code === '246810' ? json(route, sitzung('aal2')) : json(route, { code: 'mfa_verification_failed', msg: 'Invalid TOTP code entered' }, 422);
+    }
+    if (u.pathname === '/rest/v1/rpc/mein_betrieb') return json(route, 'b-1');
+    if (u.pathname === '/rest/v1/rpc/ist_admin') return json(route, false);
+    if (u.pathname === '/rest/v1/betriebe' && m === 'GET') return json(route, { name: 'Café Pia', hinweis: null, einstellungen: {} });
+    if (u.pathname.startsWith('/auth/v1/logout')) return route.fulfill({ status: 204 });
+    return json(route, m === 'GET' ? [] : [], m === 'GET' ? 200 : 201);
+  }).then(() => log);
+}
+
+test.describe('Panel: Konto und Zwei-Faktor', () => {
+  test('neues Konto: Hinweis auf die Bestätigungsmail statt sofort angemeldet', async ({ page }) => {
+    await nachgestellt(page);
+    await page.goto('release/panel.html');
+    await page.getByRole('button', { name: 'Konto anlegen' }).first().click();
+    await page.getByLabel('Name des Betriebs').fill('Café Pia');
+    await page.getByLabel('E-Mail').fill('pia@example.com');
+    await page.getByLabel('Passwort').fill('kaffee-2026');
+    await expect(page.getByText('Mindestens 8 Zeichen, mit Buchstaben und Ziffern.')).toBeVisible();
+    await page.locator('#loginForm').getByRole('button', { name: 'Konto anlegen' }).click();
+    await expect(page.getByRole('heading', { name: 'Fast geschafft' })).toBeVisible();
+    await expect(page.locator('#loginForm')).toContainText('Wir haben dir eine E-Mail an pia@example.com geschickt.');
+    await page.getByRole('button', { name: 'Zur Anmeldung' }).click();
+    await expect(page.getByRole('heading', { name: 'Anmelden' })).toBeVisible();
+  });
+
+  test('zurück aus der Bestätigungsmail: Hinweis, und die Schlüssel verschwinden aus der Adresse', async ({ page }) => {
+    await nachgestellt(page);
+    await page.goto('release/panel.html?bestaetigt#access_token=abc&refresh_token=def&type=signup');
+    await expect(page.getByRole('status').filter({ hasText: 'Deine E-Mail ist bestätigt.' })).toBeVisible();
+    await expect(page).not.toHaveURL(/access_token|bestaetigt/);
+    await page.goto('release/panel.html?bestaetigt#error=access_denied&error_description=Email+link+is+invalid+or+has+expired');
+    await expect(page.getByText('Der Bestätigungslink ist abgelaufen oder wurde schon benutzt.')).toBeVisible();
+  });
+
+  test('Anmelden mit Zwei-Faktor fragt nach dem Code aus der App', async ({ page }) => {
+    const log = await nachgestellt(page, { mfa: true });
+    await page.goto('release/panel.html');
+    await page.getByRole('button', { name: 'Anmelden' }).first().click();
+    await page.getByLabel('E-Mail').fill('pia@example.com');
+    await page.getByLabel('Passwort').fill('kaffee-2026');
+    await page.locator('#loginForm').getByRole('button', { name: 'Anmelden' }).click();
+    await expect(page.getByRole('heading', { name: 'Code aus der App' })).toBeVisible();
+    expect(log.some(l => l.includes('/rest/v1/')), 'ohne Code keine Daten abgefragt').toBe(false);
+    await page.getByRole('textbox', { name: 'Code' }).fill('111 111');
+    await page.getByRole('button', { name: 'Bestätigen' }).click();
+    await expect(page.getByText('Der Code stimmt nicht.')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Code' }).fill('246 810');
+    await page.getByRole('button', { name: 'Bestätigen' }).click();
+    await expect(page.locator('#toast')).toContainText('Angemeldet.');
+    // Im Konto steht, dass der Schutz an ist.
+    await page.locator('#konto').click();
+    await expect(page.getByRole('heading', { name: 'Konto' })).toBeVisible();
+    await expect(page.getByText('Ist an. Beim Anmelden fragt ShowCube nach dem Code')).toBeVisible();
+    await expect(page.locator('#loginForm').getByRole('button', { name: 'Abmelden' })).toBeVisible();
+  });
+
+  test('Konto ohne Zwei-Faktor: Einrichten zeigt QR-Code und Schlüssel', async ({ page }) => {
+    await nachgestellt(page);
+    await page.route(SUPA + '/auth/v1/factors', r => r.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ id: 'f-1', type: 'totp', friendly_name: 'ShowCube', totp: { qr_code: 'data:image/svg+xml;utf-8,<svg xmlns="http://www.w3.org/2000/svg"/>', secret: 'JBSWY3DPEHPK3PXP', uri: 'otpauth://totp/ShowCube' } }) }));
+    await page.goto('release/panel.html');
+    await page.getByRole('button', { name: 'Anmelden' }).first().click();
+    await page.getByLabel('E-Mail').fill('pia@example.com');
+    await page.getByLabel('Passwort').fill('kaffee-2026');
+    await page.locator('#loginForm').getByRole('button', { name: 'Anmelden' }).click();
+    await expect(page.locator('#toast')).toContainText('Angemeldet.');
+    await page.locator('#konto').click();
+    await page.getByRole('button', { name: 'Einrichten' }).click();
+    await expect(page.getByRole('img', { name: 'QR-Code für die Authenticator-App' })).toBeVisible();
+    await expect(page.getByText('JBSWY3DPEHPK3PXP')).toBeVisible();
+    await page.getByLabel('2. Code aus der App').fill('246810');
+    await page.getByRole('button', { name: 'Einschalten' }).click();
+    await expect(page.locator('#toast')).toContainText('Zwei-Faktor-Schutz ist an.');
+  });
+});

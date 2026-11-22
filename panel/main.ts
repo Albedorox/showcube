@@ -1375,6 +1375,7 @@ async function cloudBeimStart() {
   const { data } = await sb.auth.getSession();
   const u = data.session && data.session.user;
   if (!u || u.is_anonymous) return;
+  if (await codeNoetig()) { openCode(u.email); return; }
   try { await cloudStart(u.email); } catch (e) { toast('Anmeldung: ' + fehlerText(e)); }
 }
 async function cloudStart(email: string) {
@@ -1539,14 +1540,15 @@ async function cloudEntfernen(sc: Screen) {
 }
 
 // Anmelden und Konto anlegen
-function openLogin(neu = false) {
+function openLogin(neu = false, hinweis = '') {
   const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' });
   fill($('loginForm'),
     h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, neu ? 'Konto anlegen' : 'Anmelden'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
+    hinweis ? h('p', { class: 'hinweis-ok', role: 'status' }, hinweis) : null,
     h('p', { class: 'small' }, neu ? 'Mit einem Konto liegen Slideshows und Bildschirme auf dem ShowCube-Server, und echte Boxen lassen sich koppeln.' : 'Mit deinem ShowCube-Konto. Danach siehst du deine echten Bildschirme.'),
     neu ? h('div', null, h('label', { for: 'lBetrieb' }, 'Name des Betriebs'), h('input', { type: 'text', id: 'lBetrieb', autocomplete: 'organization', placeholder: 'z. B. Pizzeria Da Marco' })) : null,
     h('div', null, h('label', { for: 'lMail' }, 'E-Mail'), h('input', { type: 'email', id: 'lMail', autocomplete: 'email', required: true })),
-    h('div', null, h('label', { for: 'lPass' }, 'Passwort'), h('input', { type: 'password', id: 'lPass', autocomplete: neu ? 'new-password' : 'current-password', minlength: '8', required: true }), neu ? h('span', { class: 'small' }, 'Mindestens 8 Zeichen.') : null),
+    h('div', null, h('label', { for: 'lPass' }, 'Passwort'), h('input', { type: 'password', id: 'lPass', autocomplete: neu ? 'new-password' : 'current-password', minlength: '8', required: true }), neu ? h('span', { class: 'small' }, 'Mindestens 8 Zeichen, mit Buchstaben und Ziffern.') : null),
     err,
     h('button', { class: 'btn primary lg', value: 'ok' }, neu ? 'Konto anlegen' : 'Anmelden'),
     h('button', { class: 'btn ghost sm', type: 'button', onclick: () => openLogin(!neu) }, neu ? 'Ich habe schon ein Konto' : 'Neu hier? Konto anlegen'),
@@ -1556,15 +1558,107 @@ function openLogin(neu = false) {
     e.preventDefault();
     const email = $('lMail').value.trim(), password = $('lPass').value, btn = e.submitter as HTMLButtonElement;
     btn.disabled = true; err.textContent = '';
-    const r = neu ? await sb.auth.signUp({ email, password, options: { data: { betrieb: $('lBetrieb').value.trim() } } }) : await sb.auth.signInWithPassword({ email, password });
+    // Der Bestätigungslink aus der Mail führt zurück auf genau diese Seite.
+    const r = neu ? await sb.auth.signUp({ email, password, options: { data: { betrieb: $('lBetrieb').value.trim() }, emailRedirectTo: location.origin + location.pathname + '?bestaetigt' } }) : await sb.auth.signInWithPassword({ email, password });
     btn.disabled = false;
-    if (r.error) { err.textContent = /Invalid login/i.test(r.error.message) ? 'E-Mail oder Passwort stimmt nicht.' : /already registered/i.test(r.error.message) ? 'Zu dieser E-Mail gibt es schon ein Konto.' : fehlerText(r.error); return; }
-    if (!r.data.session) { err.textContent = 'Fast geschafft: Bitte den Link in der E-Mail bestätigen und dann anmelden.'; return; }
-    try { await cloudStart(email); } catch (x) { err.textContent = fehlerText(x); return; }
-    $('dlgLogin').close(); cur = null; paintModus(); go('screens'); render();
-    toast(neu ? 'Konto angelegt. Die drei Schritte unter „Bildschirme“ zeigen, wie es weitergeht.' : 'Angemeldet.');
+    if (r.error) { err.textContent = anmeldeFehler(r.error); return; }
+    if (!r.data.session) { fill($('loginForm'), h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, 'Fast geschafft'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
+      h('p', null, 'Wir haben dir eine E-Mail an ', h('b', null, email), ' geschickt. Bitte klicke dort auf „E-Mail bestätigen“ und melde dich danach hier an.'),
+      h('p', { class: 'small' }, 'Keine Mail da? Schau auch im Spam-Ordner nach.'),
+      h('button', { class: 'btn primary', type: 'button', onclick: () => openLogin() }, 'Zur Anmeldung')); return; }
+    if (!neu && await codeNoetig()) { openCode(email); return; }
+    await angemeldet(email, neu, err);
   };
   if (!$('dlgLogin').open) $('dlgLogin').showModal(); (neu ? $('lBetrieb') : $('lMail')).focus();
+}
+const anmeldeFehler = (e: any) => { const m = (e && e.message) || ''; return /Invalid login/i.test(m) ? 'E-Mail oder Passwort stimmt nicht.' : /already registered/i.test(m) ? 'Zu dieser E-Mail gibt es schon ein Konto.'
+  : /not confirmed/i.test(m) ? 'Bitte zuerst den Link in der Bestätigungsmail anklicken.' : e && e.code === 'weak_password' || /Password should/i.test(m) ? 'Das Passwort ist zu schwach: mindestens 8 Zeichen, mit Buchstaben und Ziffern.'
+  : /rate limit|too many/i.test(m) ? 'Zu viele Versuche. Bitte in ein paar Minuten nochmal.' : fehlerText(e); };
+async function angemeldet(email: string, neu: boolean, err: HTMLElement) {
+  try { await cloudStart(email); } catch (x) { err.textContent = fehlerText(x); return; }
+  $('dlgLogin').close(); cur = null; paintModus(); go('screens'); render();
+  toast(neu ? 'Konto angelegt. Die drei Schritte unter „Bildschirme“ zeigen, wie es weitergeht.' : 'Angemeldet.');
+}
+
+// ---------- Zwei-Faktor-Anmeldung (Authenticator-App) ----------
+// Hat das Konto einen zweiten Faktor, reicht das Passwort nicht: Erst mit dem Code aus der App (Stufe aal2)
+// lassen die Zugriffsregeln auf dem Server Daten durch (Migration 20261122140000_sicherheit.sql).
+async function codeNoetig() {
+  const r = await sb.auth.mfa.getAuthenticatorAssuranceLevel().catch(() => null);
+  return !!(r && r.data && r.data.nextLevel === 'aal2' && r.data.currentLevel !== 'aal2');
+}
+const codeFeld = (id: string) => h('input', { type: 'text', id, inputmode: 'numeric', autocomplete: 'one-time-code', pattern: '[0-9 ]{6,7}', maxlength: '7', required: true, placeholder: '123 456' });
+function openCode(email: string) {
+  const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' });
+  fill($('loginForm'),
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, 'Code aus der App'), h('button', { class: 'btn icon ghost', type: 'button', onclick: async (e: any) => { e.currentTarget.closest('dialog').close(); await sb.auth.signOut().catch(() => {}); } , 'aria-label': 'Schließen' }, icon('x'))),
+    h('p', { class: 'small' }, 'Dein Konto ist mit Zwei-Faktor geschützt. Gib den 6-stelligen Code aus deiner Authenticator-App ein.'),
+    h('div', null, h('label', { for: 'lCode' }, 'Code'), codeFeld('lCode')),
+    err,
+    h('button', { class: 'btn primary lg', value: 'ok' }, 'Bestätigen'),
+    h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await sb.auth.signOut().catch(() => {}); openLogin(); } }, 'Mit anderem Konto anmelden'));
+  $('loginForm').onsubmit = async (e: SubmitEvent) => {
+    if ((e.submitter as any)?.value !== 'ok') return;
+    e.preventDefault();
+    const btn = e.submitter as HTMLButtonElement; btn.disabled = true; err.textContent = '';
+    const f = await sb.auth.mfa.listFactors();
+    const faktor = f.data && f.data.totp.find((x: any) => x.status === 'verified');
+    const r = faktor ? await sb.auth.mfa.challengeAndVerify({ factorId: faktor.id, code: $('lCode').value.replace(/\D/g, '') }) : { error: f.error || new Error('Kein zweiter Faktor gefunden.') };
+    btn.disabled = false;
+    if (r.error) { err.textContent = /invalid|code/i.test(r.error.message) ? 'Der Code stimmt nicht. Nimm den aktuellen Code aus der App.' : fehlerText(r.error); $('lCode').select(); return; }
+    await angemeldet(email, false, err);
+  };
+  if (!$('dlgLogin').open) $('dlgLogin').showModal(); $('lCode').focus();
+}
+
+// Konto: angemeldet als, Zwei-Faktor ein- oder ausschalten, Abmelden. Admins wechseln von hier den Betrieb.
+async function openKonto() {
+  const bereich = h('div', { class: 'targets' }, h('span', { class: 'small' }, 'Lade …'));
+  fill($('loginForm'),
+    h('div', { class: 'dlg-h' }, h('h2', { id: 'dlTitle' }, 'Konto'), h('button', { class: 'btn icon ghost', type: 'button', onclick: (e: any) => e.currentTarget.closest('dialog').close(), 'aria-label': 'Schließen' }, icon('x'))),
+    h('p', { class: 'small', style: 'overflow-wrap:anywhere' }, 'Angemeldet als ', h('b', null, konto!.email)),
+    h('h3', null, 'Zwei-Faktor-Schutz'), bereich,
+    h('div', { class: 'row', style: 'justify-content:space-between' },
+      konto!.admin ? h('button', { class: 'btn sm', type: 'button', onclick: openBetriebe }, 'Betrieb wechseln') : h('span'),
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: abmelden }, 'Abmelden')));
+  $('loginForm').onsubmit = (e: SubmitEvent) => e.preventDefault();
+  if (!$('dlgLogin').open) $('dlgLogin').showModal();
+  const f = await sb.auth.mfa.listFactors();
+  if (f.error) { fill(bereich, h('span', { class: 'small' }, fehlerText(f.error))); return; }
+  const an = f.data.totp.find((x: any) => x.status === 'verified');
+  if (an) fill(bereich,
+    h('p', { class: 'hinweis-ok' }, 'Ist an. Beim Anmelden fragt ShowCube nach dem Code aus deiner Authenticator-App.'),
+    h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => {
+      if (!confirm('Zwei-Faktor-Schutz wirklich ausschalten? Dann reicht wieder das Passwort.')) return;
+      const r = await sb.auth.mfa.unenroll({ factorId: an.id });
+      if (r.error) { toast('Ausschalten ging nicht: ' + fehlerText(r.error)); return; }
+      await sb.auth.refreshSession().catch(() => {}); toast('Zwei-Faktor-Schutz ist aus.'); openKonto();
+    } }, 'Ausschalten'));
+  else fill(bereich,
+    h('p', { class: 'small' }, 'Schützt dein Konto, auch wenn jemand dein Passwort kennt. Du brauchst eine Authenticator-App, z. B. Google Authenticator, Microsoft Authenticator oder die Passwörter-App auf dem iPhone.'),
+    h('button', { class: 'btn primary sm', type: 'button', onclick: () => mfaEinrichten(bereich) }, 'Einrichten'));
+}
+async function mfaEinrichten(bereich: HTMLElement) {
+  // Halb eingerichtete Faktoren von einem früheren Versuch zuerst wegräumen.
+  const alt = await sb.auth.mfa.listFactors();
+  for (const x of (alt.data ? alt.data.all : []) as any[]) if (x.factor_type === 'totp' && x.status !== 'verified') await sb.auth.mfa.unenroll({ factorId: x.id });
+  const r = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'ShowCube ' + new Date().toISOString().slice(0, 10) });
+  if (r.error) { fill(bereich, h('span', { class: 'small', style: 'color:var(--bad)' }, fehlerText(r.error))); return; }
+  const err = h('span', { class: 'small', style: 'color:var(--bad)', role: 'alert' });
+  fill(bereich,
+    h('p', { class: 'small' }, '1. Scanne den QR-Code mit deiner Authenticator-App.'),
+    h('img', { class: 'mfa-qr', src: r.data.totp.qr_code, alt: 'QR-Code für die Authenticator-App', width: '180', height: '180' }),
+    h('p', { class: 'small', style: 'overflow-wrap:anywhere' }, 'Oder gib diesen Schlüssel von Hand ein: ', h('code', null, r.data.totp.secret)),
+    h('div', null, h('label', { for: 'mfaCode' }, '2. Code aus der App'), codeFeld('mfaCode')),
+    err,
+    h('button', { class: 'btn primary sm', type: 'button', onclick: async (e: any) => {
+      const btn = e.currentTarget; btn.disabled = true; err.textContent = '';
+      const v = await sb.auth.mfa.challengeAndVerify({ factorId: r.data.id, code: $('mfaCode').value.replace(/\D/g, '') });
+      btn.disabled = false;
+      if (v.error) { err.textContent = 'Der Code stimmt nicht. Nimm den aktuellen Code aus der App.'; return; }
+      toast('Zwei-Faktor-Schutz ist an.'); openKonto();
+    } }, 'Einschalten'));
+  $('mfaCode').focus();
 }
 async function abmelden() {
   await sync();
@@ -1621,7 +1715,7 @@ function paintKonto() {
     ? [konto.admin ? ['Admin · ', h('b', null, konto.name || 'Betrieb'), ' ', h('button', { onclick: openBetriebe }, 'wechseln'), h('br')] : null, st + ' ', h('button', { onclick: abmelden }, 'Abmelden')]
     : ['Demo. Nichts wird gespeichert. ', h('button', { onclick: resetDemo }, 'Zurücksetzen'), ' · ', h('button', { onclick: demoEnde }, 'Beenden')]);
 }
-if (sb) { $('konto').onclick = () => !konto ? openLogin() : konto.admin ? openBetriebe() : abmelden(); $('dlgLogin').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgLogin')) $('dlgLogin').close(); }); }
+if (sb) { $('konto').onclick = () => !konto ? openLogin() : openKonto(); $('dlgLogin').addEventListener('click', (e: MouseEvent) => { if (e.target === $('dlgLogin')) $('dlgLogin').close(); }); }
 
 // ---------- Start ----------
 let liveKey = '';
@@ -1680,5 +1774,17 @@ function demoLink() {
   demoStart();
 }
 
-const start = async () => { await openDB(); await loadAll(); if (sb) await cloudBeimStart(); sweepBlobs(); paintModus(); route(); requestAnimationFrame(frame); demoLink(); markeUebergabe(); shortcut(); paintKonto(); };
+// Zurück aus der Bestätigungsmail: panel.html?bestaetigt (Supabase hängt Schlüssel oder einen Fehler hinter # an).
+// Die Anmeldung passiert danach ganz normal mit Passwort, darum fliegt alles hinter # sofort aus der Adresse.
+let bestaetigt = '';
+{
+  const q = new URLSearchParams(location.search), hs = new URLSearchParams(location.hash.slice(1));
+  if (q.has('bestaetigt') || hs.has('access_token') || hs.has('error_description')) {
+    bestaetigt = hs.has('error_description') ? 'Der Bestätigungslink ist abgelaufen oder wurde schon benutzt. Melde dich an oder lege das Konto neu an.' : 'Deine E-Mail ist bestätigt. Melde dich jetzt mit deinem Passwort an.';
+    history.replaceState(null, '', location.pathname);
+  }
+}
+function bestaetigtHinweis() { if (bestaetigt && sb && !konto) openLogin(false, bestaetigt); }
+
+const start = async () => { await openDB(); await loadAll(); if (sb) await cloudBeimStart(); sweepBlobs(); paintModus(); route(); requestAnimationFrame(frame); demoLink(); markeUebergabe(); shortcut(); paintKonto(); bestaetigtHinweis(); };
 fontsReady().then(start, start);

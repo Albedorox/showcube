@@ -27,6 +27,11 @@ test.describe('Website für Hostinger', () => {
     expect(htaccess).toContain('RewriteRule ^stage(/|$) - [R=404,L]');
     expect(htaccess, 'keine eigene HTTPS-Umleitung (Schleife hinter dem CDN)').not.toContain('%{HTTPS}');
     expect(htaccess).not.toContain('noindex');
+    // Sicherheits-Header: nicht in fremde Seiten einbetten, nur HTTPS, kein Kamera- oder Ortszugriff.
+    expect(htaccess).toContain(`frame-ancestors 'self'`);
+    expect(htaccess).toContain('X-Frame-Options "SAMEORIGIN"');
+    expect(htaccess).toContain('Strict-Transport-Security "max-age=31536000"');
+    expect(htaccess).toContain('X-Content-Type-Options "nosniff"');
     const index = await w.lesen('index.html');
     expect(index).toBe(await w.original('index.html'));
     expect(index).toContain('<link rel="canonical" href="https://showcube.de/">');

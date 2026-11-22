@@ -71,6 +71,25 @@ test.describe('Partner-Slots', () => {
     await expect(page.getByText('Dieser Bericht-Link ist unvollständig.')).toBeVisible();
   });
 
+  test('gefälschter Bericht-Link mit Schadcode führt nichts aus', async ({ page }) => {
+    // Den Link kann jeder bauen. Nichts davon darf als HTML oder Skript auf showcube.de landen.
+    const boese = '<img src=x onerror="window.__xss=1">';
+    const roh = {
+      v: 1, partner: boese, betrieb: 'Café <b>Test</b>', von: '2026-11-01', bis: boese, takt: boese, sek: '"><svg onload="window.__xss=1">',
+      stand: '2026-11-18T12:00:00Z', echt: false, tage: [['2026-11-02', 5], [boese, 1]], bildschirme: [[boese, 'Theke', 5]],
+      bild: 'x" onerror="window.__xss=1',
+    };
+    const link = btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(roh)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    page.on('dialog', d => d.dismiss());
+    await page.goto('release/bericht.html#' + link);
+    await expect(page.getByRole('heading', { name: boese, level: 1 })).toBeVisible();
+    await expect(page.getByText('Deine Anzeige auf den Bildschirmen von Café <b>Test</b>.')).toBeVisible();
+    await expect(page.locator('#app img, #app [onload], #app [onerror]')).toHaveCount(0);
+    await page.getByText('Als Tabelle').click();
+    await expect(page.locator('details tbody tr')).toHaveCount(1);
+    expect(await page.evaluate(() => (window as any).__xss)).toBeUndefined();
+  });
+
   test('Live-Player mischt die Partner-Anzeige zwischen die Folien', async ({ page, context }) => {
     await partnerAn(page);
     await bereich(page, 'Bildschirme').click();

@@ -48,7 +48,7 @@ Welcher Stand gerade online ist, steht in https://showcube.de/version.txt und ht
   `release/` und das Favicon `pwa/icon.svg`. Für showcube.de mit `"bald"` kommt `bald/index.html` als Startseite
   hinein und die Sitemap fällt weg. Impressum, Datenschutz und Kontaktformular (`kontakt.php`, braucht PHP) sind
   in beiden Umgebungen dabei, siehe [kontaktformular.md](kontaktformular.md). Quellcode, `tests/`, `docs/`, `supabase/` und die Gehäuse-Dateien
-  in `hardware/` kommen **nicht** mit. Dazu kommen `.htaccess` (Zwischenspeicher, Dateitypen, www → ohne www),
+  in `hardware/` kommen **nicht** mit. Dazu kommen `.htaccess` (Zwischenspeicher, Dateitypen, www → ohne www, Sicherheits-Header: nicht in fremde Seiten einbettbar, nur HTTPS, kein Kamera- oder Ortszugriff),
   `robots.txt` und `version.txt` mit dem Commit.
 - `scripts/veroeffentlichen.sh` legt diesen Ordner als neuen Commit auf den Branch **`website-stage`** bzw.
   **`website-prod`**. Auf diesen Branches liegt nur die fertige Website. Nicht von Hand ändern.

@@ -43,6 +43,11 @@ Der Teil nach `#` geht an keinen Server. Deshalb braucht der Bericht kein Login 
 von dem Moment, in dem der Link erstellt wurde. Für neuere Zahlen schickt der Laden einen neuen Link. Mit Vorschaubild
 ist der Link etwa 10 bis 12 KB lang. Mail und WhatsApp kommen damit klar.
 
+Weil jeder so einen Link selbst bauen kann, prüft `berichtLesen()` jedes Feld: Texte bleiben reiner Text, Zahlen
+werden Zahlen, Tage müssen `JJJJ-MM-TT` sein und das Vorschaubild ein JPEG, PNG oder WebP als `data:`-URL. Alles
+andere fällt weg, so kann ein gefälschter Link keinen Code auf showcube.de ausführen. Die Zahlen selbst sind nicht
+unterschrieben, ein Link beweist also nicht, dass sie von ShowCube stammen (siehe Ausblick „Bericht live“).
+
 In der Demo steht im Bericht deutlich „Beispielwerte“. „Von den Boxen gezählt“ steht nur mit Konto und nur, wenn
 jede Box ihre Zahlen selbst gemeldet hat.
 
