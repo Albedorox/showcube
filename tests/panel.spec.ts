@@ -247,3 +247,34 @@ test.describe('Panel: Konto und Zwei-Faktor', () => {
     await expect(page.locator('#toast')).toContainText('Zwei-Faktor-Schutz ist an.');
   });
 });
+
+test.describe('Panel: Anmeldung sieht ordentlich aus', () => {
+  test('E-Mail- und Passwortfeld sind so breit wie der Knopf', async ({ page }) => {
+    await page.goto('release/panel.html');
+    await page.getByRole('button', { name: 'Anmelden' }).first().click();
+    // Das Fenster blendet sich animiert ein, darum Lage und Breite immer im selben Moment vergleichen.
+    const abweichung = () => page.evaluate(() => {
+      const k = document.querySelector('#loginForm button[value=ok]')!.getBoundingClientRect();
+      return ['#lMail', '#lPass'].map(id => { const r = document.querySelector(id)!.getBoundingClientRect(); return Math.round(Math.max(Math.abs(r.left - k.left), Math.abs(r.width - k.width))); });
+    });
+    await expect.poll(abweichung, { message: 'Felder links bündig und so breit wie der Knopf' }).toEqual([0, 0]);
+  });
+
+  for (const vorlage of ['bestaetigen', 'passwort']) {
+    test(`Mail „${vorlage}“ bleibt im Dunkelmodus des Mailprogramms lesbar`, async ({ page }) => {
+      // Mailprogramme im Dunkelmodus färben oft nur die Seite dunkel. Darum muss jeder Text auf einer eigenen hellen Fläche stehen.
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await page.goto(`supabase/templates/${vorlage}.html`);
+      await page.evaluate(() => { document.body.style.background = '#111'; });
+      const schlecht = await page.evaluate(() => {
+        const lum = (c: string) => { const [r, g, b] = (c.match(/\d+(\.\d+)?/g) || []).map(Number); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; };
+        const flaeche = (el: Element | null): string => { for (; el; el = el.parentElement) { const bg = getComputedStyle(el).backgroundColor; if (!/rgba\(.*, 0\)|transparent/.test(bg) && el !== document.body) return bg; } return 'rgb(17, 17, 17)'; };
+        return Array.from(document.querySelectorAll('p, a')).filter(el => el.textContent!.trim())
+          .map(el => ({ text: el.textContent!.trim().slice(0, 30), farbe: lum(getComputedStyle(el).color), grund: lum(flaeche(el)) }))
+          .filter(x => Math.abs(x.farbe - x.grund) < 0.4);
+      });
+      expect(schlecht, 'Text mit zu wenig Kontrast').toEqual([]);
+      await expect(page.getByRole('link', { name: /bestätigen|festlegen/ })).toHaveAttribute('href', '{{ .ConfirmationURL }}');
+    });
+  }
+});
