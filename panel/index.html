@@ -142,7 +142,7 @@ body.gate .app, body.gate .tabbar, body.gate .pubbar { display: none !important;
 .dot.dark { background: var(--warn); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ok) 0%, transparent); } }
 label, .label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
-input[type=text], input[type=time], input[type=number], input[type=date], input[type=url], input[type=datetime-local], select, textarea { width: 100%; height: 38px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--surface); transition: border-color .15s, box-shadow .15s; }
+input[type=text], input[type=email], input[type=password], input[type=time], input[type=number], input[type=date], input[type=url], input[type=datetime-local], select, textarea { width: 100%; height: 38px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--surface); transition: border-color .15s, box-shadow .15s; }
 input:hover, select:hover { border-color: var(--faint); }
 input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .check { display: flex; gap: 9px; align-items: center; font-weight: 500; margin: 0; cursor: pointer; }
@@ -419,7 +419,7 @@ dialog.cmd { border-radius: 16px; width: min(560px, calc(100vw - 28px)); margin-
   .rw .num { display: none; }
   .rw .cells { grid-template-columns: var(--cols-m) !important; }
   .rw .acts { opacity: 1; display: grid; grid-template-columns: 32px 32px; }
-  input[type=text], input[type=time], input[type=number], select { height: 42px; font-size: 16px; }
+  input[type=text], input[type=email], input[type=password], input[type=time], input[type=number], select { height: 42px; font-size: 16px; }
   .brandrow { grid-template-columns: 1fr; }
   dialog.sheet { width: 100vw; border-left: 0; }
   dialog.modal { margin-bottom: 0; width: 100vw; max-width: 100vw; border-radius: 18px 18px 0 0; }

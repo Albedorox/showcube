@@ -1,6 +1,26 @@
-<div style="font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:#1d2b28;max-width:560px">
-  <p style="font-weight:700;font-size:20px;margin:0 0 12px">Neues Passwort für ShowCube</p>
-  <p>Mit diesem Knopf legst du ein neues Passwort fest. Der Link gilt eine Stunde.</p>
-  <p style="margin:24px 0"><a href="{{ .ConfirmationURL }}" style="background:#0b7a67;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600">Neues Passwort festlegen</a></p>
-  <p style="color:#5b6b67;font-size:14px">Du hast kein neues Passwort angefordert? Dann bleibt alles, wie es ist, und du kannst diese Mail löschen.</p>
-</div>
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Helle Karte mit fester Hintergrundfarbe: Mailprogramme im Dunkelmodus färben sonst nur den Hintergrund um, und der dunkle Text wird unlesbar. -->
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
+<style>:root { color-scheme: light only; }</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f6f5f1">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f6f5f1" style="background-color:#f6f5f1">
+<tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="max-width:560px;background-color:#ffffff;border-radius:14px">
+<tr><td style="padding:28px 28px 20px;font:16px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#1d2b28;background-color:#ffffff">
+<p style="margin:0 0 14px;font-size:21px;font-weight:700;color:#1d2b28;background-color:#ffffff">Neues Passwort für ShowCube</p>
+<p style="margin:0 0 16px;color:#1d2b28;background-color:#ffffff">Mit diesem Knopf legst du ein neues Passwort fest. Der Link gilt eine Stunde.</p><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 22px"><tr><td bgcolor="#0b7a67" style="border-radius:10px;background-color:#0b7a67">
+<a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 22px;color:#ffffff;font-weight:600;text-decoration:none">Neues Passwort festlegen</a>
+</td></tr></table>
+<p style="margin:0;font-size:14px;color:#4f5f5b;background-color:#ffffff">Du hast kein neues Passwort angefordert? Dann bleibt alles, wie es ist, und du kannst diese Mail löschen.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
