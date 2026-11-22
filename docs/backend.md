@@ -82,9 +82,10 @@ Sperren: 10 falsche Codes pro Konto und Stunde, und 100 falsche Codes in 10 Minu
 
 - **E-Mail-Bestätigung:** Ein neues Konto bekommt eine Mail mit „E-Mail bestätigen“ (Vorlage
   `supabase/templates/bestaetigen.html`). Der Link führt zurück ins Panel (`panel.html?bestaetigt`), dort meldet
-  man sich mit dem Passwort an. Die Mails gehen über das Hostinger-Postfach **noreply@showcube.de** raus.
+  man sich mit dem Passwort an. Die Mails gehen über das Hostinger-Postfach **info@showcube.de** raus (im Hostinger-Tarif sind nur zwei Postfächer
+  dabei, hallo@ bleibt für Kundenanfragen).
   Einmalig einrichten:
-  1. In hPanel unter **E-Mails** das Postfach `noreply@showcube.de` anlegen und ein langes Passwort vergeben.
+  1. Das Passwort von `info@showcube.de` bereithalten (in hPanel unter **E-Mails** lässt es sich neu setzen).
   2. Auf GitHub unter **Settings → Secrets and variables → Actions → New repository secret** das Secret
      `SUPABASE_SMTP_PASSWORT` mit diesem Passwort anlegen.
   3. Workflow **Backend** einmal von Hand starten (Actions → Backend → Run workflow).

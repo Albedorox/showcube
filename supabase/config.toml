@@ -442,7 +442,7 @@ verify_jwt = false
 
 # ---------- Nur auf dem echten Projekt (Frankfurt) ----------
 # Lokal (npx supabase start, Tests) bleibt alles wie oben: keine Bestätigungsmail, kein SMTP.
-# Auf dem Server gehen Mails über das Postfach noreply@showcube.de bei Hostinger. Das Passwort steht nie hier,
+# Auf dem Server gehen Mails über das Postfach info@showcube.de bei Hostinger. Das Passwort steht nie hier,
 # sondern als GitHub-Secret SUPABASE_SMTP_PASSWORT. Fehlt es, nimmt .github/workflows/backend.yml den Block
 # zwischen SMTP-ANFANG und SMTP-ENDE vor dem Hochladen heraus (sonst könnte sich niemand mehr registrieren).
 # Anleitung: docs/backend.md, Abschnitt „E-Mail-Bestätigung“.
@@ -458,9 +458,9 @@ max_frequency = "60s"
 enabled = true
 host = "smtp.hostinger.com"
 port = 465
-user = "noreply@showcube.de"
+user = "info@showcube.de"
 pass = "env(SUPABASE_SMTP_PASSWORT)"
-admin_email = "noreply@showcube.de"
+admin_email = "info@showcube.de"
 sender_name = "ShowCube"
 
 [remotes.frankfurt.auth.rate_limit]
