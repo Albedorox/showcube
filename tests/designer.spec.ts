@@ -484,4 +484,32 @@ test.describe('Vorlage aus Bild auf dem Handy', () => {
     await dlg.getByRole('button', { name: 'Als Vorlage übernehmen' }).click();
     await expect(page.locator('.zr[data-ebene]')).toHaveCount(7);
   });
+
+  test('Knöpfe unten stehen sauber, nicht versetzt untereinander @handy', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 760 });
+    await page.goto('release/designer.html');
+    await page.getByRole('tab', { name: 'Vorlagen' }).click();
+    await page.getByRole('button', { name: /^Aus Bild erzeugen/ }).click();
+    const dlg = page.getByRole('dialog', { name: /Vorlage aus Bild/ });
+    // Jede Zeile der Fußleiste füllt die ganze Breite: Hauptknopf oben, die anderen darunter nebeneinander.
+    const pruefen = async () => {
+      const knoepfe = await dlg.locator('.dlg-fuss > .btn').evaluateAll(bs => bs.map(b => {
+        const r = b.getBoundingClientRect(); return { text: b.textContent!.trim(), l: Math.round(r.left), r: Math.round(r.right), o: Math.round(r.top) };
+      }));
+      const links = Math.min(...knoepfe.map(k => k.l)), rechts = Math.max(...knoepfe.map(k => k.r));
+      const zeilen = [...new Set(knoepfe.map(k => k.o))].sort((a, b) => a - b).map(o => knoepfe.filter(k => k.o === o).sort((a, b) => a.l - b.l));
+      for (const z of zeilen) {
+        expect(z[0].l, `Zeile „${z.map(k => k.text).join(' | ')}“ beginnt links`).toBe(links);
+        expect(z[z.length - 1].r, `Zeile „${z.map(k => k.text).join(' | ')}“ reicht bis rechts`).toBe(rechts);
+      }
+      expect(zeilen[0][0].text).toBe('Als Vorlage übernehmen');
+    };
+    await pruefen();
+    await dlg.getByLabel('Bild oder SVG wählen').first().setInputFiles('tests/dateien/plakat.svg');
+    await expect(dlg.getByRole('button', { name: 'Ebenen übernehmen (ohne KI)' })).toBeVisible();
+    await pruefen();
+    // Die Knöpfe im Ergebnisfeld sind gleich breit.
+    const breiten = await dlg.locator('.ab-platz .btn').evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().width)));
+    expect(new Set(breiten).size).toBe(1);
+  });
 });
