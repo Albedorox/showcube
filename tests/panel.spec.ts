@@ -348,6 +348,29 @@ test.describe('Panel: Benutzerverwaltung für Admins', () => {
     await expect(page.getByRole('heading', { name: 'Benutzer', level: 1 })).toBeVisible();
   });
 
+  test('Filter wechseln tauscht nur die Liste, Kopf und Suche bleiben stehen', async ({ page }) => {
+    await alsAdmin(page);
+    let abrufe = 0; page.on('request', r => { if (r.url().includes('/rpc/admin_benutzer')) abrufe++; });
+    await page.locator('#nav').getByRole('button', { name: 'Benutzer' }).click();
+    const liste = page.getByRole('list', { name: 'Konten' }), filter = page.getByRole('group', { name: 'Filter' });
+    await expect(liste.getByRole('listitem')).toHaveCount(3);
+    // Kopf, Zahlen, Suche und Filterleiste markieren: Wird die Ansicht neu aufgebaut, sind die Marken weg.
+    await page.evaluate(() => { for (const s of ['#view h1', '#view .wstats', '#uSuche', '#view .seg']) (document.querySelector(s) as any).__bleibt = true; });
+    const vorher = abrufe;
+    const suche = page.getByRole('searchbox', { name: 'Konten suchen' });
+    await suche.fill('example');
+    for (const [name, n] of [['Pro 1', 1], ['Cloud 2', 2], ['Gesperrt 0', 0], ['Unbestätigt 1', 1], ['Alle 3', 3]] as const) {
+      await filter.getByRole('button', { name }).click();
+      await expect(filter.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'true');
+      await expect(filter.getByRole('button', { pressed: true })).toHaveCount(1);
+      await expect(liste.getByRole('listitem')).toHaveCount(n);
+    }
+    await expect(liste).toContainText('marco@example.com');
+    expect(await page.evaluate(() => ['#view h1', '#view .wstats', '#uSuche', '#view .seg'].map(s => !!(document.querySelector(s) as any)?.__bleibt)), 'nichts außer der Liste neu gebaut').toEqual([true, true, true, true]);
+    await expect(suche).toHaveValue('example');
+    expect(abrufe, 'Filter lädt nichts vom Server nach').toBe(vorher);
+  });
+
   test('Konto auf Pro stellen, sperren, freigeben und löschen', async ({ page }) => {
     const { aufrufe } = await alsAdmin(page);
     await page.goto('release/panel.html#benutzer');

@@ -69,7 +69,8 @@ Admin werden geht bewusst nur über das Dashboard, nie über die Website. Wieder
 
 Admins haben im Panel links den Bereich **Benutzer** (auch über Strg + K „Benutzer verwalten“). Dort stehen alle Konten
 mit Betrieb, Abo, letzter Anmeldung, Zwei-Faktor, bestätigter E-Mail und Boxen (wie viele davon online). Oben suchst du nach
-E-Mail oder Betrieb und filterst nach Pro, Cloud, Gesperrt oder Unbestätigt. Ein Klick auf ein Konto öffnet die Details:
+E-Mail oder Betrieb und filterst nach Pro, Cloud, Gesperrt oder Unbestätigt. Beim Wechsel des Filters tauscht nur die
+Liste darunter, Kopf, Zahlen und Suche bleiben stehen, und es wird nichts neu vom Server geladen. Ein Klick auf ein Konto öffnet die Details:
 
 - **Abo:** Cloud oder Pro, bei Pro ein Enddatum (leer = unbefristet) und die KI-Analysen pro Monat. „Abo speichern“
   schreibt in die Tabelle `abos`. Ein Testkonto auf Pro stellen geht also mit zwei Klicks, ohne SQL.
