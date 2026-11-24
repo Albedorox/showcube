@@ -387,10 +387,11 @@ function renderNav() {
   const n = S.notice && (!S.notice.until || Date.now() < S.notice.until) ? S.notice : null;
   $('noticeChip').hidden = !n; if (n) $('noticeChipText').textContent = 'Hinweis läuft: „' + n.text + '“';
 }
-function render() {
+// einblenden = false: Inhalt still austauschen (z. B. nach dem Nachladen derselben Ansicht), ohne die Einblend-Animation.
+function render(einblenden = true) {
   ticks = []; renderNav();
   const v = $('view'); v.replaceChildren();
-  v.style.animation = 'none'; void v.offsetWidth; v.style.animation = '';
+  if (einblenden) { v.style.animation = 'none'; void v.offsetWidth; v.style.animation = ''; }
   ({ screens: renderScreens, shows: renderShows, media: renderMedia, templates: renderTemplates, werbung: renderWerbung, benutzer: renderBenutzer })[view](v);
   renderPubbar();
 }
@@ -1715,7 +1716,7 @@ function stufeBadges(u: Benutzer) {
 async function ladeBenutzer() {
   const r = await sb.rpc('admin_benutzer');
   benutzerFehler = r.error ? fehlerText(r.error) : ''; if (!r.error) benutzer = r.data as Benutzer[];
-  if (view === 'benutzer') render();
+  if (view === 'benutzer') render(false);
   if (uOffen && $('dlgUser').open) drawBenutzer();
 }
 function renderBenutzer(v: HTMLElement) {
@@ -1742,9 +1743,12 @@ function renderBenutzer(v: HTMLElement) {
       h('span', { class: 'u-zahlen small' }, h('span', null, +u.bildschirme ? u.online + ' / ' + plural(+u.bildschirme, 'Box', 'Boxen') + ' online' : 'keine Box'), h('span', null, zuletztText(u.zuletzt)))))
       : [h('div', { class: 'empty' }, 'Kein Konto passt zur Suche.')]));
   };
+  // Ein Filter tauscht nur die Liste aus. Kopf, Zahlen, Suche und Scrollstand bleiben stehen, nichts flackert.
+  const seg = h('div', { class: 'seg wrap', role: 'group', 'aria-label': 'Filter' }, U_FILTER.map(([k, l, f]) => h('button', { type: 'button', 'aria-pressed': String(uFilter === k),
+    onclick: () => { uFilter = k; seg.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', String(U_FILTER[i][0] === k))); zeichne(); } }, l + ' ' + alle.filter(f).length)));
   v.append(h('div', { class: 'ufilter' },
     h('input', { type: 'search', id: 'uSuche', placeholder: 'E-Mail oder Betrieb suchen', 'aria-label': 'Konten suchen', value: uSuche, oninput: (e: any) => { uSuche = e.target.value; zeichne(); } }),
-    h('div', { class: 'seg wrap', role: 'group', 'aria-label': 'Filter' }, U_FILTER.map(([k, l, f]) => h('button', { type: 'button', 'aria-pressed': String(uFilter === k), onclick: () => { uFilter = k; render(); } }, l + ' ' + alle.filter(f).length)))));
+    seg));
   v.append(list); zeichne();
 }
 function openBenutzer(id: string) { uOffen = id; drawBenutzer(); const d = $('dlgUser'); if (!d.open) d.showModal(); }
