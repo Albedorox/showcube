@@ -1,7 +1,7 @@
 // ShowCube Service Worker: macht das Panel installierbar und startet es auch ohne Netz.
 // Der Build setzt VERSION auf einen Fingerabdruck der fertigen Dateien. Ändert sich etwas,
 // lädt der Browser den neuen Worker, und das Panel bietet „Neu laden“ an.
-const VERSION = '3a57e960d9d0';
+const VERSION = 'f3b6eb5db652';
 const CACHE = 'showcube-' + VERSION;
 const CORE = ['panel.html', 'player.html', 'panel.webmanifest', 'pwa/icon-192.png', 'pwa/icon-512.png', 'pwa/maskable-512.png', 'pwa/apple-touch-icon.png', 'pwa/favicon-32.png'];
 

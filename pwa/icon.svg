@@ -1,12 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- ShowCube App-Icon: der Würfel aus dem Panel, vollflächig für Homescreen und Stores -->
+  <!-- ShowCube-Logo: der Würfel wie auf der Startseite und „Bald da“ (Ecken 26 %, dunkle Unterkante, weißes Fenster 31 %).
+       Ecken transparent. Daraus macht scripts/pwa-bilder.mjs alle App-Icons und das Startbild. -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#0e8a75"/>
       <stop offset="1" stop-color="#096555"/>
     </linearGradient>
+    <clipPath id="form"><rect width="512" height="512" rx="133"/></clipPath>
   </defs>
-  <rect width="512" height="512" fill="url(#bg)"/>
-  <rect x="176" y="186" width="160" height="160" rx="40" fill="#063f35" opacity=".35"/>
-  <rect x="176" y="170" width="160" height="160" rx="40" fill="#ffffff"/>
+  <g clip-path="url(#form)">
+    <rect width="512" height="512" fill="url(#bg)"/>
+    <rect y="490" width="512" height="22" fill="#000" opacity=".2"/>
+  </g>
+  <rect x="177" y="191" width="158" height="158" rx="41" fill="#063f35" opacity=".35"/>
+  <rect x="177" y="177" width="158" height="158" rx="41" fill="#fff"/>
 </svg>

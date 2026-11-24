@@ -140,6 +140,41 @@ test.describe('Panel: Bildschirme', () => {
   });
 });
 
+test.describe('Panel als App: Icon und Startbild', () => {
+  // Android zeigt beim Start der App das maskable Icon auf background_color. Bis 24.11.2026 war das ein grünes Quadrat
+  // mit kleinem weißem Kästchen statt des ShowCube-Logos. Jetzt: Logo mittig auf derselben Farbe wie background_color.
+  test('Manifest bringt Logo und maskable Icon mit passender Startfarbe', async ({ page }) => {
+    await page.goto('release/panel.html?demo');
+    const href = await page.locator('link[rel=manifest]').getAttribute('href');
+    const m = await (await page.request.get('release/' + href)).json();
+    expect(m.background_color).toBe('#f6f5f1');
+    const maskable = m.icons.find((i: any) => i.purpose === 'maskable');
+    const logo = m.icons.find((i: any) => i.purpose === 'any' && i.sizes === '512x512');
+    expect(maskable?.src).toBeTruthy();
+    expect(logo?.src).toBeTruthy();
+    const pixel = (src: string, punkte: [number, number][]) => page.evaluate(async ({ src, punkte }) => {
+      const img = new Image(); img.src = src; await img.decode();
+      const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const g = c.getContext('2d')!; g.drawImage(img, 0, 0);
+      return punkte.map(([x, y]) => Array.from(g.getImageData(Math.round(x * c.width), Math.round(y * c.height), 1, 1).data));
+    }, { src, punkte }); // relativ zu release/panel.html, wie im Manifest
+    const nah = (ist: number[], soll: number[]) => soll.every((v, i) => Math.abs(ist[i] - v) <= 3);
+
+    // maskable: Rand in background_color (#f6f5f1), Würfel grün, Fenster weiß, Würfel bleibt in der sicheren Zone (80 %).
+    const [ecke, rand, wuerfel, fenster] = await pixel(maskable.src, [[0.02, 0.02], [0.5, 0.15], [0.5, 0.25], [0.5, 0.5]]);
+    expect(nah(ecke, [246, 245, 241, 255]), 'Ecke ' + ecke).toBe(true);
+    expect(nah(rand, [246, 245, 241, 255]), 'Rand ' + rand).toBe(true);
+    expect(wuerfel[1] > wuerfel[0] + 60 && wuerfel[3] === 255, 'Würfel grün ' + wuerfel).toBe(true);
+    expect(nah(fenster, [255, 255, 255, 255]), 'Fenster ' + fenster).toBe(true);
+
+    // Logo allein: runde Ecken (transparent), sonst derselbe Würfel.
+    const [logoEcke, logoWuerfel, logoFenster] = await pixel(logo.src, [[0.01, 0.01], [0.5, 0.1], [0.5, 0.5]]);
+    expect(logoEcke[3], 'Ecke durchsichtig').toBe(0);
+    expect(logoWuerfel[1] > logoWuerfel[0] + 60, 'Würfel grün ' + logoWuerfel).toBe(true);
+    expect(nah(logoFenster, [255, 255, 255, 255]), 'Fenster ' + logoFenster).toBe(true);
+  });
+});
+
 test.describe('Panel auf dem Handy', () => {
   test('Demo und Inhalte bedienbar @handy', async ({ page }) => {
     await demo(page);
